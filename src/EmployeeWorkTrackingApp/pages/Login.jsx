@@ -26,12 +26,12 @@ export default function Login({ onLogin, onSwitchToRegister }) {
   };
 
   return (
-    <div className="h-screen flex">
+    <div className="min-h-screen flex flex-col md:flex-row w-full">
       {/* Left Side - Branding */}
       <motion.div 
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-1/2 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 flex flex-col justify-center items-center p-8"
+        className="w-full md:w-1/2 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 flex flex-col justify-center items-center p-8 min-h-[30vh] md:min-h-screen order-1 md:order-1"
       >
         <motion.div 
           initial={{ scale: 0 }}
@@ -51,7 +51,7 @@ export default function Login({ onLogin, onSwitchToRegister }) {
       <motion.div 
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-1/2 flex flex-col justify-center items-center p-8 bg-gray-50"
+        className="w-full md:w-1/2 flex flex-col justify-center items-center p-8 bg-gray-50 min-h-[70vh] md:min-h-screen order-2 md:order-2"
       >
         <div className="w-full max-w-md">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>

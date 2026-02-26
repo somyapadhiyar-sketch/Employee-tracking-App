@@ -27,6 +27,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
   
   // Toast notification
   const [toast, setToast] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
 
   // Leave balance - 6 Sick Leave + 10 Casual Leave per year
   const LEAVE_BALANCE = {
@@ -724,15 +725,42 @@ export default function EmployeeDashboard({ auth, onLogout }) {
       )}
 
       <div className={`flex min-h-screen ${isDark ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : 'bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50'}`}>
+        {/* Mobile Hamburger Button */}
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg ${
+            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+          }`}
+        >
+          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+        </motion.button>
+
+        {/* Mobile Overlay */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+
         {/* Sidebar */}
         <motion.div 
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className={`fixed left-0 top-0 h-screen w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto ${
+          className={`fixed left-0 top-0 h-full w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transform transition-transform duration-300 ${
             isDark 
               ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
               : 'bg-gradient-to-b from-white to-blue-50 border-blue-100'
-          }`}
+          } ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* Theme Toggle */}
           <motion.button
@@ -764,7 +792,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
           <nav className="flex-1 space-y-2 px-2">
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
-              onClick={() => setCurrentSection('workLog')} 
+              onClick={() => { setCurrentSection('workLog'); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center gap-3 ${
                 currentSection === 'workLog' 
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
@@ -777,7 +805,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
-              onClick={() => setCurrentSection('myReports')} 
+              onClick={() => { setCurrentSection('myReports'); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center gap-3 ${
                 currentSection === 'myReports' 
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
@@ -790,7 +818,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
-              onClick={() => setCurrentSection('leave')} 
+              onClick={() => { setCurrentSection('leave'); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center gap-3 ${
                 currentSection === 'leave' 
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
@@ -806,7 +834,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
-              onClick={() => setShowProfile(true)} 
+              onClick={() => { setShowProfile(true); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center gap-3 ${
                 currentSection === 'profile' 
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
@@ -834,7 +862,7 @@ export default function EmployeeDashboard({ auth, onLogout }) {
         </motion.div>
 
         {/* Main Content */}
-        <div className="ml-64 p-8 flex-1 overflow-y-auto" style={{ height: '100vh' }}>
+        <div className={`flex-1 overflow-y-auto p-4 sm:p-8 relative w-full transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`} style={{ height: '100vh' }}>
           <AnimatePresence mode="wait">
             {renderSection()}
           </AnimatePresence>

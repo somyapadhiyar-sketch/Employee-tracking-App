@@ -22,6 +22,7 @@ export default function AdminDashboard({ auth, onLogout }) {
 
   // Leave section state
   const [leaveFilter, setLeaveFilter] = useState('pending');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -842,8 +843,10 @@ export default function AdminDashboard({ auth, onLogout }) {
           user={user}
           userRole={user?.role}
           leaveRequestCount={pendingLeaveRequests.length}
+          isSidebarOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
-        <div className="ml-64 p-8 flex-1 overflow-y-auto" style={{ height: '100vh' }}>
+        <div className={`flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative w-full transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0'}`} style={{ height: '100vh' }}>
           <AnimatePresence mode="wait">
             {renderSection()}
           </AnimatePresence>

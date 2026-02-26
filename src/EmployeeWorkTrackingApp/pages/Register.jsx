@@ -102,12 +102,12 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
   };
 
   return (
-    <div className="h-screen flex">
+    <div className="min-h-screen flex flex-col md:flex-row w-full">
       {/* Left Side - Branding */}
       <motion.div 
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-1/2 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 flex flex-col justify-center items-center p-6"
+        className="w-full md:w-1/2 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 flex flex-col justify-center items-center p-6 min-h-[30vh] md:min-h-screen order-1 md:order-1"
       >
         <motion.div 
           initial={{ scale: 0 }}
@@ -127,7 +127,7 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
       <motion.div 
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50 overflow-y-auto"
+        className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50 overflow-y-auto min-h-[70vh] md:min-h-screen order-2 md:order-2"
       >
         <div className="w-full max-w-md">
           <h2 className="text-2xl font-bold text-gray-800 mb-1">Create Account</h2>
