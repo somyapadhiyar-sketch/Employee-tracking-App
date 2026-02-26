@@ -49,13 +49,17 @@ export default function useAuth() {
   const login = (email, password, role) => {
     // Admin login
     if (role === 'admin') {
-      if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-        const nameData = getNameFromEmail(email);
+      // Find admin in the array
+      const admin = ADMIN_CREDENTIALS.find(
+        admin => admin.email === email && admin.password === password
+      );
+      
+      if (admin) {
         const user = {
           id: 1,
-          firstName: nameData.firstName,
-          lastName: nameData.lastName,
-          email: ADMIN_CREDENTIALS.email,
+          firstName: admin.firstName,
+          lastName: admin.lastName,
+          email: admin.email,
           role: 'admin',
           department: null
         };

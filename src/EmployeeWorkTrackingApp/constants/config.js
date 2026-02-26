@@ -46,11 +46,27 @@ export const WORK_TYPES = {
   }
 };
 
-// Admin credentials - Updated by Somya
-export const ADMIN_CREDENTIALS = {
-  email: 'somyapadhiyar@gmail.com',
-  password: 'somya24092007'
-};
+// Admin credentials - Multiple admins with individual profiles
+export const ADMIN_CREDENTIALS = [
+  {
+    email: 'somyapadhiyar@gmail.com',
+    password: 'somya24092007',
+    firstName: 'Somya',
+    lastName: 'Padhiyar'
+  },
+  {
+    email: 'mansidarji6429@gmail.com',
+    password: 'mansi@6429',
+    firstName: 'Mansi',
+    lastName: 'Darji'
+  },
+  {
+    email: 'diyachauhan17@gmail.com',
+    password: 'diya@2004',
+    firstName: 'Diya',
+    lastName: 'Chauhan'
+  }
+];
 
 // Late time threshold (10:30 AM)
 export const LATE_THRESHOLD_HOUR = 10;
