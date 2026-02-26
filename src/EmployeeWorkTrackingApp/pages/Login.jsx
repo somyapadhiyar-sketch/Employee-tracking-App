@@ -1,0 +1,155 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+
+export default function Login({ onLogin, onSwitchToRegister }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('employee');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      const result = onLogin(email, password, role);
+      if (!result.success) {
+        setError(result.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-screen flex">
+      {/* Left Side - Branding */}
+      <motion.div 
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="w-1/2 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 flex flex-col justify-center items-center p-8"
+      >
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="text-center"
+        >
+          <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-3xl flex items-center justify-center mx-auto shadow-2xl border border-white/30 mb-6">
+            <i className="fas fa-briefcase text-5xl text-white"></i>
+          </div>
+          <h1 className="text-5xl font-bold text-white mb-4">WorkTracker</h1>
+          <p className="text-white/80 text-xl">Employee Work Management System</p>
+          <p className="text-white/60 mt-4">Track your work efficiently</p>
+        </motion.div>
+      </motion.div>
+
+      {/* Right Side - Login Form */}
+      <motion.div 
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="w-1/2 flex flex-col justify-center items-center p-8 bg-gray-50"
+      >
+        <div className="w-full max-w-md">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+          <p className="text-gray-500 mb-8">Sign in to continue</p>
+          
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-4"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all outline-none"
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all outline-none"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Login As</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { value: 'employee', label: 'Employee', icon: 'fa-user' },
+                  { value: 'dept_manager', label: 'Manager', icon: 'fa-user-tie' },
+                  { value: 'admin', label: 'Admin', icon: 'fa-user-shield' }
+                ].map((option) => (
+                  <motion.button
+                    key={option.value}
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setRole(option.value)}
+                    className={`p-3 rounded-xl border-2 transition-all text-center ${
+                      role === option.value
+                        ? 'border-blue-500 bg-blue-50 text-blue-600'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    <i className={`fas ${option.icon} text-xl mb-1 block`}></i>
+                    <span className="text-sm font-medium">{option.label}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 text-lg"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Logging in...
+                </span>
+              ) : (
+                'Login'
+              )}
+            </motion.button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-gray-500">
+              Don't have an account?{' '}
+              <button
+                onClick={onSwitchToRegister}
+                className="text-blue-600 font-bold hover:underline"
+              >
+                Register here
+              </button>
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
