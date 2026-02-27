@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { DEPARTMENTS, WORK_TYPES, LATE_THRESHOLD_HOUR, LATE_THRESHOLD_MINUTE } from '../constants/config';
 import { useTheme } from '../context/ThemeContext';
@@ -13,6 +14,64 @@ export default function ManagerDashboard({ auth, onLogout }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toast, setToast] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  const [isMenuVisible, setIsMenuVisible] = useState(true);
+  const menuTimeoutRef = useRef(null);
+
+  // Show menu after 1 second when cursor is in top-left area
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const { clientX, clientY } = e;
+      // Check if cursor is in top-left corner (within 100px from left and top)
+      if (clientX < 100 && clientY < 100) {
+        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+        menuTimeoutRef.current = setTimeout(() => {
+          setIsMenuVisible(true);
+        }, 1000); // Show after 1 second
+      } else {
+        // Hide after 2 seconds when cursor leaves the area
+        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+        menuTimeoutRef.current = setTimeout(() => {
+          setIsMenuVisible(false);
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    };
+  }, []);
+
+  // Auto-hide menu button after 2 seconds initially
+  useEffect(() => {
+    const startHideTimer = () => {
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+      menuTimeoutRef.current = setTimeout(() => {
+        setIsMenuVisible(false);
+      }, 2000);
+    };
+
+    startHideTimer();
+
+    return () => {
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    };
+  }, [isSidebarOpen]);
+
+  const handleMenuMouseEnter = () => {
+    setIsMenuVisible(true);
+    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+  };
+
+  const handleMenuMouseLeave = () => {
+    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    menuTimeoutRef.current = setTimeout(() => {
+      setIsMenuVisible(false);
+    }, 2000);
+  };
+
+
 
   // Clock in/out states for manager
   const [clockedIn, setClockedIn] = useState(false);
@@ -1368,18 +1427,32 @@ export default function ManagerDashboard({ auth, onLogout }) {
           : 'bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50'
       }`}>
         {/* Mobile Hamburger Button */}
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg ${
-            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
-          }`}
+        <motion.div
+          initial={{ x: 0 }}
+          animate={{ x: isMenuVisible ? 0 : -100 }}
+          transition={{ duration: 0.3 }}
+          onMouseEnter={handleMenuMouseEnter}
+          onMouseLeave={handleMenuMouseLeave}
+          className="fixed top-4 left-0 z-50 p-4 w-20 h-20 cursor-pointer"
+          style={{ pointerEvents: isMenuVisible ? 'auto' : 'none' }}
         >
-          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
-        </motion.button>
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`p-3 rounded-xl shadow-lg ${
+              isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+            }`}
+          >
+            <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+          </motion.button>
+        </motion.div>
+        
+
+
+
 
         {/* Mobile Overlay */}
         <AnimatePresence>

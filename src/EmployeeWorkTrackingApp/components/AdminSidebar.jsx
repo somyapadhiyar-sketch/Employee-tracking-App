@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import ProfileModal from './ProfileModal';
@@ -6,6 +6,64 @@ import ProfileModal from './ProfileModal';
 export default function AdminSidebar({ currentSection, onSectionChange, onLogout, pendingCount, userName, user, userRole, leaveRequestCount, isSidebarOpen, toggleSidebar }) {
   const { isDark, toggleTheme } = useTheme();
   const [showProfile, setShowProfile] = useState(false);
+  const [isMenuVisible, setIsMenuVisible] = useState(true);
+  const menuTimeoutRef = useRef(null);
+
+  // Show menu after 1 second when cursor is in top-left area
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const { clientX, clientY } = e;
+      // Check if cursor is in top-left corner (within 100px from left and top)
+      if (clientX < 100 && clientY < 100) {
+        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+        menuTimeoutRef.current = setTimeout(() => {
+          setIsMenuVisible(true);
+        }, 1000); // Show after 1 second
+      } else {
+        // Hide after 2 seconds when cursor leaves the area
+        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+        menuTimeoutRef.current = setTimeout(() => {
+          setIsMenuVisible(false);
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    };
+  }, []);
+
+  // Auto-hide menu button after 2 seconds initially
+  useEffect(() => {
+    const startHideTimer = () => {
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+      menuTimeoutRef.current = setTimeout(() => {
+        setIsMenuVisible(false);
+      }, 2000);
+    };
+
+    startHideTimer();
+
+    return () => {
+      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    };
+  }, [isSidebarOpen]);
+
+  const handleMenuMouseEnter = () => {
+    setIsMenuVisible(true);
+    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+  };
+
+  const handleMenuMouseLeave = () => {
+    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
+    menuTimeoutRef.current = setTimeout(() => {
+      setIsMenuVisible(false);
+    }, 2000);
+  };
+
+
   
   const userInitial = userName ? userName.charAt(0).toUpperCase() : 'A';
   const displayName = userName || 'Admin';
@@ -34,18 +92,32 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
   return (
     <>
       {/* Mobile Hamburger Button */}
-      <motion.button
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={toggleSidebar}
-        className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg ${
-          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
-        }`}
+      <motion.div
+        initial={{ x: 0 }}
+        animate={{ x: isMenuVisible ? 0 : -100 }}
+        transition={{ duration: 0.3 }}
+        onMouseEnter={handleMenuMouseEnter}
+        onMouseLeave={handleMenuMouseLeave}
+        className="fixed top-4 left-0 z-50 p-4 w-20 h-20 cursor-pointer"
+        style={{ pointerEvents: isMenuVisible ? 'auto' : 'none' }}
       >
-        <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
-      </motion.button>
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={toggleSidebar}
+          className={`p-3 rounded-xl shadow-lg ${
+            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+          }`}
+        >
+          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+        </motion.button>
+      </motion.div>
+      
+
+
+
 
       {/* Mobile Overlay */}
       <AnimatePresence>
