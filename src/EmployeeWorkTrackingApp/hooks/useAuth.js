@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ADMIN_CREDENTIALS } from '../constants/config';
+import departmentManagers from '../Data.json';
+
 
 export default function useAuth() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -10,7 +12,7 @@ export default function useAuth() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize from localStorage
+  // Initialize from localStorage and Data.json
   useEffect(() => {
     const storedEmployees = JSON.parse(localStorage.getItem('employees')) || [];
     const storedPending = JSON.parse(localStorage.getItem('pendingRegistrations')) || [];
@@ -19,7 +21,19 @@ export default function useAuth() {
     const storedUser = JSON.parse(localStorage.getItem('currentUser'));
     const storedLeaveRequests = JSON.parse(localStorage.getItem('leaveRequests')) || [];
     
-    setEmployees(storedEmployees);
+    // Load department managers from Data.json if not already in stored employees
+    const existingManagerIds = storedEmployees.map(emp => emp.id);
+    const newManagers = departmentManagers.filter(manager => !existingManagerIds.includes(manager.id));
+    
+    // Combine stored employees with department managers from Data.json
+    const combinedEmployees = [...newManagers, ...storedEmployees];
+    
+    // Save combined employees to localStorage
+    if (newManagers.length > 0) {
+      localStorage.setItem('employees', JSON.stringify(combinedEmployees));
+    }
+    
+    setEmployees(combinedEmployees);
     setPendingRegistrations(storedPending);
     setWorkLogs(storedLogs);
     setAttendance(storedAttendance);
@@ -27,6 +41,7 @@ export default function useAuth() {
     setLeaveRequests(storedLeaveRequests);
     setIsLoading(false);
   }, []);
+
 
   // Helper function to extract name from email
   const getNameFromEmail = (email) => {

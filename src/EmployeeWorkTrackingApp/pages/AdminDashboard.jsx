@@ -343,8 +343,18 @@ export default function AdminDashboard({ auth, onLogout }) {
                     <h2 className="text-xl font-bold text-violet-400 mb-4 flex items-center">
                       <i className="fas fa-user-tie mr-2"></i> Department Manager
                     </h2>
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/50 dark:bg-gray-700/50">
-                      <div className="flex items-center gap-4">
+                    <div className={`flex items-center p-4 rounded-xl border relative ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white/50 border-violet-100'}`}>
+                      <div className="absolute top-3 right-3">
+                        <motion.button 
+                          whileHover={{ scale: 1.05 }} 
+                          whileTap={{ scale: 0.95 }} 
+                          onClick={() => viewEmployeeProfile(getDepartmentManager(selectedDepartment))}
+                          className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-xs font-medium"
+                        >
+                          <i className="fas fa-eye mr-1"></i> View
+                        </motion.button>
+                      </div>
+                      <div className="flex items-center gap-4 pr-20">
                         <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
                           {getDepartmentManager(selectedDepartment).firstName[0]}{getDepartmentManager(selectedDepartment).lastName[0]}
                         </div>
@@ -357,18 +367,11 @@ export default function AdminDashboard({ auth, onLogout }) {
                           </p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <motion.button 
-                          whileHover={{ scale: 1.05 }} 
-                          whileTap={{ scale: 0.95 }} 
-                          onClick={() => viewEmployeeProfile(getDepartmentManager(selectedDepartment))}
-                          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium"
-                        >
-                          <i className="fas fa-eye mr-1"></i> View
-                        </motion.button>
-                      </div>
                     </div>
                   </motion.div>
+
+
+
                 ) : (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
@@ -406,9 +409,19 @@ export default function AdminDashboard({ auth, onLogout }) {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className={`flex items-center justify-between p-4 rounded-xl border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
+                          className={`flex items-center p-4 rounded-xl border relative ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="absolute top-3 right-3">
+                            <motion.button 
+                              whileHover={{ scale: 1.05 }} 
+                              whileTap={{ scale: 0.95 }} 
+                              onClick={() => viewEmployeeProfile(emp)}
+                              className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-xs font-medium"
+                            >
+                              <i className="fas fa-eye mr-1"></i> View
+                            </motion.button>
+                          </div>
+                          <div className="flex items-center gap-4 pr-20">
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
                               {emp.firstName[0]}{emp.lastName[0]}
                             </div>
@@ -417,18 +430,9 @@ export default function AdminDashboard({ auth, onLogout }) {
                               <p className={isDark ? 'text-gray-400 text-sm' : 'text-gray-500 text-sm'}>{emp.email}</p>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <motion.button 
-                              whileHover={{ scale: 1.05 }} 
-                              whileTap={{ scale: 0.95 }} 
-                              onClick={() => viewEmployeeProfile(emp)}
-                              className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium"
-                            >
-                              <i className="fas fa-eye mr-1"></i> View
-                            </motion.button>
-                          </div>
                         </motion.div>
                       ))}
+
                     </div>
                   )}
                 </motion.div>

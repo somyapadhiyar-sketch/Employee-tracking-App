@@ -71,6 +71,44 @@ export default function ManagerDashboard({ auth, onLogout }) {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 12
+      }
+    }
+  };
+
+  const cardHoverVariants = {
+    rest: { scale: 1 },
+    hover: { 
+      scale: 1.02,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 17
+      }
+    }
+  };
+
+
   const user = auth.currentUser;
   const userName = user ? `${user.firstName} ${user.lastName}` : 'Manager';
   const userInitial = user ? user.firstName.charAt(0).toUpperCase() : 'M';
@@ -1303,13 +1341,25 @@ export default function ManagerDashboard({ auth, onLogout }) {
 
   return (
     <>
-      {toast && (
-        <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
-          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        } text-white`}>
-          {toast.message}
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, x: 100, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 100, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            } text-white`}
+          >
+            <div className="flex items-center gap-2">
+              <i className={`fas ${toast.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}`}></i>
+              {toast.message}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       <div className={`flex min-h-screen ${
         isDark 
@@ -1344,14 +1394,16 @@ export default function ManagerDashboard({ auth, onLogout }) {
         </AnimatePresence>
 
         <motion.div 
-          initial={{ x: -100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          className={`fixed left-0 top-0 h-full w-64 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto transform transition-transform duration-300 ${
+          initial={{ x: -300, opacity: 0 }}
+          animate={{ x: isSidebarOpen ? 0 : -300, opacity: isSidebarOpen ? 1 : 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${
             isDark 
               ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
               : 'bg-gradient-to-b from-white to-violet-50 border-violet-100'
-          } ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          }`}
         >
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

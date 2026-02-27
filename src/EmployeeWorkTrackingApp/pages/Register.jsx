@@ -15,6 +15,8 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [managerWarning, setManagerWarning] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
 
   // Check if manager already exists for selected department
   useEffect(() => {
@@ -47,8 +49,14 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
   }, [formData.role, formData.department, auth]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    // Only allow numbers for phone field
+    if (name === 'phone' && value !== '' && !/^\d*$/.test(value)) {
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
+
 
   const handleRoleChange = (role) => {
     setFormData({ ...formData, role });
@@ -181,9 +189,12 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
               value={formData.phone}
               onChange={handleChange}
               required
+              pattern="[0-9]*"
+              inputMode="numeric"
               className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
-              placeholder="Phone"
+              placeholder="Phone (numbers only)"
             />
+
 
             <select
               name="department"
@@ -230,15 +241,25 @@ export default function Register({ onRegister, onSwitchToLogin, auth }) {
               ))}
             </div>
 
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
-              placeholder="Password"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2.5 pr-12 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                placeholder="Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+              </button>
+            </div>
+
 
             <motion.button
               whileHover={{ scale: 1.01 }}

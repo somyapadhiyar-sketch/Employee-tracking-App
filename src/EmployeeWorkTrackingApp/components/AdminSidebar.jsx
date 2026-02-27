@@ -62,15 +62,17 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
 
       {/* Sidebar */}
       <motion.div 
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`fixed left-0 top-0 h-full w-72 max-w-[85vw] shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto transform transition-transform duration-300 ${
+        initial={{ x: -300, opacity: 0 }}
+        animate={{ x: isSidebarOpen ? 0 : -300, opacity: isSidebarOpen ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${
           isDark 
             ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
             : 'bg-gradient-to-b from-white to-cyan-50 border-cyan-100'
-} ${isSidebarOpen ? 'translate-y-0' : '-translate-y-full'}`}
+        }`}
+
       >
+
         {/* Profile Section */}
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
