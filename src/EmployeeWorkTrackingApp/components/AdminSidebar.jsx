@@ -110,7 +110,8 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
         </motion.button>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-2 px-2">
+        <nav className="flex-1 space-y-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+
           {menuItems.map((item, index) => (
             <motion.button
               key={item.id}

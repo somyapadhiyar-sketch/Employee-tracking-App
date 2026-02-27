@@ -795,12 +795,17 @@ export default function EmployeeDashboard({ auth, onLogout }) {
           initial={{ x: -300, opacity: 0 }}
           animate={{ x: isSidebarOpen ? 0 : -300, opacity: isSidebarOpen ? 1 : 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto ${
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto scrollbar-hide ${
             isDark 
               ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
               : 'bg-gradient-to-b from-white to-blue-50 border-blue-100'
           }`}
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
         >
+
 
           {/* Theme Toggle */}
           <motion.button
@@ -829,7 +834,8 @@ export default function EmployeeDashboard({ auth, onLogout }) {
             <p className={`text-sm font-medium ${isDark ? 'text-cyan-400' : 'text-blue-600'}`}>{DEPARTMENTS[user.department]?.name}</p>
           </div>
           
-          <nav className="flex-1 space-y-2 px-2">
+          <nav className="flex-1 space-y-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
               onClick={() => { setCurrentSection('workLog'); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 

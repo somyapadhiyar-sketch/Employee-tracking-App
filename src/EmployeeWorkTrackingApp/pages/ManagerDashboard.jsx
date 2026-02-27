@@ -1137,24 +1137,25 @@ export default function ManagerDashboard({ auth, onLogout }) {
                           <p className={isDark ? 'text-gray-500 text-sm' : 'text-gray-400 text-sm'}>{emp.phone}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 ml-auto">
                         <motion.button 
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => viewEmployeeProfile(emp)}
-                          className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium"
+                          className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap"
                         >
-                          <i className="fas fa-eye mr-1"></i> View
+                          <i className="fas fa-eye sm:mr-1"></i><span className="hidden sm:inline">View</span>
                         </motion.button>
                         <motion.button 
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleDeleteEmployee(emp.id, `${emp.firstName} ${emp.lastName}`)}
-                          className="px-3 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium"
+                          className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap"
                         >
-                          <i className="fas fa-trash mr-1"></i> Remove
+                          <i className="fas fa-trash sm:mr-1"></i><span className="hidden sm:inline">Remove</span>
                         </motion.button>
                       </div>
+
                     </motion.div>
                   ))}
                 </div>
@@ -1397,12 +1398,17 @@ export default function ManagerDashboard({ auth, onLogout }) {
           initial={{ x: -300, opacity: 0 }}
           animate={{ x: isSidebarOpen ? 0 : -300, opacity: isSidebarOpen ? 1 : 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${
             isDark 
               ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
               : 'bg-gradient-to-b from-white to-violet-50 border-violet-100'
           }`}
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
         >
+
 
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -1430,7 +1436,8 @@ export default function ManagerDashboard({ auth, onLogout }) {
             <p className={`text-sm font-medium ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>{DEPARTMENTS[dept]?.name}</p>
           </div>
           
-          <nav className="flex-1 space-y-2 px-2">
+          <nav className="flex-1 space-y-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+
             <motion.button
               whileHover={{ scale: 1.02, x: 5 }}
               onClick={() => { setCurrentSection('pending'); setAttendanceFilter(null); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} 
