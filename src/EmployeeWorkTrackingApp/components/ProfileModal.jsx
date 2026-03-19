@@ -1,164 +1,302 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../context/ThemeContext';
-import { DEPARTMENTS, WORK_TYPES } from '../constants/config';
+import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "../context/ThemeContext";
 
-export default function ProfileModal({ isOpen, onClose, user, role, isAdminView = false, workLogs = [] }) {
+export function ProfileCard({
+  user,
+  role,
+  isAdminView = false,
+  workLogs = [],
+  onClose,
+  isInline = false,
+}) {
   const { isDark } = useTheme();
 
-  if (!isOpen) return null;
-
   const getRoleLabel = () => {
-    switch(role) {
-      case 'admin': return 'Administrator';
-      case 'manager': return 'Department Manager';
-      case 'dept_manager': return 'Department Manager';
-      case 'employee': return 'Employee';
-      default: return 'User';
+    switch (role) {
+      case "admin":
+        return "Administrator";
+      case "manager":
+        return "Department Manager";
+      case "dept_manager":
+        return "Department Manager";
+      case "employee":
+        return "Employee";
+      default:
+        return "User";
     }
   };
 
-  const getRoleColor = () => {
-    switch(role) {
-      case 'admin': return 'from-red-500 to-rose-600';
-      case 'manager': return 'from-violet-500 to-purple-600';
-      case 'dept_manager': return 'from-violet-500 to-purple-600';
-      case 'employee': return 'from-blue-500 to-cyan-600';
-      default: return 'from-gray-500 to-gray-600';
-    }
-  };
-
-  // Get recent work logs (last 7 days)
   const recentWorkLogs = workLogs.slice(-10).reverse();
+
+  // Helper component to render each info card neatly
+  const InfoCard = ({ icon, label, value, colorClass }) => (
+    <div
+      className={`flex items-start gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
+        isDark
+          ? "bg-gray-700/50 border-gray-600 hover:bg-gray-700"
+          : "bg-white border-gray-200 shadow-sm hover:border-blue-100"
+      }`}
+    >
+      <div
+        className={`mt-0.5 flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg ${
+          isDark
+            ? "bg-gray-800 text-blue-400"
+            : `bg-${colorClass}-50 text-${colorClass}-600`
+        }`}
+      >
+        <i className={`fas ${icon} text-lg`}></i>
+      </div>
+      <div className="overflow-hidden">
+        <p
+          className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+            isDark ? "text-gray-400" : "text-gray-500"
+          }`}
+        >
+          {label}
+        </p>
+        <p
+          className={`text-base font-semibold truncate ${
+            isDark ? "text-white" : "text-gray-900"
+          }`}
+          title={value}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <motion.div
+      initial={
+        isInline ? { height: 0, opacity: 0 } : { scale: 0.9, opacity: 0 }
+      }
+      animate={
+        isInline ? { height: "auto", opacity: 1 } : { scale: 1, opacity: 1 }
+      }
+      exit={isInline ? { height: 0, opacity: 0 } : { scale: 0.9, opacity: 0 }}
+      onClick={(e) => e.stopPropagation()}
+      className={`w-full overflow-hidden relative text-left ${
+        isInline
+          ? `${
+              isDark
+                ? "bg-gray-800 border-t border-gray-700 shadow-inner"
+                : "bg-slate-50 border-t border-gray-200 shadow-inner"
+            } px-4 py-6 sm:px-8 sm:py-8`
+          : `max-w-4xl mx-4 p-8 sm:p-10 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto ${
+              isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+            }`
+      }`}
+    >
+      {!isInline && onClose && (
+        <button
+          onClick={onClose}
+          className={`absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+            isDark
+              ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+              : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+          }`}
+        >
+          <i className="fas fa-times"></i>
+        </button>
+      )}
+
+      <div>
+        {/* Header Section */}
+        <div className="flex items-center gap-4 mb-6">
+          <div
+            className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+              isDark
+                ? "bg-gradient-to-br from-blue-500/20 to-indigo-500/20 text-blue-400 border border-blue-500/30"
+                : "bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 border border-blue-200"
+            }`}
+          >
+            <i className="fas fa-address-card text-xl"></i>
+          </div>
+          <div>
+            <h2
+              className={`text-2xl font-bold ${
+                isDark ? "text-white" : "text-gray-900"
+              }`}
+            >
+              Personal Information
+            </h2>
+            <p
+              className={`text-sm mt-1 ${
+                isDark ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              Detailed profile data and contact information
+            </p>
+          </div>
+        </div>
+
+        {/* Information Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <InfoCard
+            icon="fa-user"
+            label="First Name"
+            value={user?.firstName || "N/A"}
+            colorClass="blue"
+          />
+          <InfoCard
+            icon="fa-id-badge"
+            label="Last Name"
+            value={user?.lastName || "N/A"}
+            colorClass="indigo"
+          />
+          <InfoCard
+            icon="fa-user-shield"
+            label="User Role"
+            value={getRoleLabel()}
+            colorClass="violet"
+          />
+          <InfoCard
+            icon="fa-envelope"
+            label="Email Address"
+            value={user?.email || "N/A"}
+            colorClass="cyan"
+          />
+          <InfoCard
+            icon="fa-phone"
+            label="Phone Number"
+            value={user?.phoneNumber || "Not provided"}
+            colorClass="emerald"
+          />
+          {user?.department && (
+            <InfoCard
+              icon="fa-building"
+              label="Department"
+              value={user?.department}
+              colorClass="amber"
+            />
+          )}
+        </div>
+
+        {/* Work History Section */}
+        {isAdminView && workLogs.length > 0 && (
+          <div className="mt-10 pt-8 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${
+                  isDark
+                    ? "bg-gray-700 text-emerald-400"
+                    : "bg-emerald-100 text-emerald-600"
+                }`}
+              >
+                <i className="fas fa-history"></i>
+              </div>
+              <h3
+                className={`text-xl font-bold ${
+                  isDark ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Recent Work Activity
+              </h3>
+            </div>
+
+            <div
+              className={`space-y-4 max-h-72 overflow-y-auto pr-2 custom-scrollbar`}
+            >
+              {recentWorkLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className={`p-5 rounded-xl border transition-all hover:shadow-md ${
+                    isDark
+                      ? "bg-gray-700/50 border-gray-600"
+                      : "bg-white border-gray-200 shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      className={`font-bold text-lg flex items-center gap-2 ${
+                        isDark ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      <i
+                        className={`fas ${
+                          log.workType === "office"
+                            ? "fa-briefcase text-blue-500"
+                            : "fa-laptop text-violet-500"
+                        }`}
+                      ></i>
+                      {log.workType === "office"
+                        ? "Office Work"
+                        : "Non-Office Work"}
+                    </span>
+                    <span
+                      className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
+                        isDark
+                          ? "bg-gray-800 text-emerald-400 border border-gray-600"
+                          : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                      }`}
+                    >
+                      <i className="fas fa-stopwatch mr-1.5"></i>
+                      {log.duration ||
+                        (log.minutes
+                          ? `${log.minutes} min`
+                          : `${log.hours} hours`)}
+                    </span>
+                  </div>
+                  <p
+                    className={`text-base leading-relaxed ${
+                      isDark ? "text-gray-300" : "text-gray-600"
+                    }`}
+                  >
+                    {log.description}
+                  </p>
+                  <div
+                    className={`flex items-center gap-4 mt-4 pt-3 border-t ${
+                      isDark ? "border-gray-600" : "border-gray-100"
+                    }`}
+                  >
+                    <p
+                      className={`text-sm font-medium flex items-center gap-1.5 ${
+                        isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      <i className="fas fa-calendar-alt"></i>{" "}
+                      {new Date(log.date).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    {log.taskStartTime && log.taskEndTime && (
+                      <p
+                        className={`text-sm font-medium flex items-center gap-1.5 ${
+                          isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        <i className="fas fa-clock"></i> {log.taskStartTime} -{" "}
+                        {log.taskEndTime}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+export default function ProfileModal(props) {
+  if (!props.isOpen) return null;
 
   return (
     <AnimatePresence>
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-        onClick={onClose}
+        className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={props.onClose}
       >
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-2xl mx-4 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto ${
-            isDark ? 'bg-gray-800' : 'bg-white'
-          }`}
-        >
-          {/* Header with gradient */}
-          <div className={`h-32 bg-gradient-to-r ${getRoleColor()} relative`}>
-            <button 
-              onClick={onClose}
-              className="absolute top-4 right-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-all"
-            >
-              <i className="fas fa-times"></i>
-            </button>
-          </div>
-
-          {/* Profile Avatar */}
-          <div className="flex justify-center -mt-16 relative z-10">
-            <motion.div 
-              whileHover={{ scale: 1.1 }}
-              className={`w-28 h-28 bg-gradient-to-br ${getRoleColor()} rounded-full flex items-center justify-center shadow-2xl border-4 ${
-                isDark ? 'border-gray-800' : 'border-white'
-              }`}
-            >
-              <span className="text-4xl font-bold text-white">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </span>
-            </motion.div>
-          </div>
-
-          {/* Content */}
-          <div className="p-6 text-center">
-            <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
-              {user?.firstName} {user?.lastName}
-            </h2>
-            <p className={`text-sm font-medium mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              {getRoleLabel()}
-            </p>
-            
-            <div className={`inline-block mt-3 px-4 py-1.5 rounded-full text-white text-sm font-medium bg-gradient-to-r ${getRoleColor()}`}>
-              <i className={`fas ${
-                role === 'admin' ? 'fa-crown' : 
-                role === 'manager' || role === 'dept_manager' ? 'fa-user-tie' : 'fa-user'
-              } mr-2`}></i>
-              {getRoleLabel()}
-            </div>
-
-            {/* Info Cards */}
-            <div className={`mt-6 space-y-3 ${isDark ? 'bg-gray-700' : 'bg-gray-50'} rounded-2xl p-4`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-600' : 'bg-white shadow'}`}>
-                  <i className="fas fa-envelope text-blue-500"></i>
-                </div>
-                <div className="text-left">
-                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Email</p>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{user?.email || 'Not provided'}</p>
-                </div>
-              </div>
-
-              {user?.department && (
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-600' : 'bg-white shadow'}`}>
-                    <i className="fas fa-building text-violet-500"></i>
-                  </div>
-                  <div className="text-left">
-                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Department</p>
-                    <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{DEPARTMENTS[user.department]?.name || 'Not assigned'}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-600' : 'bg-white shadow'}`}>
-                  <i className="fas fa-calendar-alt text-emerald-500"></i>
-                </div>
-                <div className="text-left">
-                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Member Since</p>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Work History Section - Only shown when admin views employee profile */}
-            {isAdminView && workLogs.length > 0 && (
-              <div className={`mt-6 rounded-2xl p-4 ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-800'} flex items-center`}>
-                  <i className="fas fa-history mr-2 text-blue-500"></i>
-                  Recent Work Activity
-                </h3>
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {recentWorkLogs.map((log) => (
-                    <div key={log.id} className={`p-3 rounded-xl ${isDark ? 'bg-gray-600' : 'bg-white shadow-sm'}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                          {WORK_TYPES[log.workType]?.name || log.workType}
-                        </span>
-                        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {log.duration || (log.minutes ? `${log.minutes} min` : `${log.hours} hours`)}
-                        </span>
-                      </div>
-                      <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{log.description}</p>
-                      <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                        {new Date(log.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {isAdminView && workLogs.length === 0 && (
-              <div className={`mt-6 p-4 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No work logs found for this employee.</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
+        <ProfileCard {...props} />
       </motion.div>
     </AnimatePresence>
   );

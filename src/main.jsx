@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { AuthProvider } from "./EmployeeWorkTrackingApp/hooks/AuthContext.jsx"; 
 
 // Error boundary to catch rendering errors
 class ErrorBoundary extends React.Component {
@@ -38,7 +39,9 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ErrorBoundary>
   </React.StrictMode>,
 )

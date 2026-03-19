@@ -1,11 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../context/ThemeContext';
-import ProfileModal from './ProfileModal';
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 
-export default function AdminSidebar({ currentSection, onSectionChange, onLogout, pendingCount, userName, user, userRole, leaveRequestCount, isSidebarOpen, toggleSidebar }) {
+export default function AdminSidebar({
+  currentSection,
+  onSectionChange,
+  onLogout,
+  pendingCount,
+  userName,
+  user,
+  userRole,
+  leaveRequestCount,
+  isSidebarOpen,
+  toggleSidebar,
+}) {
   const { isDark, toggleTheme } = useTheme();
-  const [showProfile, setShowProfile] = useState(false);
+
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
 
@@ -28,9 +39,9 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
       }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener("mousemove", handleMouseMove);
       if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
     };
   }, []);
@@ -63,27 +74,60 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
     }, 2000);
   };
 
-
-  
-  const userInitial = userName ? userName.charAt(0).toUpperCase() : 'A';
-  const displayName = userName || 'Admin';
+  const userInitial = userName ? userName.charAt(0).toUpperCase() : "A";
+  const displayName = userName || "Admin";
 
   const menuItems = [
-    { id: 'dashboard', icon: 'fa-home', label: 'Dashboard', color: 'from-cyan-400 to-blue-500' },
-    { id: 'pending', icon: 'fa-user-clock', label: 'Pending', badge: pendingCount, color: 'from-amber-400 to-orange-500' },
-    { id: 'departments', icon: 'fa-building', label: 'Departments', color: 'from-emerald-400 to-green-500' },
-    { id: 'employees', icon: 'fa-users', label: 'Employees', color: 'from-violet-400 to-purple-500' },
-    { id: 'attendance', icon: 'fa-calendar-check', label: 'Attendance', color: 'from-rose-400 to-pink-500' },
-    { id: 'leave', icon: 'fa-calendar-minus', label: 'Leave', badge: leaveRequestCount, color: 'from-orange-400 to-red-500' },
-    { id: 'profile', icon: 'fa-user-circle', label: 'My Profile', color: 'from-blue-400 to-indigo-500' },
+    {
+      id: "dashboard",
+      icon: "fa-home",
+      label: "Dashboard",
+      color: "from-cyan-400 to-blue-500",
+    },
+    {
+      id: "pending",
+      icon: "fa-user-clock",
+      label: "Pending",
+      badge: pendingCount,
+      color: "from-amber-400 to-orange-500",
+    },
+    {
+      id: "departments",
+      icon: "fa-building",
+      label: "Departments",
+      color: "from-emerald-400 to-green-500",
+    },
+    {
+      id: "employees",
+      icon: "fa-users",
+      label: "Employees",
+      color: "from-violet-400 to-purple-500",
+    },
+    {
+      id: "attendance",
+      icon: "fa-calendar-check",
+      label: "Attendance",
+      color: "from-rose-400 to-pink-500",
+    },
+    {
+      id: "leave",
+      icon: "fa-calendar-minus",
+      label: "Leave",
+      badge: leaveRequestCount,
+      color: "from-orange-400 to-red-500",
+    },
+    {
+      id: "profile",
+      icon: "fa-user-circle",
+      label: "My Profile",
+      color: "from-blue-400 to-indigo-500",
+    },
   ];
 
+  const navigate = useNavigate();
+
   const handleMenuClick = (item) => {
-    if (item.id === 'profile') {
-      setShowProfile(true);
-    } else {
-      onSectionChange(item.id);
-    }
+    onSectionChange(item.id);
     if (window.innerWidth < 1024) {
       toggleSidebar();
     }
@@ -99,7 +143,7 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
         onMouseEnter={handleMenuMouseEnter}
         onMouseLeave={handleMenuMouseLeave}
         className="fixed top-4 left-0 z-50 p-4 w-20 h-20 cursor-pointer"
-        style={{ pointerEvents: isMenuVisible ? 'auto' : 'none' }}
+        style={{ pointerEvents: isMenuVisible ? "auto" : "none" }}
       >
         <motion.button
           initial={{ scale: 0 }}
@@ -108,16 +152,14 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
           whileTap={{ scale: 0.9 }}
           onClick={toggleSidebar}
           className={`p-3 rounded-xl shadow-lg ${
-            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+            isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"
           }`}
         >
-          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+          <i
+            className={`fas ${isSidebarOpen ? "fa-times" : "fa-bars"} text-xl`}
+          ></i>
         </motion.button>
       </motion.div>
-      
-
-
-
 
       {/* Mobile Overlay */}
       <AnimatePresence>
@@ -133,33 +175,41 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
       </AnimatePresence>
 
       {/* Sidebar */}
-      <motion.div 
+      <motion.div
         initial={{ x: -300, opacity: 0 }}
-        animate={{ x: isSidebarOpen ? 0 : -300, opacity: isSidebarOpen ? 1 : 0 }}
+        animate={{
+          x: isSidebarOpen ? 0 : -300,
+          opacity: isSidebarOpen ? 1 : 0,
+        }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${
-          isDark 
-            ? 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700' 
-            : 'bg-gradient-to-b from-white to-cyan-50 border-cyan-100'
+          isDark
+            ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
+            : "bg-gradient-to-b from-white to-cyan-50 border-cyan-100"
         }`}
-
       >
-
         {/* Profile Section */}
-        <motion.div 
+        <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
           className="text-center mb-4 pt-4"
         >
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
-            onClick={() => setShowProfile(true)}
             className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-2xl border-4 border-white cursor-pointer"
           >
-            <span className="text-3xl sm:text-4xl font-bold text-white">{userInitial}</span>
+            <span className="text-3xl sm:text-4xl font-bold text-white">
+              {userInitial}
+            </span>
           </motion.div>
-          <h2 className={`font-bold text-xl sm:text-2xl ${isDark ? 'text-white' : 'text-gray-800'}`}>{displayName}</h2>
+          <h2
+            className={`font-bold text-xl sm:text-2xl ${
+              isDark ? "text-white" : "text-gray-800"
+            }`}
+          >
+            {displayName}
+          </h2>
           <p className="text-cyan-400 text-sm font-medium">Administrator</p>
         </motion.div>
 
@@ -172,18 +222,22 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
           whileTap={{ scale: 0.95 }}
           onClick={toggleTheme}
           className={`mx-auto mb-4 px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all ${
-            isDark 
-              ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' 
-              : 'bg-cyan-100 text-gray-700 hover:bg-cyan-200'
+            isDark
+              ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
+              : "bg-cyan-100 text-gray-700 hover:bg-cyan-200"
           }`}
         >
-          <i className={`fas ${isDark ? 'fa-sun' : 'fa-moon'}`}></i>
-          <span className="hidden sm:inline">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+          <i className={`fas ${isDark ? "fa-sun" : "fa-moon"}`}></i>
+          <span className="hidden sm:inline">
+            {isDark ? "Light Mode" : "Dark Mode"}
+          </span>
         </motion.button>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-
+        <nav
+          className="flex-1 space-y-2 px-2 overflow-y-auto"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {menuItems.map((item, index) => (
             <motion.button
               key={item.id}
@@ -194,19 +248,21 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
               whileTap={{ scale: 0.98 }}
               onClick={() => handleMenuClick(item)}
               className={`w-full text-left px-4 py-3 sm:py-3.5 rounded-xl transition-all duration-300 flex items-center justify-between group ${
-                currentSection === item.id 
-                  ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
+                currentSection === item.id
+                  ? `bg-gradient-to-r ${item.color} text-white shadow-lg`
                   : isDark
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white'
-                    : 'bg-white hover:bg-cyan-50 text-gray-700 hover:text-gray-900'
+                  ? "bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white"
+                  : "bg-white hover:bg-cyan-50 text-gray-700 hover:text-gray-900"
               }`}
             >
               <span className="flex items-center gap-3">
-                <i className={`fas ${item.icon} w-5 text-lg group-hover:scale-110 transition-transform`}></i>
+                <i
+                  className={`fas ${item.icon} w-5 text-lg group-hover:scale-110 transition-transform`}
+                ></i>
                 <span className="font-medium">{item.label}</span>
               </span>
-              {item.badge > 0 && item.id !== 'profile' && (
-                <motion.span 
+              {item.badge > 0 && item.id !== "profile" && (
+                <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   whileHover={{ scale: 1.2 }}
@@ -228,9 +284,9 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
           whileTap={{ scale: 0.98 }}
           onClick={onLogout}
           className={`w-full text-left px-4 py-3 sm:py-3.5 rounded-xl transition-all text-gray-700 group mt-4 ${
-            isDark 
-              ? 'bg-gray-800 hover:bg-red-900/50 text-gray-200 hover:text-red-400' 
-              : 'bg-white hover:bg-red-50 text-gray-700 hover:text-red-600'
+            isDark
+              ? "bg-gray-800 hover:bg-red-900/50 text-gray-200 hover:text-red-400"
+              : "bg-white hover:bg-red-50 text-gray-700 hover:text-red-600"
           }`}
         >
           <span className="flex items-center gap-3 font-medium">
@@ -241,12 +297,6 @@ export default function AdminSidebar({ currentSection, onSectionChange, onLogout
       </motion.div>
 
       {/* Profile Modal */}
-      <ProfileModal 
-        isOpen={showProfile} 
-        onClose={() => setShowProfile(false)} 
-        user={user}
-        role={userRole || 'admin'}
-      />
     </>
   );
 }
