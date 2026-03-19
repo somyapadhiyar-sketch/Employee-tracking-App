@@ -11,7 +11,7 @@ import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
 
 // NEW FIREBASE IMPORTS
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 
 export default function EmployeeDashboard() {
@@ -53,6 +53,18 @@ export default function EmployeeDashboard() {
   const fetchDashboardData = async () => {
     setLoadingData(true);
     try {
+      const uId = auth?.currentUser?.uid || auth?.currentUser?.id;
+      if (uId) {
+        const userSnap = await getDoc(doc(db, "users", uId));
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const todayStr = new Date().toISOString().split("T")[0];
+          if (userData.lastClockInDate === todayStr && userData.lastClockOutDate !== todayStr) {
+            setClockedIn(true);
+          }
+        }
+      }
+
       const logsSnap = await getDocs(collection(db, "workLogs"));
       setAllWorkLogs(
         logsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
@@ -178,15 +190,37 @@ export default function EmployeeDashboard() {
   const getUsedLeaves = (type) =>
     myApprovedLeaveRequests.filter((req) => req.leaveType === type).length;
 
-  const handleClockIn = () => {
+  const handleClockIn = async () => {
     setClockedIn(true);
     setClockInTime(formatTime(currentTime));
-    showToastMessage("Clocked in successfully!", "success");
+    try {
+      const todayDate = new Date().toISOString().split("T")[0];
+      await updateDoc(doc(db, "users", currentUserId), {
+        lastClockInDate: todayDate,
+        lastClockInTime: new Date().toISOString(),
+        lastClockOutDate: null,
+        lastClockOutTime: null
+      });
+      showToastMessage("Clocked in successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      showToastMessage("Failed to clock in to database.", "error");
+    }
   };
 
-  const handleClockOut = () => {
+  const handleClockOut = async () => {
     setClockedIn(false);
-    showToastMessage("Clocked out successfully!", "success");
+    try {
+      const todayDate = new Date().toISOString().split("T")[0];
+      await updateDoc(doc(db, "users", currentUserId), {
+        lastClockOutDate: todayDate,
+        lastClockOutTime: new Date().toISOString()
+      });
+      showToastMessage("Clocked out successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      showToastMessage("Failed to clock out to database.", "error");
+    }
   };
 
   // --- FIREBASE ACTIONS ---

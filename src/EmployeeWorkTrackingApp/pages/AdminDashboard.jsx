@@ -115,7 +115,15 @@ export default function AdminDashboard() {
 
   const today = new Date().toISOString().split("T")[0];
   const todayLogs = workLogs.filter((log) => log.date === today);
-  const presentIds = [...new Set(todayLogs.map((log) => log.employeeId))];
+  const presentIds = [
+    ...new Set([
+      ...todayLogs.map((log) => log.employeeId),
+      ...allUsers.filter((u) => u.lastClockInDate === today).map((u) => u.id),
+    ]),
+  ].filter((id) => {
+    const emp = allUsers.find((u) => u.id === id);
+    return !(emp && emp.lastClockOutDate === today);
+  });
 
   const presentManagers = approvedManagers.filter((emp) =>
     presentIds.includes(emp.id)
@@ -230,7 +238,11 @@ export default function AdminDashboard() {
   };
 
   const getFilteredList = () => {
-    if (!attendanceFilter) return [];
+    if (!attendanceFilter || attendanceFilter === "total") {
+      if (presentSubFilter === "managers") return approvedManagers;
+      if (presentSubFilter === "employees") return regularEmployees;
+      return approvedEmployees;
+    }
     if (attendanceFilter === "present") {
       if (presentSubFilter === "managers") return presentManagers;
       if (presentSubFilter === "employees") return presentEmployeesList;
@@ -241,15 +253,12 @@ export default function AdminDashboard() {
       return [...absentManagers, ...absentEmployeesList];
     } else if (attendanceFilter === "onLeave") {
       if (presentSubFilter === "managers")
-        return employeesOnLeave.filter((req) => req.isManager);
+        return employeesOnLeave.filter((req) => req.isManager); // Wait, we might need to change this if isManager isn't accurate
       if (presentSubFilter === "employees")
         return employeesOnLeave.filter((req) => !req.isManager);
       return employeesOnLeave;
-    } else {
-      if (presentSubFilter === "managers") return approvedManagers;
-      if (presentSubFilter === "employees") return regularEmployees;
-      return approvedEmployees;
     }
+    return [];
   };
 
   const stats = [
@@ -303,18 +312,16 @@ export default function AdminDashboard() {
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
-                  ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
-                  : "bg-gradient-to-r from-cyan-50 via-blue-50 to-indigo-50 border-blue-100"
-              }`}
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
+                ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
+                : "bg-gradient-to-r from-cyan-50 via-blue-50 to-indigo-50 border-blue-100"
+                }`}
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h1
-                    className={`text-3xl font-bold ${
-                      isDark ? "text-white" : "text-gray-800"
-                    }`}
+                    className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                      }`}
                   >
                     Welcome back, {userName}! 👋
                   </h1>
@@ -338,7 +345,7 @@ export default function AdminDashboard() {
               </div>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
               {stats.map((stat, index) => (
                 <motion.div
                   key={stat.title}
@@ -346,11 +353,10 @@ export default function AdminDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                   whileHover={{ scale: 1.03, y: -5 }}
-                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border ${
-                    isDark
-                      ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
-                      : "bg-white border-gray-100"
-                  }`}
+                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border ${isDark
+                    ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                    : "bg-white border-gray-100"
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -364,15 +370,14 @@ export default function AdminDashboard() {
                         {stat.title}
                       </p>
                       <p
-                        className={`text-4xl font-bold mt-1 ${
-                          isDark ? "text-white" : "text-gray-800"
-                        }`}
+                        className={`text-4xl font-bold mt-1 ${isDark ? "text-white" : "text-gray-800"
+                          }`}
                       >
                         {stat.value}
                       </p>
                     </div>
                     <div
-                      className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg`}
+                      className={`w-14 mt-5 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg`}
                     >
                       <i className={`fas ${stat.icon} text-white text-xl`}></i>
                     </div>
@@ -431,9 +436,8 @@ export default function AdminDashboard() {
             className="space-y-8"
           >
             <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               Pending Approvals
             </h1>
@@ -442,11 +446,10 @@ export default function AdminDashboard() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-2xl p-6 shadow-lg border ${
-                  isDark
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
-                }`}
+                className={`rounded-2xl p-6 shadow-lg border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
+                  }`}
               >
                 <h2 className="text-xl font-bold text-violet-400 mb-4 flex items-center">
                   <i className="fas fa-user-tie mr-2"></i>Pending Managers (
@@ -459,11 +462,10 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-white border-violet-100"
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-white border-violet-100"
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
@@ -472,9 +474,8 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p
-                            className={`font-bold ${
-                              isDark ? "text-white" : "text-gray-800"
-                            }`}
+                            className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                              }`}
                           >
                             {emp.firstName} {emp.lastName}
                           </p>
@@ -516,11 +517,10 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"
-              }`}
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"
+                }`}
             >
               <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center">
                 <i className="fas fa-user mr-2"></i>Pending Employees (
@@ -547,11 +547,10 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-white border-blue-100"
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-white border-blue-100"
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
@@ -560,9 +559,8 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p
-                            className={`font-bold ${
-                              isDark ? "text-white" : "text-gray-800"
-                            }`}
+                            className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                              }`}
                           >
                             {emp.firstName} {emp.lastName}
                           </p>
@@ -610,9 +608,8 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center justify-between mb-8">
               <h1
-                className={`text-2xl sm:text-3xl font-bold ${
-                  isDark ? "text-white" : "text-[#1e293b]"
-                }`}
+                className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-[#1e293b]"
+                  }`}
               >
                 {selectedDepartment
                   ? DEPARTMENTS[selectedDepartment]?.name
@@ -634,26 +631,24 @@ export default function AdminDashboard() {
                     key={key}
                     whileHover={{ scale: 1.02, y: -4 }}
                     onClick={() => setSelectedDepartment(key)}
-                    className={`rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all cursor-pointer ${
-                      isDark ? "bg-gray-800" : "bg-white"
-                    }`}
+                    className={`rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all cursor-pointer ${isDark ? "bg-gray-800" : "bg-white"
+                      }`}
                   >
                     <div className="flex items-center mb-4">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center mr-4 
-                        ${
-                          dept.color === "blue"
+                        ${dept.color === "blue"
                             ? "bg-[#3b82f6]"
                             : dept.color === "green"
-                            ? "bg-[#10b981]"
-                            : dept.color === "purple"
-                            ? "bg-[#8b5cf6]"
-                            : dept.color === "yellow"
-                            ? "bg-[#f5b00b]"
-                            : dept.color === "red"
-                            ? "bg-[#ef4444]"
-                            : "bg-blue-500"
-                        }
+                              ? "bg-[#10b981]"
+                              : dept.color === "purple"
+                                ? "bg-[#8b5cf6]"
+                                : dept.color === "yellow"
+                                  ? "bg-[#f5b00b]"
+                                  : dept.color === "red"
+                                    ? "bg-[#ef4444]"
+                                    : "bg-blue-500"
+                          }
                       `}
                       >
                         <i
@@ -662,9 +657,8 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <h3
-                          className={`font-bold text-lg ${
-                            isDark ? "text-white" : "text-[#1e293b]"
-                          }`}
+                          className={`font-bold text-lg ${isDark ? "text-white" : "text-[#1e293b]"
+                            }`}
                         >
                           {dept.name}
                         </h3>
@@ -680,9 +674,8 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <p
-                      className={`text-sm leading-relaxed mt-2 ${
-                        isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
+                      className={`text-sm leading-relaxed mt-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
                     >
                       {dept.description}
                     </p>
@@ -693,22 +686,20 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 {getDepartmentManager(selectedDepartment) && (
                   <div
-                    className={`rounded-2xl p-6 shadow-lg border ${
-                      isDark
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
-                    }`}
+                    className={`rounded-2xl p-6 shadow-lg border ${isDark
+                      ? "bg-gray-800 border-gray-700"
+                      : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
+                      }`}
                   >
                     <h2 className="text-xl font-bold text-violet-400 mb-4 flex items-center">
                       <i className="fas fa-user-tie mr-2"></i> Department
                       Manager
                     </h2>
                     <div
-                      className={`flex items-center p-4 rounded-xl border relative ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-white/50 border-violet-100"
-                      }`}
+                      className={`flex items-center p-4 rounded-xl border relative ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-white/50 border-violet-100"
+                        }`}
                     >
                       <div className="flex items-center gap-4 pr-20">
                         <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
@@ -719,9 +710,8 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p
-                            className={`font-bold text-lg ${
-                              isDark ? "text-white" : "text-gray-800"
-                            }`}
+                            className={`font-bold text-lg ${isDark ? "text-white" : "text-gray-800"
+                              }`}
                           >
                             {getDepartmentManager(selectedDepartment).firstName}
                           </p>
@@ -751,20 +741,18 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
           >
             <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              } mb-8`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                } mb-8`}
             >
               All Employees & Managers
             </h1>
 
             {approvedManagers.length > 0 && (
               <div
-                className={`rounded-2xl p-6 shadow-lg mb-6 border ${
-                  isDark
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
-                }`}
+                className={`rounded-2xl p-6 shadow-lg mb-6 border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
+                  }`}
               >
                 <h2 className="text-xl font-bold text-violet-400 mb-4 flex items-center">
                   <i className="fas fa-user-tie mr-2"></i>Department Managers (
@@ -774,11 +762,10 @@ export default function AdminDashboard() {
                   {approvedManagers.map((emp) => (
                     <div
                       key={emp.id}
-                      className={`p-4 rounded-xl shadow-md ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-white border-gray-100"
-                      }`}
+                      className={`p-4 rounded-xl shadow-md ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-white border-gray-100"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
@@ -788,9 +775,8 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <p
-                              className={`font-bold ${
-                                isDark ? "text-white" : "text-gray-800"
-                              }`}
+                              className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                                }`}
                             >
                               {emp.firstName} {emp.lastName}
                             </p>
@@ -829,11 +815,10 @@ export default function AdminDashboard() {
             )}
 
             <div
-              className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${
-                isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
-              }`}
+              className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
             >
               <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center">
                 <i className="fas fa-users mr-2"></i>Employees (
@@ -854,36 +839,31 @@ export default function AdminDashboard() {
                   {regularEmployees.map((emp) => (
                     <React.Fragment key={emp.id}>
                       <tr
-                        className={`border-b ${
-                          isDark
-                            ? "border-gray-600 hover:bg-gray-700"
-                            : "hover:bg-gray-50"
-                        } ${
-                          expandedEmployeeId === emp.id
+                        className={`border-b ${isDark
+                          ? "border-gray-600 hover:bg-gray-700"
+                          : "hover:bg-gray-50"
+                          } ${expandedEmployeeId === emp.id
                             ? isDark
                               ? "bg-gray-700"
                               : "bg-gray-50"
                             : ""
-                        }`}
+                          }`}
                       >
                         <td
-                          className={`px-4 py-3 font-medium ${
-                            isDark ? "text-white" : ""
-                          }`}
+                          className={`px-4 py-3 font-medium ${isDark ? "text-white" : ""
+                            }`}
                         >
                           {emp.firstName} {emp.lastName}
                         </td>
                         <td
-                          className={`px-4 py-3 ${
-                            isDark ? "text-gray-400" : "text-gray-500"
-                          }`}
+                          className={`px-4 py-3 ${isDark ? "text-gray-400" : "text-gray-500"
+                            }`}
                         >
                           {emp.email}
                         </td>
                         <td
-                          className={`px-4 py-3 ${
-                            isDark ? "text-gray-300" : ""
-                          }`}
+                          className={`px-4 py-3 ${isDark ? "text-gray-300" : ""
+                            }`}
                         >
                           {DEPARTMENTS[emp.department]?.name}
                         </td>
@@ -893,11 +873,10 @@ export default function AdminDashboard() {
                             className="px-4 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex items-center justify-center shadow-sm"
                           >
                             <i
-                              className={`fas fa-${
-                                expandedEmployeeId === emp.id
-                                  ? "eye-slash"
-                                  : "eye"
-                              } mr-2`}
+                              className={`fas fa-${expandedEmployeeId === emp.id
+                                ? "eye-slash"
+                                : "eye"
+                                } mr-2`}
                             ></i>{" "}
                             {expandedEmployeeId === emp.id ? "Close" : "View"}
                           </button>
@@ -916,9 +895,8 @@ export default function AdminDashboard() {
                           <tr>
                             <td colSpan="4" className="p-0 border-b-0">
                               <div
-                                className={`px-4 ${
-                                  isDark ? "bg-gray-800" : "bg-slate-50"
-                                }`}
+                                className={`px-4 ${isDark ? "bg-gray-800" : "bg-slate-50"
+                                  }`}
                               >
                                 <ProfileCard
                                   user={emp}
@@ -939,9 +917,8 @@ export default function AdminDashboard() {
                     <tr>
                       <td
                         colSpan="4"
-                        className={`px-4 py-8 text-center ${
-                          isDark ? "text-gray-400" : "text-gray-500"
-                        }`}
+                        className={`px-4 py-8 text-center ${isDark ? "text-gray-400" : "text-gray-500"
+                          }`}
                       >
                         No employees found
                       </td>
@@ -953,7 +930,25 @@ export default function AdminDashboard() {
           </motion.div>
         );
 
-      case "attendance":
+      case "attendance": {
+        let statsEmployees = approvedEmployees;
+        let statsOnLeave = employeesOnLeave;
+
+        if (presentSubFilter === "managers") {
+          statsEmployees = approvedManagers;
+          statsOnLeave = employeesOnLeave.filter(req => approvedManagers.some(m => m.id === req.employeeId));
+        } else if (presentSubFilter === "employees") {
+          statsEmployees = regularEmployees;
+          statsOnLeave = employeesOnLeave.filter(req => regularEmployees.some(e => e.id === req.employeeId));
+        }
+
+        const statsPresentIds = statsEmployees.filter(emp => presentIds.includes(emp.id)).map(e => e.id);
+        const presentCount = statsPresentIds.length;
+        const totalCount = statsEmployees.length;
+        const absentCount = totalCount - presentCount;
+        const onLeaveCount = statsOnLeave.length;
+        const attPercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -961,9 +956,8 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               Team Attendance
             </h1>
@@ -975,13 +969,11 @@ export default function AdminDashboard() {
                   setAttendanceFilter(
                     attendanceFilter === "present" ? null : "present"
                   );
-                  setPresentSubFilter("all");
                 }}
-                className={`bg-gradient-to-br from-emerald-400 to-green-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${
-                  attendanceFilter === "present" ? "ring-4 ring-white" : ""
-                }`}
+                className={`bg-gradient-to-br from-emerald-400 to-green-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${attendanceFilter === "present" ? "ring-4 ring-white" : ""
+                  }`}
               >
-                <p className="text-3xl font-bold">{presentIds.length}</p>
+                <p className="text-3xl font-bold">{presentCount}</p>
                 <p className="text-white/80">Present</p>
               </motion.div>
               <motion.div
@@ -989,14 +981,12 @@ export default function AdminDashboard() {
                   setAttendanceFilter(
                     attendanceFilter === "absent" ? null : "absent"
                   );
-                  setPresentSubFilter("all");
                 }}
-                className={`bg-gradient-to-br from-rose-400 to-red-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${
-                  attendanceFilter === "absent" ? "ring-4 ring-white" : ""
-                }`}
+                className={`bg-gradient-to-br from-rose-400 to-red-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${attendanceFilter === "absent" ? "ring-4 ring-white" : ""
+                  }`}
               >
                 <p className="text-3xl font-bold">
-                  {approvedEmployees.length - presentIds.length}
+                  {absentCount}
                 </p>
                 <p className="text-white/80">Absent</p>
               </motion.div>
@@ -1005,13 +995,11 @@ export default function AdminDashboard() {
                   setAttendanceFilter(
                     attendanceFilter === "onLeave" ? null : "onLeave"
                   );
-                  setPresentSubFilter("all");
                 }}
-                className={`bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${
-                  attendanceFilter === "onLeave" ? "ring-4 ring-white" : ""
-                }`}
+                className={`bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${attendanceFilter === "onLeave" ? "ring-4 ring-white" : ""
+                  }`}
               >
-                <p className="text-3xl font-bold">{employeesOnLeave.length}</p>
+                <p className="text-3xl font-bold">{onLeaveCount}</p>
                 <p className="text-white/80">On Leave</p>
               </motion.div>
               <motion.div
@@ -1019,32 +1007,62 @@ export default function AdminDashboard() {
                   setAttendanceFilter(
                     attendanceFilter === "total" ? null : "total"
                   );
-                  setPresentSubFilter("all");
                 }}
-                className={`bg-gradient-to-br from-blue-400 to-indigo-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${
-                  attendanceFilter === "total" ? "ring-4 ring-white" : ""
-                }`}
+                className={`bg-gradient-to-br from-blue-400 to-indigo-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${attendanceFilter === "total" ? "ring-4 ring-white" : ""
+                  }`}
               >
-                <p className="text-3xl font-bold">{approvedEmployees.length}</p>
+                <p className="text-3xl font-bold">{totalCount}</p>
                 <p className="text-white/80">Total</p>
               </motion.div>
               <motion.div className="bg-gradient-to-br from-violet-400 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
                 <p className="text-3xl font-bold">
-                  {Math.round(
-                    (presentIds.length / approvedEmployees.length) * 100
-                  ) || 0}
-                  %
+                  {attPercentage}%
                 </p>
                 <p className="text-white/80">Attendance</p>
               </motion.div>
             </div>
 
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => setPresentSubFilter("all")}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${presentSubFilter === "all"
+                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setPresentSubFilter("managers")}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${presentSubFilter === "managers"
+                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                Managers
+              </button>
+              <button
+                onClick={() => setPresentSubFilter("employees")}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${presentSubFilter === "employees"
+                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+              >
+                Employees
+              </button>
+            </div>
+
             <div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
-              }`}
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
             >
               <div className="space-y-3">
                 {getFilteredList().map((item) => {
@@ -1055,11 +1073,10 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={emp.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-xl border ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-violet-500 to-purple-500">
@@ -1068,28 +1085,26 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p
-                            className={`font-bold ${
-                              isDark ? "text-white" : "text-gray-800"
-                            }`}
+                            className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                              }`}
                           >
                             {emp.firstName} {emp.lastName}
                           </p>
                         </div>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          attendanceFilter === "onLeave"
-                            ? "bg-amber-100 text-amber-700"
-                            : presentIds.includes(emp.id)
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${attendanceFilter === "onLeave"
+                          ? "bg-amber-100 text-amber-700"
+                          : presentIds.includes(emp.id)
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-rose-100 text-rose-700"
-                        }`}
+                          }`}
                       >
                         {attendanceFilter === "onLeave"
                           ? "✓ On Leave"
                           : presentIds.includes(emp.id)
-                          ? "✓ Present"
-                          : "✗ Absent"}
+                            ? "✓ Present"
+                            : "✗ Absent"}
                       </span>
                     </div>
                   );
@@ -1098,6 +1113,7 @@ export default function AdminDashboard() {
             </div>
           </motion.div>
         );
+      }
 
       case "leave":
         return (
@@ -1107,9 +1123,8 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               Leave Requests
             </h1>
@@ -1118,39 +1133,36 @@ export default function AdminDashboard() {
             <div className="flex gap-3 mb-6">
               <button
                 onClick={() => setLeaveFilter("pending")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${
-                  leaveFilter === "pending"
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                    : isDark
+                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "pending"
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                  : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
-                }`}
+                  }`}
               >
                 <i className="fas fa-clock mr-2"></i>Pending (
                 {pendingLeaveRequests.length})
               </button>
               <button
                 onClick={() => setLeaveFilter("approved")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${
-                  leaveFilter === "approved"
-                    ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
-                    : isDark
+                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "approved"
+                  ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+                  : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
-                }`}
+                  }`}
               >
                 <i className="fas fa-check-circle mr-2"></i>Approved (
                 {approvedLeaveRequests.length})
               </button>
               <button
                 onClick={() => setLeaveFilter("all")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${
-                  leaveFilter === "all"
-                    ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
-                    : isDark
+                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "all"
+                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
+                  : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
-                }`}
+                  }`}
               >
                 <i className="fas fa-list mr-2"></i>All (
                 {allLeaveRequests.length})
@@ -1158,29 +1170,27 @@ export default function AdminDashboard() {
             </div>
 
             <div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
-              }`}
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
             >
               <div className="space-y-4">
                 {(leaveFilter === "pending"
                   ? pendingLeaveRequests
                   : leaveFilter === "approved"
-                  ? approvedLeaveRequests
-                  : allLeaveRequests
+                    ? approvedLeaveRequests
+                    : allLeaveRequests
                 ).map((req) => {
                   const emp = allUsers.find((e) => e.id === req.employeeId);
                   if (!emp) return null;
                   return (
                     <div
                       key={req.id}
-                      className={`p-4 rounded-xl border ${
-                        isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
-                      }`}
+                      className={`p-4 rounded-xl border ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-4">
@@ -1190,50 +1200,44 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <p
-                              className={`font-bold ${
-                                isDark ? "text-white" : "text-gray-800"
-                              }`}
+                              className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                                }`}
                             >
                               {emp.firstName} {emp.lastName}
                             </p>
                             <p
-                              className={`text-sm ${
-                                isDark ? "text-gray-400" : "text-gray-500"
-                              }`}
+                              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                                }`}
                             >
                               {emp.email}
                             </p>
                           </div>
                         </div>
                         <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            req.status === "pending"
-                              ? "bg-amber-100 text-amber-700"
-                              : req.status === "approved"
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "pending"
+                            ? "bg-amber-100 text-amber-700"
+                            : req.status === "approved"
                               ? "bg-emerald-100 text-emerald-700"
                               : "bg-rose-100 text-rose-700"
-                          }`}
+                            }`}
                         >
                           {req.status.charAt(0).toUpperCase() +
                             req.status.slice(1)}
                         </span>
                       </div>
                       <div
-                        className={`p-3 rounded-lg mb-3 ${
-                          isDark ? "bg-gray-600" : "bg-white"
-                        }`}
+                        className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                          }`}
                       >
                         <p
-                          className={`text-sm ${
-                            isDark ? "text-gray-300" : "text-gray-600"
-                          }`}
+                          className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"
+                            }`}
                         >
                           <strong>Reason:</strong> {req.reason}
                         </p>
                         <p
-                          className={`text-sm mt-2 ${
-                            isDark ? "text-gray-300" : "text-gray-600"
-                          }`}
+                          className={`text-sm mt-2 ${isDark ? "text-gray-300" : "text-gray-600"
+                            }`}
                         >
                           <strong>Dates:</strong> {req.startDate} to{" "}
                           {req.endDate}
@@ -1275,20 +1279,18 @@ export default function AdminDashboard() {
     <>
       {toast && (
         <div
-          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
-            toast.type === "success" ? "bg-green-600" : "bg-red-600"
-          } text-white`}
+          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            } text-white`}
         >
           {toast.message}
         </div>
       )}
 
       <div
-        className={`flex min-h-screen ${
-          isDark
-            ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-            : "bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50"
-        }`}
+        className={`flex min-h-screen ${isDark
+          ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+          : "bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50"
+          }`}
       >
         <AdminSidebar
           currentSection={currentSection}
@@ -1307,9 +1309,8 @@ export default function AdminDashboard() {
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
         <div
-          className={`flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative w-full transition-all duration-300 ${
-            isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
-          }`}
+          className={`flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
+            }`}
           style={{ height: "100vh" }}
         >
           <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>

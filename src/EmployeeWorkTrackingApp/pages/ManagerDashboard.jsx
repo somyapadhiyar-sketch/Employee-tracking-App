@@ -18,6 +18,7 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 
@@ -46,6 +47,18 @@ export default function ManagerDashboard() {
   const fetchDashboardData = async () => {
     setLoadingData(true);
     try {
+      const uId = auth?.currentUser?.uid || auth?.currentUser?.id;
+      if (uId) {
+        const userSnap = await getDoc(doc(db, "users", uId));
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const todayStr = new Date().toISOString().split("T")[0];
+          if (userData.lastClockInDate === todayStr && userData.lastClockOutDate !== todayStr) {
+            setClockedIn(true);
+          }
+        }
+      }
+
       const usersSnap = await getDocs(collection(db, "users"));
       setAllUsers(usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
 
@@ -185,8 +198,14 @@ export default function ManagerDashboard() {
     (log) => log.department === dept && log.date === today
   );
   const presentIds = [
-    ...new Set(todayLogs.map((log) => log.employeeId)),
-  ].filter((id) => id !== currentUserId);
+    ...new Set([
+      ...todayLogs.map((log) => log.employeeId),
+      ...deptEmployees.filter((u) => u.lastClockInDate === today).map((u) => u.id),
+    ])
+  ].filter((id) => {
+    const emp = deptEmployees.find((u) => u.id === id);
+    return !(emp && emp.lastClockOutDate === today);
+  }).filter((id) => id !== currentUserId);
 
   const myWorkLogs = allWorkLogs.filter(
     (log) => log.employeeId === currentUserId && log.date === today
@@ -366,19 +385,41 @@ export default function ManagerDashboard() {
     return deptEmployees;
   };
 
-  const handleClockIn = () => {
+  const handleClockIn = async () => {
     setClockedIn(true);
     setClockInTime(new Date());
-    showToastMessage("Clocked in successfully!", "success");
+    try {
+      const todayDate = new Date().toISOString().split("T")[0];
+      await updateDoc(doc(db, "users", currentUserId), {
+        lastClockInDate: todayDate,
+        lastClockInTime: new Date().toISOString(),
+        lastClockOutDate: null,
+        lastClockOutTime: null
+      });
+      showToastMessage("Clocked in successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      showToastMessage("Failed to clock in to database.", "error");
+    }
   };
 
-  const handleClockOut = () => {
+  const handleClockOut = async () => {
     setClockedIn(false);
     setClockInTime(null);
     setTaskStartTime("");
     setTaskEndTime("");
     setCalculatedDuration("");
-    showToastMessage("Clocked out successfully!", "success");
+    try {
+      const todayDate = new Date().toISOString().split("T")[0];
+      await updateDoc(doc(db, "users", currentUserId), {
+        lastClockOutDate: todayDate,
+        lastClockOutTime: new Date().toISOString()
+      });
+      showToastMessage("Clocked out successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      showToastMessage("Failed to clock out to database.", "error");
+    }
   };
 
   const handleStartTimeChange = (e) => {
