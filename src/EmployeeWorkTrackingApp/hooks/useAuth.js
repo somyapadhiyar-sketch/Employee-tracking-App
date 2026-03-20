@@ -20,19 +20,19 @@ export default function useAuth() {
     const storedAttendance = JSON.parse(localStorage.getItem('attendance')) || {};
     const storedUser = JSON.parse(localStorage.getItem('currentUser'));
     const storedLeaveRequests = JSON.parse(localStorage.getItem('leaveRequests')) || [];
-    
+
     // Load department managers from Data.json if not already in stored employees
     const existingManagerIds = storedEmployees.map(emp => emp.id);
     const newManagers = departmentManagers.filter(manager => !existingManagerIds.includes(manager.id));
-    
+
     // Combine stored employees with department managers from Data.json
     const combinedEmployees = [...newManagers, ...storedEmployees];
-    
+
     // Save combined employees to localStorage
     if (newManagers.length > 0) {
       localStorage.setItem('employees', JSON.stringify(combinedEmployees));
     }
-    
+
     setEmployees(combinedEmployees);
     setPendingRegistrations(storedPending);
     setWorkLogs(storedLogs);
@@ -49,14 +49,14 @@ export default function useAuth() {
     const namePart = email.split('@')[0];
     const parts = namePart.split(/[._-]/);
     if (parts.length >= 2) {
-      return { 
-        firstName: parts[0].charAt(0).toUpperCase() + parts[0].slice(1), 
+      return {
+        firstName: parts[0].charAt(0).toUpperCase() + parts[0].slice(1),
         lastName: parts[1].charAt(0).toUpperCase() + parts[1].slice(1)
       };
     }
-    return { 
-      firstName: namePart.charAt(0).toUpperCase() + namePart.slice(1), 
-      lastName: '' 
+    return {
+      firstName: namePart.charAt(0).toUpperCase() + namePart.slice(1),
+      lastName: ''
     };
   };
 
@@ -68,7 +68,7 @@ export default function useAuth() {
       const admin = ADMIN_CREDENTIALS.find(
         admin => admin.email === email && admin.password === password
       );
-      
+
       if (admin) {
         const user = {
           id: 1,
@@ -87,21 +87,21 @@ export default function useAuth() {
 
     // Manager login
     if (role === 'dept_manager' || role === 'manager') {
-      let user = employees.find(emp => 
-        emp.email === email && 
-        emp.password === password && 
+      let user = employees.find(emp =>
+        emp.email === email &&
+        emp.password === password &&
         (emp.role === 'dept_manager' || emp.role === 'manager') &&
         emp.status === 'approved'
       );
-      
+
       if (!user) {
-        user = pendingRegistrations.find(emp => 
-          emp.email === email && 
-          emp.password === password && 
+        user = pendingRegistrations.find(emp =>
+          emp.email === email &&
+          emp.password === password &&
           (emp.role === 'dept_manager' || emp.role === 'manager') &&
           emp.status === 'pending'
         );
-        
+
         if (user) {
           return { success: false, message: 'Your manager account is pending approval. Please wait for admin approval.' };
         }
@@ -112,14 +112,14 @@ export default function useAuth() {
         localStorage.setItem('currentUser', JSON.stringify(user));
         return { success: true, user };
       }
-      
+
       return { success: false, message: 'Invalid credentials or account not approved yet.' };
     }
 
     // Employee login
-    const user = employees.find(emp => 
-      emp.email === email && 
-      emp.password === password && 
+    const user = employees.find(emp =>
+      emp.email === email &&
+      emp.password === password &&
       emp.role === role &&
       emp.status === 'approved'
     );
@@ -129,7 +129,7 @@ export default function useAuth() {
       localStorage.setItem('currentUser', JSON.stringify(user));
       return { success: true, user };
     }
-    
+
     return { success: false, message: 'Invalid credentials or account not approved yet.' };
   };
 
@@ -137,12 +137,12 @@ export default function useAuth() {
   const register = (userData) => {
     const { email, department, role } = userData;
     const userRole = role || 'employee';
-    
+
     // Check if email exists in employees
     if (employees.find(emp => emp.email === email)) {
       return { success: false, message: 'Email already registered!' };
     }
-    
+
     // Check if email exists in pending
     if (pendingRegistrations.find(emp => emp.email === email)) {
       return { success: false, message: 'Registration already pending approval!' };
@@ -150,8 +150,8 @@ export default function useAuth() {
 
     // Check if a manager already exists for this department
     if (userRole === 'dept_manager' || userRole === 'manager') {
-      const existingManager = employees.find(emp => 
-        emp.department === department && 
+      const existingManager = employees.find(emp =>
+        emp.department === department &&
         (emp.role === 'dept_manager' || emp.role === 'manager') &&
         emp.status === 'approved'
       );
@@ -159,8 +159,8 @@ export default function useAuth() {
         return { success: false, message: 'A manager already exists for this department! Only one manager per department is allowed.' };
       }
 
-      const pendingManager = pendingRegistrations.find(emp => 
-        emp.department === department && 
+      const pendingManager = pendingRegistrations.find(emp =>
+        emp.department === department &&
         (emp.role === 'dept_manager' || emp.role === 'manager')
       );
       if (pendingManager) {
@@ -180,11 +180,11 @@ export default function useAuth() {
     const updatedPending = [...pendingRegistrations, newUser];
     setPendingRegistrations(updatedPending);
     localStorage.setItem('pendingRegistrations', JSON.stringify(updatedPending));
-    
+
     if (role === 'dept_manager' || role === 'manager') {
       return { success: true, message: 'Manager registration submitted! Waiting for admin approval.' };
     }
-    
+
     return { success: true, message: 'Registration submitted! Waiting for approval.' };
   };
 
@@ -198,11 +198,11 @@ export default function useAuth() {
   const approveEmployee = (index) => {
     const emp = pendingRegistrations[index];
     const updatedEmp = { ...emp, status: 'approved' };
-    
+
     const updatedEmployees = [...employees, updatedEmp];
     setEmployees(updatedEmployees);
     localStorage.setItem('employees', JSON.stringify(updatedEmployees));
-    
+
     const updatedPending = pendingRegistrations.filter((_, i) => i !== index);
     setPendingRegistrations(updatedPending);
     localStorage.setItem('pendingRegistrations', JSON.stringify(updatedPending));
@@ -218,7 +218,7 @@ export default function useAuth() {
   // Update user
   const updateUser = (updatedUser) => {
     setCurrentUser(updatedUser);
-    const updatedEmployees = employees.map(emp => 
+    const updatedEmployees = employees.map(emp =>
       emp.id === updatedUser.id ? updatedUser : emp
     );
     setEmployees(updatedEmployees);
@@ -235,7 +235,7 @@ export default function useAuth() {
   // Update attendance
   const updateAttendance = (employeeId, status) => {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const updatedAttendance = {
       ...attendance,
       [today]: {
@@ -257,11 +257,11 @@ export default function useAuth() {
   const getApprovedManagers = () => employees.filter(emp => (emp.role === 'dept_manager' || emp.role === 'manager') && emp.status === 'approved');
 
   // Get employees by department
-  const getEmployeesByDepartment = (dept) => 
+  const getEmployeesByDepartment = (dept) =>
     employees.filter(emp => emp.department === dept && emp.status === 'approved');
 
   // Get pending for department
-  const getPendingForDepartment = (dept) => 
+  const getPendingForDepartment = (dept) =>
     pendingRegistrations.filter(emp => emp.department === dept);
 
   // Get pending managers
@@ -276,7 +276,7 @@ export default function useAuth() {
   // Delete an employee (Admin can delete anyone, Manager can only delete employees in their department)
   const deleteEmployee = (employeeId, requestingUser) => {
     const employee = employees.find(emp => emp.id === employeeId);
-    
+
     if (!employee) {
       return { success: false, message: 'Employee not found!' };
     }
@@ -326,7 +326,7 @@ export default function useAuth() {
 
   // Approve leave request
   const approveLeaveRequest = (requestId) => {
-    const updatedRequests = leaveRequests.map(req => 
+    const updatedRequests = leaveRequests.map(req =>
       req.id === requestId ? { ...req, status: 'approved', respondedAt: new Date().toISOString() } : req
     );
     setLeaveRequests(updatedRequests);
@@ -335,7 +335,7 @@ export default function useAuth() {
 
   // Reject leave request
   const rejectLeaveRequest = (requestId) => {
-    const updatedRequests = leaveRequests.map(req => 
+    const updatedRequests = leaveRequests.map(req =>
       req.id === requestId ? { ...req, status: 'rejected', respondedAt: new Date().toISOString() } : req
     );
     setLeaveRequests(updatedRequests);
@@ -349,23 +349,23 @@ export default function useAuth() {
   const getPendingLeaveRequests = () => leaveRequests.filter(req => req.status === 'pending');
 
   // Get leave requests for a specific department (for manager)
-  const getLeaveRequestsForDepartment = (dept) => 
+  const getLeaveRequestsForDepartment = (dept) =>
     leaveRequests.filter(req => req.department === dept);
 
   // Get pending leave requests for a department
-  const getPendingLeaveForDepartment = (dept) => 
+  const getPendingLeaveForDepartment = (dept) =>
     leaveRequests.filter(req => req.department === dept && req.status === 'pending');
 
   // Get leave requests submitted by a specific employee
-  const getLeaveRequestsByEmployee = (employeeId) => 
+  const getLeaveRequestsByEmployee = (employeeId) =>
     leaveRequests.filter(req => req.employeeId === employeeId);
 
   // Get employees on leave today
   const getEmployeesOnLeave = () => {
     const today = new Date().toISOString().split('T')[0];
-    return leaveRequests.filter(req => 
-      req.status === 'approved' && 
-      req.startDate <= today && 
+    return leaveRequests.filter(req =>
+      req.status === 'approved' &&
+      req.startDate <= today &&
       req.endDate >= today
     );
   };

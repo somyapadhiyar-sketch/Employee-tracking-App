@@ -713,7 +713,7 @@ export default function AdminDashboard() {
                             className={`font-bold text-lg ${isDark ? "text-white" : "text-gray-800"
                               }`}
                           >
-                            {getDepartmentManager(selectedDepartment).firstName}
+                            {getDepartmentManager(selectedDepartment).firstName} {getDepartmentManager(selectedDepartment).lastName}
                           </p>
                           <p
                             className={
@@ -726,6 +726,53 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {getDepartmentEmployees(selectedDepartment)?.length > 0 && (
+                  <div
+                    className={`rounded-2xl p-6 shadow-lg border ${isDark
+                      ? "bg-gray-800 border-gray-700"
+                      : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"
+                      }`}
+                  >
+                    <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center">
+                      <i className="fas fa-users mr-2"></i> Department Employees ({getDepartmentEmployees(selectedDepartment).length})
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {getDepartmentEmployees(selectedDepartment).map((emp) => (
+                        <div
+                          key={emp.id}
+                          className={`flex items-center p-4 rounded-xl border relative ${isDark
+                            ? "bg-gray-700 border-gray-600"
+                            : "bg-white/50 border-blue-100"
+                            }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                              {emp.firstName[0]}
+                            </div>
+                            <div>
+                              <p
+                                className={`font-bold text-lg ${isDark ? "text-white" : "text-gray-800"
+                                  }`}
+                              >
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              <p
+                                className={
+                                  isDark
+                                    ? "text-gray-400 text-sm"
+                                    : "text-gray-500 text-sm"
+                                }
+                              >
+                                {emp.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

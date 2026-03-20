@@ -20,6 +20,7 @@ export default function EmployeeDashboard() {
   const { isDark, toggleTheme } = useTheme();
 
   const [currentSection, setCurrentSection] = useState("workLog");
+  const [reportFilter, setReportFilter] = useState("daily");
   const [workType, setWorkType] = useState(null);
   const [clockedIn, setClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState(null);
@@ -173,9 +174,23 @@ export default function EmployeeDashboard() {
   const currentUserId = user?.uid || user?.id;
   const today = new Date().toISOString().split("T")[0];
 
-  const myWorkLogs = allWorkLogs.filter(
-    (log) => log.employeeId === currentUserId && log.date === today
-  );
+  const filteredWorkLogs = allWorkLogs.filter((log) => {
+    if (log.employeeId !== currentUserId) return false;
+
+    const todayObj = new Date();
+    const logDateObj = new Date(log.date);
+
+    if (reportFilter === "daily") {
+      return log.date === today;
+    } else if (reportFilter === "weekly") {
+      const diffTime = Math.abs(todayObj - logDateObj);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    } else if (reportFilter === "monthly") {
+      return logDateObj.getMonth() === todayObj.getMonth() && logDateObj.getFullYear() === todayObj.getFullYear();
+    }
+    return true;
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const myLeaveRequests = allLeaveRequests.filter(
     (req) => req.employeeId === currentUserId
@@ -358,18 +373,16 @@ export default function EmployeeDashboard() {
           >
             {/* Welcome & Clock */}
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
                   ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
                   : "bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 border-blue-100"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h1
-                    className={`text-3xl font-bold ${
-                      isDark ? "text-white" : "text-gray-800"
-                    }`}
+                    className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                      }`}
                   >
                     Log Your Work
                   </h1>
@@ -434,16 +447,14 @@ export default function EmployeeDashboard() {
             </motion.div> */}
             {/* Work Type Selection */}
             <motion.div
-              className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${
-                isDark
+              className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
-              }`}
+                }`}
             >
               <h2
-                className={`text-xl font-bold mb-6 ${
-                  isDark ? "text-white" : "text-gray-800"
-                }`}
+                className={`text-xl font-bold mb-6 ${isDark ? "text-white" : "text-gray-800"
+                  }`}
               >
                 Select Work Type
               </h2>
@@ -453,34 +464,30 @@ export default function EmployeeDashboard() {
                 <button
                   type="button"
                   onClick={() => selectWorkType("office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${
-                    workType === "office"
+                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
                       ? "border-blue-500 bg-blue-50/50 shadow-sm"
                       : isDark
-                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                      : "border-gray-100 hover:border-blue-100 hover:shadow-sm bg-white"
-                  }`}
+                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                        : "border-gray-100 hover:border-blue-100 hover:shadow-sm bg-white"
+                    }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
-                      workType === "office"
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "office"
                         ? "bg-blue-600 shadow-md"
                         : "bg-blue-500"
-                    }`}
+                      }`}
                   >
                     <i className="fas fa-briefcase text-white text-2xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${
-                      isDark ? "text-white" : "text-gray-800"
-                    }`}
+                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                      }`}
                   >
                     Office Work
                   </p>
                   <p
-                    className={`text-sm ${
-                      isDark ? "text-gray-400" : "text-gray-500"
-                    }`}
+                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
                   >
                     Work done in office
                   </p>
@@ -490,34 +497,30 @@ export default function EmployeeDashboard() {
                 <button
                   type="button"
                   onClick={() => selectWorkType("non_office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${
-                    workType === "non_office"
+                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
                       ? "border-purple-500 bg-purple-50/50 shadow-sm"
                       : isDark
-                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                      : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
-                  }`}
+                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                        : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
+                    }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
-                      workType === "non_office"
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "non_office"
                         ? "bg-purple-600 shadow-md"
                         : "bg-purple-500"
-                    }`}
+                      }`}
                   >
                     <i className="fas fa-laptop text-white text-2xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${
-                      isDark ? "text-white" : "text-gray-800"
-                    }`}
+                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                      }`}
                   >
                     Non-Office Work
                   </p>
                   <p
-                    className={`text-sm ${
-                      isDark ? "text-gray-400" : "text-gray-500"
-                    }`}
+                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
                   >
                     Remote work
                   </p>
@@ -527,21 +530,19 @@ export default function EmployeeDashboard() {
               {/* Selected Status Text */}
               <div className="mt-6 flex items-center">
                 <p
-                  className={`text-sm ${
-                    isDark ? "text-gray-400" : "text-gray-500"
-                  }`}
+                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                    }`}
                 >
                   Selected:{" "}
                   <span
-                    className={`font-bold ml-1 ${
-                      isDark ? "text-white" : "text-gray-900"
-                    }`}
+                    className={`font-bold ml-1 ${isDark ? "text-white" : "text-gray-900"
+                      }`}
                   >
                     {workType === "office"
                       ? "Office Work"
                       : workType === "non_office"
-                      ? "Non-Office Work"
-                      : "None"}
+                        ? "Non-Office Work"
+                        : "None"}
                   </span>
                 </p>
               </div>
@@ -549,25 +550,22 @@ export default function EmployeeDashboard() {
 
             {/* Add Work Entry Form */}
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
-              }`}
+                }`}
             >
               <h2
-                className={`text-xl font-bold mb-4 ${
-                  isDark ? "text-white" : "text-gray-800"
-                }`}
+                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
+                  }`}
               >
                 Add Work Entry
               </h2>
               <form onSubmit={handleWorkLog} className="space-y-4">
                 <div>
                   <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Work Description
                   </label>
@@ -575,20 +573,18 @@ export default function EmployeeDashboard() {
                     name="description"
                     rows="4"
                     required
-                    className={`w-full px-4 py-3 border-2 rounded-xl ${
-                      isDark
+                    className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
                         ? "bg-gray-700 border-gray-600 text-white"
                         : "border-gray-200"
-                    }`}
+                      }`}
                     placeholder="Describe your work..."
                   ></textarea>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       Task Start Time
                     </label>
@@ -598,11 +594,10 @@ export default function EmployeeDashboard() {
                         value={taskStartTime}
                         onChange={handleStartTimeChange}
                         required
-                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${
-                          isDark
+                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
                             ? "bg-gray-700 border-gray-600 text-white"
                             : "border-gray-200"
-                        }`}
+                          }`}
                       />
                       <button
                         type="button"
@@ -615,9 +610,8 @@ export default function EmployeeDashboard() {
                   </div>
                   <div>
                     <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       Task Complete Time
                     </label>
@@ -627,11 +621,10 @@ export default function EmployeeDashboard() {
                         value={taskEndTime}
                         onChange={handleEndTimeChange}
                         required
-                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${
-                          isDark
+                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
                             ? "bg-gray-700 border-gray-600 text-white"
                             : "border-gray-200"
-                        }`}
+                          }`}
                       />
                       <button
                         type="button"
@@ -644,9 +637,8 @@ export default function EmployeeDashboard() {
                   </div>
                   <div>
                     <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       Time Taken
                     </label>
@@ -673,62 +665,77 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
-            >
-              My Reports
-            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h1
+                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  }`}
+              >
+                My Reports
+              </h1>
+              <div className={`p-1 flex rounded-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                <button
+                  onClick={() => setReportFilter('daily')}
+                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'daily' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setReportFilter('weekly')}
+                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'weekly' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setReportFilter('monthly')}
+                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'monthly' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
             <div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
-              }`}
+                }`}
             >
               <h2
-                className={`text-xl font-bold mb-4 ${
-                  isDark ? "text-white" : "text-gray-800"
-                }`}
-              >
-                Today's Work History
-              </h2>
-              {myWorkLogs.length === 0 ? (
-                <p
-                  className={`text-center py-8 ${
-                    isDark ? "text-gray-400" : "text-gray-500"
+                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
                   }`}
+              >
+                {reportFilter === 'daily' ? "Today's Work History" : reportFilter === 'weekly' ? "Last 7 Days Work History" : "This Month's Work History"}
+              </h2>
+              {filteredWorkLogs.length === 0 ? (
+                <p
+                  className={`text-center py-8 ${isDark ? "text-gray-400" : "text-gray-500"
+                    }`}
                 >
-                  No work entries today
+                  No work entries found for this period.
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {myWorkLogs.map((log) => (
+                  {filteredWorkLogs.map((log) => (
                     <div
                       key={log.id}
-                      className={`p-4 rounded-xl border ${
-                        isDark
+                      className={`p-4 rounded-xl border ${isDark
                           ? "bg-gray-700 border-gray-600"
                           : "bg-gray-50 border-gray-200"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span
-                          className={`font-bold ${
-                            isDark ? "text-white" : "text-gray-800"
-                          }`}
+                          className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                            }`}
                         >
-                          {WORK_TYPES?.[log.workType]?.name || log.workType}
+                          {WORK_TYPES?.[log.workType]?.name || log.workType} <span className="text-sm font-normal text-gray-400 ml-2">({log.date})</span>
                         </span>
                         <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                           {log.duration}
                         </span>
                       </div>
                       <p
-                        className={`text-sm mb-2 ${
-                          isDark ? "text-gray-400" : "text-gray-500"
-                        }`}
+                        className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                          }`}
                       >
                         <i className="fas fa-clock mr-1"></i>
                         {log.taskStartTime} - {log.taskEndTime}
@@ -752,9 +759,8 @@ export default function EmployeeDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               Leave Requests
             </h1>
@@ -767,20 +773,18 @@ export default function EmployeeDashboard() {
                 return (
                   <div
                     key={type}
-                    className={`rounded-2xl p-6 shadow-lg border ${
-                      isDark
+                    className={`rounded-2xl p-6 shadow-lg border ${isDark
                         ? "bg-gray-800 border-gray-700"
                         : "bg-white border-gray-100"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                            type === "sick"
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${type === "sick"
                               ? "bg-gradient-to-br from-rose-400 to-red-500"
                               : "bg-gradient-to-br from-blue-400 to-cyan-500"
-                          }`}
+                            }`}
                         >
                           <i
                             className={`fas ${data.icon} text-white text-xl`}
@@ -788,9 +792,8 @@ export default function EmployeeDashboard() {
                         </div>
                         <div>
                           <h3
-                            className={`font-bold ${
-                              isDark ? "text-white" : "text-gray-800"
-                            }`}
+                            className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                              }`}
                           >
                             {data.name}
                           </h3>
@@ -807,9 +810,8 @@ export default function EmployeeDashboard() {
                       </div>
                       <div className="text-right">
                         <p
-                          className={`text-3xl font-bold ${
-                            remaining > 0 ? "text-emerald-500" : "text-rose-500"
-                          }`}
+                          className={`text-3xl font-bold ${remaining > 0 ? "text-emerald-500" : "text-rose-500"
+                            }`}
                         >
                           {remaining}
                         </p>
@@ -825,23 +827,20 @@ export default function EmployeeDashboard() {
                       </div>
                     </div>
                     <div
-                      className={`h-3 rounded-full ${
-                        isDark ? "bg-gray-700" : "bg-gray-200"
-                      }`}
+                      className={`h-3 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-200"
+                        }`}
                     >
                       <div
-                        className={`h-3 rounded-full ${
-                          type === "sick"
+                        className={`h-3 rounded-full ${type === "sick"
                             ? "bg-gradient-to-r from-rose-400 to-red-500"
                             : "bg-gradient-to-r from-blue-400 to-cyan-500"
-                        }`}
+                          }`}
                         style={{ width: `${(used / data.total) * 100}%` }}
                       ></div>
                     </div>
                     <p
-                      className={`text-sm mt-2 ${
-                        isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
+                      className={`text-sm mt-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
                     >
                       Used: {used} / {data.total}
                     </p>
@@ -852,25 +851,22 @@ export default function EmployeeDashboard() {
 
             {/* Request Form */}
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
-              }`}
+                }`}
             >
               <h2
-                className={`text-xl font-bold mb-4 ${
-                  isDark ? "text-white" : "text-gray-800"
-                }`}
+                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
+                  }`}
               >
                 Submit Leave Request
               </h2>
               <form onSubmit={handleSubmitLeaveRequest} className="space-y-4">
                 <div>
                   <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Leave Type
                   </label>
@@ -883,42 +879,37 @@ export default function EmployeeDashboard() {
                           type="button"
                           onClick={() => setLeaveType(type)}
                           disabled={!isAvailable}
-                          className={`p-4 rounded-xl border-2 text-left transition ${
-                            leaveType === type
+                          className={`p-4 rounded-xl border-2 text-left transition ${leaveType === type
                               ? type === "sick"
                                 ? "border-rose-500 bg-rose-50"
                                 : "border-blue-500 bg-blue-50"
                               : isDark
-                              ? "border-gray-600 bg-gray-700"
-                              : "border-gray-200"
-                          } ${
-                            !isAvailable ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
+                                ? "border-gray-600 bg-gray-700"
+                                : "border-gray-200"
+                            } ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                type === "sick"
+                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${type === "sick"
                                   ? "bg-gradient-to-br from-rose-400 to-red-500"
                                   : "bg-gradient-to-br from-blue-400 to-cyan-500"
-                              }`}
+                                }`}
                             >
                               <i className={`fas ${data.icon} text-white`}></i>
                             </div>
                             <div>
                               <p
-                                className={`font-bold ${
-                                  isDark ? "text-white" : "text-gray-800"
-                                }`}
+                                className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                                  }`}
                               >
                                 {data.name}
                               </p>
                               <p
-                                className={`text-sm ${
-                                  isAvailable
+                                className={`text-sm ${isAvailable
                                     ? "text-emerald-500"
                                     : "text-rose-500"
-                                }`}
+                                  }`}
                               >
                                 {data.total - getUsedLeaves(type)} available
                               </p>
@@ -932,9 +923,8 @@ export default function EmployeeDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       Start Date
                     </label>
@@ -943,18 +933,16 @@ export default function EmployeeDashboard() {
                       value={leaveStartDate}
                       onChange={(e) => setLeaveStartDate(e.target.value)}
                       required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${
-                        isDark
+                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
                           ? "bg-gray-700 border-gray-600 text-white"
                           : "border-gray-200"
-                      }`}
+                        }`}
                     />
                   </div>
                   <div>
                     <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-gray-300" : "text-gray-700"
-                      }`}
+                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
                     >
                       End Date
                     </label>
@@ -963,19 +951,17 @@ export default function EmployeeDashboard() {
                       value={leaveEndDate}
                       onChange={(e) => setLeaveEndDate(e.target.value)}
                       required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${
-                        isDark
+                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
                           ? "bg-gray-700 border-gray-600 text-white"
                           : "border-gray-200"
-                      }`}
+                        }`}
                     />
                   </div>
                 </div>
                 <div>
                   <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-gray-300" : "text-gray-700"
-                    }`}
+                    className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                      }`}
                   >
                     Reason
                   </label>
@@ -984,11 +970,10 @@ export default function EmployeeDashboard() {
                     onChange={(e) => setLeaveReason(e.target.value)}
                     rows="3"
                     required
-                    className={`w-full px-4 py-3 border-2 rounded-xl ${
-                      isDark
+                    className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
                         ? "bg-gray-700 border-gray-600 text-white"
                         : "border-gray-200"
-                    }`}
+                      }`}
                     placeholder="Enter reason for leave..."
                   ></textarea>
                 </div>
@@ -1003,53 +988,48 @@ export default function EmployeeDashboard() {
 
             {/* Leave History */}
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${
-                isDark
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
-              }`}
+                }`}
             >
               <h2
-                className={`text-xl font-bold mb-4 ${
-                  isDark ? "text-white" : "text-gray-800"
-                }`}
+                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
+                  }`}
               >
                 Leave History
               </h2>
               <div className="flex gap-3 mb-4">
                 <button
                   onClick={() => setLeaveFilter("all")}
-                  className={`px-4 py-2 rounded-xl ${
-                    leaveFilter === "all"
+                  className={`px-4 py-2 rounded-xl ${leaveFilter === "all"
                       ? "bg-blue-500 text-white"
                       : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
+                        ? "bg-gray-700 text-gray-200"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
                 >
                   All ({myLeaveRequests.length})
                 </button>
                 <button
                   onClick={() => setLeaveFilter("pending")}
-                  className={`px-4 py-2 rounded-xl ${
-                    leaveFilter === "pending"
+                  className={`px-4 py-2 rounded-xl ${leaveFilter === "pending"
                       ? "bg-amber-500 text-white"
                       : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
+                        ? "bg-gray-700 text-gray-200"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
                 >
                   Pending ({myPendingLeaveRequests.length})
                 </button>
                 <button
                   onClick={() => setLeaveFilter("approved")}
-                  className={`px-4 py-2 rounded-xl ${
-                    leaveFilter === "approved"
+                  className={`px-4 py-2 rounded-xl ${leaveFilter === "approved"
                       ? "bg-emerald-500 text-white"
                       : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
+                        ? "bg-gray-700 text-gray-200"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
                 >
                   Approved ({myApprovedLeaveRequests.length})
                 </button>
@@ -1058,41 +1038,37 @@ export default function EmployeeDashboard() {
                 {(leaveFilter === "all"
                   ? myLeaveRequests
                   : leaveFilter === "pending"
-                  ? myPendingLeaveRequests
-                  : myApprovedLeaveRequests
+                    ? myPendingLeaveRequests
+                    : myApprovedLeaveRequests
                 ).map((req) => (
                   <div
                     key={req.id}
-                    className={`p-4 rounded-xl ${
-                      isDark ? "bg-gray-700" : "bg-gray-50"
-                    }`}
+                    className={`p-4 rounded-xl ${isDark ? "bg-gray-700" : "bg-gray-50"
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span
-                        className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                          req.leaveType === "sick"
+                        className={`px-2 py-1 rounded-lg text-xs font-medium ${req.leaveType === "sick"
                             ? "bg-rose-100 text-rose-700"
                             : "bg-blue-100 text-blue-700"
-                        }`}
+                          }`}
                       >
                         {LEAVE_BALANCE[req.leaveType]?.name}
                       </span>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs ${
-                          req.status === "pending"
+                        className={`px-3 py-1 rounded-full text-xs ${req.status === "pending"
                             ? "bg-amber-100 text-amber-700"
                             : req.status === "approved"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
-                        }`}
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-rose-100 text-rose-700"
+                          }`}
                       >
                         {req.status}
                       </span>
                     </div>
                     <p
-                      className={`font-bold ${
-                        isDark ? "text-white" : "text-gray-800"
-                      }`}
+                      className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                        }`}
                     >
                       {req.startDate} - {req.endDate}
                     </p>
@@ -1127,9 +1103,8 @@ export default function EmployeeDashboard() {
             initial={{ opacity: 0, x: 100, scale: 0.8 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.8 }}
-            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
-              toast.type === "success" ? "bg-green-600" : "bg-red-600"
-            } text-white`}
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+              } text-white`}
           >
             {toast.message}
           </motion.div>
@@ -1137,18 +1112,16 @@ export default function EmployeeDashboard() {
       </AnimatePresence>
 
       <div
-        className={`flex min-h-screen ${
-          isDark
+        className={`flex min-h-screen ${isDark
             ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
             : "bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50"
-        }`}
+          }`}
       >
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto ${
-            isDark
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto ${isDark
               ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
               : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
-          }`}
+            }`}
           style={{
             display:
               isSidebarOpen || window.innerWidth >= 1024 ? "flex" : "none",
@@ -1161,16 +1134,14 @@ export default function EmployeeDashboard() {
               </span>
             </div>
             <h2
-              className={`font-bold text-xl ${
-                isDark ? "text-white" : "text-gray-800"
-              }`}
+              className={`font-bold text-xl ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               {user?.firstName} {user?.lastName}
             </h2>
             <p
-              className={`text-sm font-medium ${
-                isDark ? "text-cyan-400" : "text-blue-600"
-              }`}
+              className={`text-sm font-medium ${isDark ? "text-cyan-400" : "text-blue-600"
+                }`}
             >
               {DEPARTMENTS?.[user?.department]?.name}
             </p>
@@ -1179,41 +1150,37 @@ export default function EmployeeDashboard() {
           <nav className="flex-1 space-y-2 px-2 overflow-y-auto">
             <button
               onClick={() => setCurrentSection("workLog")}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${
-                currentSection === "workLog"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "workLog"
                   ? "bg-blue-500 text-white"
                   : "hover:bg-blue-50 text-gray-700"
-              }`}
+                }`}
             >
               <i className="fas fa-clock w-5"></i> Log Work
             </button>
             <button
               onClick={() => setCurrentSection("myReports")}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${
-                currentSection === "myReports"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myReports"
                   ? "bg-blue-500 text-white"
                   : "hover:bg-blue-50 text-gray-700"
-              }`}
+                }`}
             >
               <i className="fas fa-file-alt w-5"></i> My Reports
             </button>
             <button
               onClick={() => setCurrentSection("leave")}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${
-                currentSection === "leave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
                   ? "bg-blue-500 text-white"
                   : "hover:bg-blue-50 text-gray-700"
-              }`}
+                }`}
             >
               <i className="fas fa-calendar-minus w-5"></i> Leave Requests
             </button>
             <button
               onClick={() => setCurrentSection("profile")}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${
-                currentSection === "profile"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "profile"
                   ? "bg-blue-500 text-white"
                   : "hover:bg-blue-50 text-gray-700"
-              }`}
+                }`}
             >
               <i className="fas fa-user-circle w-5"></i> My Profile
             </button>

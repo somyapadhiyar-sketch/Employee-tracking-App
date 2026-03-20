@@ -41,10 +41,14 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
       const userData = userDoc.data();
 
       // 3. Verify Role and Status
-      if (userData.role !== role && userData.role !== "admin") {
+      const isEmployeeMatch = role === "employee" && userData.role === "employee";
+      const isManagerMatch = role === "dept_manager" && (userData.role === "dept_manager" || userData.role === "manager");
+      const isAdminMatch = role === "admin" && userData.role === "admin";
+
+      if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
         await signOut(auth);
         setError(
-          `You are not authorized to log in as a ${role.replace("_", " ")}.`
+          `You are not authorized to log in as a ${role === "dept_manager" ? "manager" : role}. Please select the correct login role.`
         );
         setLoading(false);
         return;

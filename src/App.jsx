@@ -53,8 +53,8 @@ function EmployeeWorkTrackingApp() {
       userData.role === "admin"
         ? "/admin"
         : userData.role === "employee"
-        ? "/employee"
-        : "/manager";
+          ? "/employee"
+          : "/manager";
 
     navigate(dashboardPath);
     showToast("Login successful!", "success");
@@ -75,13 +75,12 @@ function EmployeeWorkTrackingApp() {
     <div className="min-h-screen">
       {toast && (
         <div
-          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
-            toast.type === "success"
+          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success"
               ? "bg-green-600"
               : toast.type === "error"
-              ? "bg-red-600"
-              : "bg-blue-600"
-          } text-white animate-pulse`}
+                ? "bg-red-600"
+                : "bg-blue-600"
+            } text-white animate-pulse`}
         >
           {toast.message}
         </div>
