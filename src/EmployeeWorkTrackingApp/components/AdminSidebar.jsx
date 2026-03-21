@@ -18,6 +18,7 @@ export default function AdminSidebar({
   const { isDark, toggleTheme } = useTheme();
 
   const [isMenuVisible, setIsMenuVisible] = useState(true);
+  const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const menuTimeoutRef = useRef(null);
 
   // Show menu after 1 second when cursor is in top-left area
@@ -197,6 +198,7 @@ export default function AdminSidebar({
         >
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
+            onClick={() => user?.profileImage && setIsFullScreenImage(true)}
             className={`w-20 h-20 sm:w-24 sm:h-24 ${user?.profileImage ? '' : 'bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-2xl border-4 border-white cursor-pointer overflow-hidden`}
           >
             {user?.profileImage ? (
@@ -301,6 +303,34 @@ export default function AdminSidebar({
       </motion.div>
 
       {/* Profile Modal */}
+
+      {/* Full Screen Image Modal */}
+      <AnimatePresence>
+        {isFullScreenImage && user?.profileImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 sm:p-8 backdrop-blur-sm"
+          >
+            <button
+              onClick={() => setIsFullScreenImage(false)}
+              className="absolute top-4 right-4 sm:top-8 sm:right-8 z-[110] w-12 h-12 bg-white/10 hover:bg-red-500/80 rounded-full flex items-center justify-center text-white transition-all shadow-lg"
+            >
+              <i className="fas fa-times text-2xl"></i>
+            </button>
+            <motion.img
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              src={user.profileImage}
+              alt="Profile Full Screen"
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

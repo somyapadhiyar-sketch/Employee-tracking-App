@@ -70,8 +70,8 @@ export default function ProfilePage() {
         img.onload = async () => {
           // Create canvas to compress image
           const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 250;
-          const MAX_HEIGHT = 250;
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
 
@@ -93,7 +93,7 @@ export default function ProfilePage() {
           ctx.drawImage(img, 0, 0, width, height);
 
           // Get highly compressed Base64 JPEG
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
           setFormData((prev) => ({ ...prev, profileImage: compressedDataUrl }));
 

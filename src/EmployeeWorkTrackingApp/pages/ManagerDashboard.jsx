@@ -38,6 +38,7 @@ export default function ManagerDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
   );
+  const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
 
@@ -1816,7 +1817,10 @@ export default function ManagerDashboard() {
           }}
         >
           <div className="text-center mb-8 pt-2">
-            <div className={`w-24 h-24 ${user?.profileImage ? '' : 'bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white overflow-hidden`}>
+            <div
+              onClick={() => user?.profileImage && setIsFullScreenImage(true)}
+              className={`w-24 h-24 ${user?.profileImage ? 'cursor-pointer hover:scale-105 transition-transform' : 'bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white overflow-hidden`}
+            >
               {user?.profileImage ? (
                 <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
               ) : (
@@ -1954,6 +1958,33 @@ export default function ManagerDashboard() {
           selectedEmployee ? getEmployeeWorkLogs(selectedEmployee.id) : []
         }
       />
+
+      <AnimatePresence>
+        {isFullScreenImage && user?.profileImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 sm:p-8 backdrop-blur-sm"
+          >
+            <button
+              onClick={() => setIsFullScreenImage(false)}
+              className="absolute top-4 right-4 sm:top-8 sm:right-8 z-[110] w-12 h-12 bg-white/10 hover:bg-red-500/80 rounded-full flex items-center justify-center text-white transition-all shadow-lg"
+            >
+              <i className="fas fa-times text-2xl"></i>
+            </button>
+            <motion.img
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              src={user.profileImage}
+              alt="Profile Full Screen"
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
