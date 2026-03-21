@@ -197,11 +197,15 @@ export default function AdminSidebar({
         >
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
-            className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-2xl border-4 border-white cursor-pointer"
+            className={`w-20 h-20 sm:w-24 sm:h-24 ${user?.profileImage ? '' : 'bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-2xl border-4 border-white cursor-pointer overflow-hidden`}
           >
-            <span className="text-3xl sm:text-4xl font-bold text-white">
-              {userInitial}
-            </span>
+            {user?.profileImage ? (
+              <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-3xl sm:text-4xl font-bold text-white">
+                {userInitial}
+              </span>
+            )}
           </motion.div>
           <h2
             className={`font-bold text-xl sm:text-2xl ${

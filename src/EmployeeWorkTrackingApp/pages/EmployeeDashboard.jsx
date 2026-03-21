@@ -1128,10 +1128,14 @@ export default function EmployeeDashboard() {
           }}
         >
           <div className="text-center mb-8 pt-2">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-400 via-cyan-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-              <span className="text-3xl font-bold text-white">
-                {user?.firstName?.[0] || "E"}
-              </span>
+            <div className={`w-20 h-20 ${user?.profileImage ? '' : 'bg-gradient-to-br from-blue-400 via-cyan-500 to-teal-600'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg overflow-hidden`}>
+              {user?.profileImage ? (
+                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-white">
+                  {user?.firstName?.[0] || "E"}
+                </span>
+              )}
             </div>
             <h2
               className={`font-bold text-xl ${isDark ? "text-white" : "text-gray-800"

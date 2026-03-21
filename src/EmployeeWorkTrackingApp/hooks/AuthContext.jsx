@@ -58,11 +58,17 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Update user locally
+  const updateUser = (updatedData) => {
+    setCurrentUser(prevUser => ({ ...prevUser, ...updatedData }));
+  };
+
   // The values we want to provide to the rest of the app
   const value = {
     currentUser,
     loading,
     logout,
+    updateUser,
   };
 
   return (

@@ -1816,10 +1816,14 @@ export default function ManagerDashboard() {
           }}
         >
           <div className="text-center mb-8 pt-2">
-            <div className="w-24 h-24 bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white">
-              <span className="text-4xl font-bold text-white">
-                {userInitial}
-              </span>
+            <div className={`w-24 h-24 ${user?.profileImage ? '' : 'bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white overflow-hidden`}>
+              {user?.profileImage ? (
+                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-4xl font-bold text-white">
+                  {userInitial}
+                </span>
+              )}
             </div>
             <h2
               className={`font-bold text-xl ${isDark ? "text-white" : "text-gray-800"
