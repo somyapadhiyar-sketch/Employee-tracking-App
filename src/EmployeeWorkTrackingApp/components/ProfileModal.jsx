@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../context/ThemeContext";
-import { DEPARTMENTS } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 
 export function ProfileCard({
   user,
@@ -12,6 +12,7 @@ export function ProfileCard({
 }) {
 
   const { isDark } = useTheme();
+  const { departmentsMap } = useDepartments();
 
   const getRoleLabel = () => {
     switch (role) {
@@ -159,7 +160,7 @@ export function ProfileCard({
               icon="fa-building"
               label="Department"
               value={
-                DEPARTMENTS[user.department]?.name || 
+                departmentsMap[user.department]?.name ||
                 user.department.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
               }
               colorClass="amber"
@@ -268,7 +269,7 @@ export function ProfileCard({
   );
 }
 
-export default function ProfileModal(props) {
+export default function ProfileModal({ isSidebarOpen = false, ...props }) {
   if (!props.isOpen) return null;
 
   return (
@@ -277,7 +278,7 @@ export default function ProfileModal(props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        className={`fixed top-0 right-0 bottom-0 ${isSidebarOpen ? "left-0 lg:left-72" : "left-0"} bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300`}
         onClick={props.onClose}
       >
         <ProfileCard {...props} />

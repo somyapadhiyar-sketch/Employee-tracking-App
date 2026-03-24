@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import useAuth from "../hooks/useAuth";
-import { DEPARTMENTS } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 import {
   Edit2,
   Save,
@@ -23,6 +23,7 @@ export default function ProfilePage() {
   const auth = contextAuth || fallbackAuth;
   const user = auth.currentUser;
   const { isDark } = useTheme();
+  const { departmentsMap } = useDepartments();
 
   const [editMode, setEditMode] = useState(false);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
@@ -164,7 +165,7 @@ export default function ProfilePage() {
 
       // 2. Update Local Context
       console.log("🔄 Attempting to update local auth state...");
-      if (auth && typeof auth.updateUser === 'function') {
+      if (auth && typeof auth.updateUser === "function") {
         // If your updateUser function is asynchronous, you might need to add 'await' here
         auth.updateUser({ ...user, profileImage: "" });
         console.log("✅ Local auth state updated!");
@@ -177,7 +178,6 @@ export default function ProfilePage() {
         text: "Profile image removed successfully!",
         type: "success",
       });
-
     } catch (error) {
       // 4. Catch and log the EXACT error
       console.error("🔍 EXACT ERROR causing the failure message:", error);
@@ -292,15 +292,17 @@ export default function ProfilePage() {
   }
 
   // Common input styling for edit mode
-  const inputClassName = `w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none transition-all ${isDark
-    ? "bg-gray-800 border-gray-700 text-white focus:border-indigo-500 focus:bg-gray-700"
-    : "bg-gray-50 border-gray-200 text-gray-900 focus:border-indigo-500 focus:bg-white"
-    }`;
+  const inputClassName = `w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none transition-all ${
+    isDark
+      ? "bg-gray-800 border-gray-700 text-white focus:border-indigo-500 focus:bg-gray-700"
+      : "bg-gray-50 border-gray-200 text-gray-900 focus:border-indigo-500 focus:bg-white"
+  }`;
 
   return (
-    <div
-      className={`min-h-full p-6 md:p-8 lg:p-10 font-sans transition-colors duration-300 ${isDark ? "bg-gray-900" : "bg-[#F8F9FA]"
-        }`}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 font-sans transition-colors duration-300"
     >
       {/* Toast Message Notification */}
       <AnimatePresence>
@@ -309,10 +311,11 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-6 right-8 left-8 md:left-auto md:w-96 z-50 p-4 rounded-xl shadow-lg border flex items-center gap-3 font-medium ${message.type === "success"
-              ? "bg-white text-emerald-600 border-emerald-100 dark:bg-gray-800 dark:text-emerald-400 dark:border-emerald-900/30"
-              : "bg-white text-rose-600 border-rose-100 dark:bg-gray-800 dark:text-rose-400 dark:border-rose-900/30"
-              }`}
+            className={`fixed top-6 right-8 left-8 md:left-auto md:w-96 z-50 p-4 rounded-xl shadow-lg border flex items-center gap-3 font-medium ${
+              message.type === "success"
+                ? "bg-white text-emerald-600 border-emerald-100 dark:bg-gray-800 dark:text-emerald-400 dark:border-emerald-900/30"
+                : "bg-white text-rose-600 border-rose-100 dark:bg-gray-800 dark:text-rose-400 dark:border-rose-900/30"
+            }`}
           >
             {message.type === "success" ? (
               <CheckCircle2 size={20} />
@@ -330,23 +333,27 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1000px] mx-auto">
+      <div className="w-full">
         <h1
-          className={`text-2xl font-bold tracking-tight mb-6 ${isDark ? "text-gray-100" : "text-[#1B263B]"
-            }`}
+          className={`text-3xl font-bold mb-6 ${
+            isDark ? "text-white" : "text-gray-800"
+          }`}
         >
           My Profile
         </h1>
 
         <div
-          className={`w-full rounded-[20px] transition-colors relative overflow-hidden ${isDark
-            ? "bg-gray-800 border border-gray-700/50"
-            : "bg-white border border-[#E5E7EB] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
-            }`}
+          className={`w-full rounded-[22px] transition-colors relative overflow-hidden ${
+            isDark
+              ? "bg-gray-800 border border-gray-700/50"
+              : "bg-white border border-[#E5E7EB] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
+          }`}
         >
           {/* Card 1: Profile Header */}
           <div
-            className={`p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6 border-b ${isDark ? "border-gray-700/50" : "border-gray-100"}`}
+            className={`p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6 border-b ${
+              isDark ? "border-gray-700/50" : "border-gray-100"
+            }`}
           >
             <div className="relative group">
               <div className="w-[100px] h-[100px] rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white flex items-center justify-center text-4xl font-bold uppercase shadow-inner overflow-hidden border border-blue-500/50">
@@ -393,24 +400,27 @@ export default function ProfilePage() {
             </div>
             <div className="flex flex-col justify-center h-full pt-1 text-center sm:text-left">
               <h2
-                className={`text-[22px] font-bold ${isDark ? "text-white" : "text-[#111827]"
-                  }`}
+                className={`text-[22px] font-bold ${
+                  isDark ? "text-white" : "text-[#111827]"
+                }`}
               >
                 {formData.firstName} {formData.lastName}
               </h2>
               <p
-                className={`text-[15px] font-medium mt-1 ${isDark ? "text-gray-400" : "text-[#6B7280]"
-                  }`}
+                className={`text-[15px] font-medium mt-1 ${
+                  isDark ? "text-gray-400" : "text-[#6B7280]"
+                }`}
               >
                 {formData.role === "admin"
                   ? "Administrator"
-                  : (formData.department && DEPARTMENTS[formData.department])
-                    ? DEPARTMENTS[formData.department].name
-                    : getRoleLabel()}
+                  : formData.department && departmentsMap[formData.department]
+                  ? departmentsMap[formData.department].name
+                  : getRoleLabel()}
               </p>
               <p
-                className={`text-[13px] mt-1.5 ${isDark ? "text-gray-500" : "text-[#9CA3AF]"
-                  }`}
+                className={`text-[13px] mt-1.5 ${
+                  isDark ? "text-gray-500" : "text-[#9CA3AF]"
+                }`}
               >
                 {/* Employee Tracking App */}
               </p>
@@ -418,11 +428,16 @@ export default function ProfilePage() {
           </div>
 
           {/* Card 2: Personal Information */}
-          <div className={`p-6 sm:p-8 border-b ${isDark ? "border-gray-700/50" : "border-gray-100"}`}>
+          <div
+            className={`p-6 sm:p-8 border-b ${
+              isDark ? "border-gray-700/50" : "border-gray-100"
+            }`}
+          >
             <div className="flex justify-between items-center mb-8 border-b pb-4 border-gray-100 dark:border-gray-700/50">
               <h3
-                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : "text-blue-600"
-                  }`}
+                className={`text-lg font-bold ${
+                  isDark ? "text-[#e5e7eb]" : "text-blue-600"
+                }`}
               >
                 Personal Information
               </h3>
@@ -432,10 +447,11 @@ export default function ProfilePage() {
                   setEditMode(!editMode);
                   setShowPasswordSection(false);
                 }}
-                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${editMode
-                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                  }`}
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  editMode
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                }`}
               >
                 {editMode ? "Cancel" : "Edit"}
                 {!editMode && <Edit2 size={14} />}
@@ -449,8 +465,9 @@ export default function ProfilePage() {
               {/* First Name */}
               <div className="flex flex-col">
                 <label
-                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                    isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                  }`}
                 >
                   First Name
                 </label>
@@ -466,8 +483,9 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <span
-                    className={`text-[15px] font-semibold ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                      }`}
+                    className={`text-[15px] font-semibold ${
+                      isDark ? "text-gray-200" : "text-[#1F2937]"
+                    }`}
                   >
                     {formData.firstName}
                   </span>
@@ -477,8 +495,9 @@ export default function ProfilePage() {
               {/* Last Name */}
               <div className="flex flex-col">
                 <label
-                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                    isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                  }`}
                 >
                   Last Name
                 </label>
@@ -494,8 +513,9 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <span
-                    className={`text-[15px] font-semibold ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                      }`}
+                    className={`text-[15px] font-semibold ${
+                      isDark ? "text-gray-200" : "text-[#1F2937]"
+                    }`}
                   >
                     {formData.lastName}
                   </span>
@@ -505,14 +525,16 @@ export default function ProfilePage() {
               {/* Role */}
               <div className="flex flex-col">
                 <label
-                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                    isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                  }`}
                 >
                   User Role
                 </label>
                 <span
-                  className={`text-[15px] font-semibold ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                    }`}
+                  className={`text-[15px] font-semibold ${
+                    isDark ? "text-gray-200" : "text-[#1F2937]"
+                  }`}
                 >
                   {getRoleLabel()}
                 </span>
@@ -521,8 +543,9 @@ export default function ProfilePage() {
               {/* Email Address */}
               <div className="flex flex-col">
                 <label
-                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                    isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                  }`}
                 >
                   Email Address
                 </label>
@@ -538,8 +561,9 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <span
-                    className={`text-[15px] font-semibold ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                      }`}
+                    className={`text-[15px] font-semibold ${
+                      isDark ? "text-gray-200" : "text-[#1F2937]"
+                    }`}
                   >
                     {formData.email}
                   </span>
@@ -549,8 +573,9 @@ export default function ProfilePage() {
               {/* Contact No */}
               <div className="flex flex-col">
                 <label
-                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                  className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                    isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                  }`}
                 >
                   Phone Number
                 </label>
@@ -566,8 +591,9 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <span
-                    className={`text-[15px] font-semibold ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                      }`}
+                    className={`text-[15px] font-semibold ${
+                      isDark ? "text-gray-200" : "text-[#1F2937]"
+                    }`}
                   >
                     {formData.contactNo || "—"}
                   </span>
@@ -605,8 +631,9 @@ export default function ProfilePage() {
           <div className="p-6 sm:p-8">
             <div className="flex justify-between items-center mb-8 border-b pb-4 border-gray-100 dark:border-gray-700/50">
               <h3
-                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : "text-blue-600"
-                  }`}
+                className={`text-lg font-bold ${
+                  isDark ? "text-[#e5e7eb]" : "text-blue-600"
+                }`}
               >
                 Security
               </h3>
@@ -616,10 +643,11 @@ export default function ProfilePage() {
                   setShowPasswordSection(!showPasswordSection);
                   setEditMode(false);
                 }}
-                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${showPasswordSection
-                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                  }`}
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  showPasswordSection
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                }`}
               >
                 {showPasswordSection ? "Cancel" : "Edit"}
                 {!showPasswordSection && <Edit2 size={14} />}
@@ -633,8 +661,9 @@ export default function ProfilePage() {
               >
                 <div className="flex flex-col">
                   <label
-                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                      }`}
+                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                      isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                    }`}
                   >
                     Current Password
                   </label>
@@ -655,8 +684,9 @@ export default function ProfilePage() {
 
                 <div className="flex flex-col">
                   <label
-                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                      }`}
+                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                      isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                    }`}
                   >
                     New Password
                   </label>
@@ -678,8 +708,9 @@ export default function ProfilePage() {
 
                 <div className="flex flex-col">
                   <label
-                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                      }`}
+                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                      isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                    }`}
                   >
                     Confirm Password
                   </label>
@@ -718,14 +749,16 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-7">
                 <div className="flex flex-col">
                   <label
-                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                      }`}
+                    className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
+                      isDark ? "text-gray-400" : "text-[#9CA3AF]"
+                    }`}
                   >
                     Account Password
                   </label>
                   <span
-                    className={`text-[15px] font-semibold tracking-widest ${isDark ? "text-gray-200" : "text-[#1F2937]"
-                      }`}
+                    className={`text-[15px] font-semibold tracking-widest ${
+                      isDark ? "text-gray-200" : "text-[#1F2937]"
+                    }`}
                   >
                     ••••••••••••
                   </span>
@@ -735,6 +768,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

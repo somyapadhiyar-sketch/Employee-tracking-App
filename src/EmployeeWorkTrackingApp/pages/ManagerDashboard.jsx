@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  DEPARTMENTS,
   WORK_TYPES,
   LATE_THRESHOLD_HOUR,
   LATE_THRESHOLD_MINUTE,
 } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfileModal from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
@@ -25,6 +25,7 @@ import { db } from "../../firebase";
 export default function ManagerDashboard() {
   const { auth, onLogout } = useOutletContext();
   const { isDark, toggleTheme } = useTheme();
+  const { departmentsMap } = useDepartments();
 
   const [currentSection, setCurrentSection] = useState("pending");
   const [showProfile, setShowProfile] = useState(false);
@@ -41,6 +42,8 @@ export default function ManagerDashboard() {
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [publicHolidays, setPublicHolidays] = useState([]);
 
   const [allUsers, setAllUsers] = useState([]);
   const [allWorkLogs, setAllWorkLogs] = useState([]);
@@ -77,6 +80,23 @@ export default function ManagerDashboard() {
       setAllLeaveRequests(
         leaveSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       );
+
+      const holidaysSnap = await getDocs(collection(db, "publicHolidays"));
+      if (!holidaysSnap.empty) {
+        const seen = new Set();
+        const uniqueHols = [];
+        for (const docItem of holidaysSnap.docs) {
+          const data = docItem.data();
+          if (seen.has(data.date)) {
+            deleteDoc(doc(db, "publicHolidays", docItem.id));
+          } else {
+            seen.add(data.date);
+            uniqueHols.push({ id: docItem.id, ...data });
+          }
+        }
+        uniqueHols.sort((a, b) => new Date(a.date) - new Date(b.date));
+        setPublicHolidays(uniqueHols);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       showToastMessage("Failed to load some database records.", "error");
@@ -521,8 +541,8 @@ export default function ManagerDashboard() {
           >
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
-                  : "bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-purple-100"
+                ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
+                : "bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-purple-100"
                 }`}
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
@@ -551,8 +571,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -580,9 +600,9 @@ export default function ManagerDashboard() {
                   {deptPending.map((emp) => (
                     <motion.div
                       key={emp.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border ${isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border gap-4 ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                         }`}
                     >
                       <div className="flex items-center gap-4">
@@ -617,16 +637,16 @@ export default function ManagerDashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex space-x-3">
+                      <div className="flex gap-3 w-full sm:w-auto">
                         <button
                           onClick={() => handleApproveUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg"
                         >
                           <i className="fas fa-check mr-2"></i>Approve
                         </button>
                         <button
                           onClick={() => handleRejectUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg"
                         >
                           <i className="fas fa-times mr-2"></i>Reject
                         </button>
@@ -660,16 +680,16 @@ export default function ManagerDashboard() {
                   <motion.div
                     key={type}
                     className={`rounded-2xl p-6 shadow-lg border ${isDark
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-white border-gray-100"
+                      ? "bg-gray-800 border-gray-700"
+                      : "bg-white border-gray-100"
                       }`}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-12 h-12 rounded-xl flex items-center justify-center ${type === "sick"
-                              ? "bg-gradient-to-br from-rose-400 to-red-500"
-                              : "bg-gradient-to-br from-blue-400 to-cyan-500"
+                            ? "bg-gradient-to-br from-rose-400 to-red-500"
+                            : "bg-gradient-to-br from-blue-400 to-cyan-500"
                             }`}
                         >
                           <i
@@ -718,8 +738,8 @@ export default function ManagerDashboard() {
                     >
                       <div
                         className={`h-3 rounded-full ${type === "sick"
-                            ? "bg-gradient-to-r from-rose-400 to-red-500"
-                            : "bg-gradient-to-r from-blue-400 to-cyan-500"
+                          ? "bg-gradient-to-r from-rose-400 to-red-500"
+                          : "bg-gradient-to-r from-blue-400 to-cyan-500"
                           }`}
                         style={{ width: `${(used / data.total) * 100}%` }}
                       ></div>
@@ -737,8 +757,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -766,20 +786,20 @@ export default function ManagerDashboard() {
                           onClick={() => setLeaveType(type)}
                           disabled={!isAvailable}
                           className={`p-4 rounded-xl border-2 text-left transition ${leaveType === type
-                              ? type === "sick"
-                                ? "border-rose-500 bg-rose-50"
-                                : "border-blue-500 bg-blue-50"
-                              : isDark
-                                ? "border-gray-600 bg-gray-700"
-                                : "border-gray-200"
+                            ? type === "sick"
+                              ? "border-rose-500 bg-rose-50"
+                              : "border-blue-500 bg-blue-50"
+                            : isDark
+                              ? "border-gray-600 bg-gray-700"
+                              : "border-gray-200"
                             } ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-10 h-10 rounded-lg flex items-center justify-center ${type === "sick"
-                                  ? "bg-gradient-to-br from-rose-400 to-red-500"
-                                  : "bg-gradient-to-br from-blue-400 to-cyan-500"
+                                ? "bg-gradient-to-br from-rose-400 to-red-500"
+                                : "bg-gradient-to-br from-blue-400 to-cyan-500"
                                 }`}
                             >
                               <i className={`fas ${data.icon} text-white`}></i>
@@ -793,8 +813,8 @@ export default function ManagerDashboard() {
                               </p>
                               <p
                                 className={`text-sm ${isAvailable
-                                    ? "text-emerald-500"
-                                    : "text-rose-500"
+                                  ? "text-emerald-500"
+                                  : "text-rose-500"
                                   }`}
                               >
                                 {data.total - getUsedLeaves(type)} available
@@ -820,8 +840,8 @@ export default function ManagerDashboard() {
                       onChange={(e) => setLeaveStartDate(e.target.value)}
                       required
                       className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
+                        ? "bg-gray-700 border-gray-600 text-white"
+                        : "border-gray-200"
                         }`}
                     />
                   </div>
@@ -838,8 +858,8 @@ export default function ManagerDashboard() {
                       onChange={(e) => setLeaveEndDate(e.target.value)}
                       required
                       className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
+                        ? "bg-gray-700 border-gray-600 text-white"
+                        : "border-gray-200"
                         }`}
                     />
                   </div>
@@ -857,8 +877,8 @@ export default function ManagerDashboard() {
                     rows="3"
                     required
                     className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "border-gray-200"
                       }`}
                     placeholder="Enter reason for leave..."
                   ></textarea>
@@ -874,8 +894,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -884,14 +904,14 @@ export default function ManagerDashboard() {
               >
                 <i className="fas fa-history mr-2"></i>Leave History
               </h2>
-              <div className="flex gap-3 mb-4">
+              <div className="flex flex-wrap gap-3 mb-4">
                 <button
                   onClick={() => setMyLeaveFilter("all")}
                   className={`px-4 py-2 rounded-xl ${myLeaveFilter === "all"
-                      ? "bg-violet-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-violet-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   All ({myLeaveRequests.length})
@@ -899,10 +919,10 @@ export default function ManagerDashboard() {
                 <button
                   onClick={() => setMyLeaveFilter("pending")}
                   className={`px-4 py-2 rounded-xl ${myLeaveFilter === "pending"
-                      ? "bg-amber-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-amber-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   Pending ({myPendingLeaveRequests.length})
@@ -910,10 +930,10 @@ export default function ManagerDashboard() {
                 <button
                   onClick={() => setMyLeaveFilter("approved")}
                   className={`px-4 py-2 rounded-xl ${myLeaveFilter === "approved"
-                      ? "bg-emerald-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-emerald-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   Approved (
@@ -933,24 +953,24 @@ export default function ManagerDashboard() {
                 ).map((req) => (
                   <div
                     key={req.id}
-                    className={`p-4 rounded-xl ${isDark ? "bg-gray-700" : "bg-gray-50"
+                    className={`flex flex-col justify-between p-4 rounded-xl gap-2 ${isDark ? "bg-gray-700" : "bg-gray-50"
                       }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
                       <span
                         className={`px-2 py-1 rounded-lg text-xs font-medium ${req.leaveType === "sick"
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-blue-100 text-blue-700"
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-blue-100 text-blue-700"
                           }`}
                       >
                         {LEAVE_BALANCE[req.leaveType]?.name}
                       </span>
                       <span
                         className={`px-3 py-1 rounded-full text-xs ${req.status === "pending"
-                            ? "bg-amber-100 text-amber-700"
-                            : req.status === "approved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
+                          ? "bg-amber-100 text-amber-700"
+                          : req.status === "approved"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
                           }`}
                       >
                         {req.status}
@@ -989,18 +1009,18 @@ export default function ManagerDashboard() {
               className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
-              Leave Requests - {DEPARTMENTS[dept]?.name}
+              Leave Requests - {departmentsMap[dept]?.name}
             </h1>
 
             {/* FULLY RESTORED LEAVE FILTERS */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex flex-wrap gap-3 mb-6">
               <button
                 onClick={() => setLeaveFilter("pending")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "pending"
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200"
+                    : "bg-gray-200 text-gray-700"
                   }`}
               >
                 <i className="fas fa-clock mr-2"></i>Pending (
@@ -1009,10 +1029,10 @@ export default function ManagerDashboard() {
               <button
                 onClick={() => setLeaveFilter("approved")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "approved"
-                    ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
+                  ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200"
+                    : "bg-gray-200 text-gray-700"
                   }`}
               >
                 <i className="fas fa-check-circle mr-2"></i>Approved (
@@ -1021,10 +1041,10 @@ export default function ManagerDashboard() {
               <button
                 onClick={() => setLeaveFilter("all")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "all"
-                    ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
+                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
+                  : isDark
+                    ? "bg-gray-700 text-gray-200"
+                    : "bg-gray-200 text-gray-700"
                   }`}
               >
                 <i className="fas fa-list mr-2"></i>All (
@@ -1034,8 +1054,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <div className="space-y-4">
@@ -1051,13 +1071,13 @@ export default function ManagerDashboard() {
                     <motion.div
                       key={req.id}
                       className={`p-4 rounded-xl border ${isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                         }`}
                     >
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
                             {emp.firstName?.[0]}
                             {emp.lastName?.[0]}
                           </div>
@@ -1078,10 +1098,10 @@ export default function ManagerDashboard() {
                         </div>
                         <span
                           className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "pending"
-                              ? "bg-amber-100 text-amber-700"
-                              : req.status === "approved"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-rose-100 text-rose-700"
+                            ? "bg-amber-100 text-amber-700"
+                            : req.status === "approved"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-rose-100 text-rose-700"
                             }`}
                         >
                           {req.status.charAt(0).toUpperCase() +
@@ -1107,7 +1127,7 @@ export default function ManagerDashboard() {
                         </p>
                       </div>
                       {req.status === "pending" && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full mt-2 sm:mt-0">
                           <button
                             onClick={() => handleApproveLeave(req.id)}
                             className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-medium"
@@ -1174,8 +1194,8 @@ export default function ManagerDashboard() {
             {/* Work Type Selection */}
             <motion.div
               className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -1191,16 +1211,16 @@ export default function ManagerDashboard() {
                   type="button"
                   onClick={() => selectWorkType("office")}
                   className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
-                      ? "border-violet-500 bg-violet-50/50 shadow-sm"
-                      : isDark
-                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                        : "border-gray-100 hover:border-violet-100 hover:shadow-sm bg-white"
+                    ? "border-violet-500 bg-violet-50/50 shadow-sm"
+                    : isDark
+                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                      : "border-gray-100 hover:border-violet-100 hover:shadow-sm bg-white"
                     }`}
                 >
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "office"
-                        ? "bg-violet-600 shadow-md"
-                        : "bg-violet-500"
+                      ? "bg-violet-600 shadow-md"
+                      : "bg-violet-500"
                       }`}
                   >
                     <i className="fas fa-briefcase text-white text-2xl"></i>
@@ -1224,16 +1244,16 @@ export default function ManagerDashboard() {
                   type="button"
                   onClick={() => selectWorkType("non_office")}
                   className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
-                      ? "border-purple-500 bg-purple-50/50 shadow-sm"
-                      : isDark
-                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                        : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
+                    ? "border-purple-500 bg-purple-50/50 shadow-sm"
+                    : isDark
+                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                      : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
                     }`}
                 >
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "non_office"
-                        ? "bg-purple-600 shadow-md"
-                        : "bg-purple-500"
+                      ? "bg-purple-600 shadow-md"
+                      : "bg-purple-500"
                       }`}
                   >
                     <i className="fas fa-laptop text-white text-2xl"></i>
@@ -1277,8 +1297,8 @@ export default function ManagerDashboard() {
             {/* Add Work Entry Form */}
             <motion.div
               className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -1302,8 +1322,8 @@ export default function ManagerDashboard() {
                     rows="3"
                     required
                     className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-all resize-none ${isDark
-                        ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
-                        : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
+                      ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
                       }`}
                     placeholder="Briefly describe the tasks you completed..."
                   ></textarea>
@@ -1326,8 +1346,8 @@ export default function ManagerDashboard() {
                         onChange={handleStartTimeChange}
                         required
                         className={`flex-1 px-4 py-3 border-2 rounded-xl outline-none transition-all ${isDark
-                            ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
-                            : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
+                          ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
+                          : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
                           }`}
                       />
                       <button
@@ -1335,8 +1355,8 @@ export default function ManagerDashboard() {
                         onClick={setCurrentAsStartTime}
                         title="Set to current time"
                         className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${isDark
-                            ? "bg-gray-700 text-violet-400 hover:bg-gray-600"
-                            : "bg-violet-50 text-violet-600 hover:bg-violet-100"
+                          ? "bg-gray-700 text-violet-400 hover:bg-gray-600"
+                          : "bg-violet-50 text-violet-600 hover:bg-violet-100"
                           }`}
                       >
                         <i className="fas fa-clock text-lg"></i>
@@ -1359,8 +1379,8 @@ export default function ManagerDashboard() {
                         onChange={handleEndTimeChange}
                         required
                         className={`flex-1 px-4 py-3 border-2 rounded-xl outline-none transition-all ${isDark
-                            ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
-                            : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
+                          ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
+                          : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
                           }`}
                       />
                       <button
@@ -1368,8 +1388,8 @@ export default function ManagerDashboard() {
                         onClick={setCurrentAsEndTime}
                         title="Set to current time"
                         className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${isDark
-                            ? "bg-gray-700 text-violet-400 hover:bg-gray-600"
-                            : "bg-violet-50 text-violet-600 hover:bg-violet-100"
+                          ? "bg-gray-700 text-violet-400 hover:bg-gray-600"
+                          : "bg-violet-50 text-violet-600 hover:bg-violet-100"
                           }`}
                       >
                         <i className="fas fa-clock text-lg"></i>
@@ -1387,10 +1407,10 @@ export default function ManagerDashboard() {
                     </label>
                     <div
                       className={`w-full h-[52px] border-2 rounded-xl font-mono text-lg font-bold flex items-center justify-center transition-all ${calculatedDuration
-                          ? "bg-violet-50 border-violet-200 text-violet-700"
-                          : isDark
-                            ? "bg-gray-700/50 border-gray-600 text-gray-400"
-                            : "bg-gray-50 border-gray-200 text-gray-400"
+                        ? "bg-violet-50 border-violet-200 text-violet-700"
+                        : isDark
+                          ? "bg-gray-700/50 border-gray-600 text-gray-400"
+                          : "bg-gray-50 border-gray-200 text-gray-400"
                         }`}
                     >
                       {calculatedDuration || "00:00:00"}
@@ -1421,12 +1441,12 @@ export default function ManagerDashboard() {
               className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
-              My Team - {DEPARTMENTS?.[dept]?.name}
+              My Team - {departmentsMap?.[dept]?.name}
             </h1>
             <div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -1440,9 +1460,9 @@ export default function ManagerDashboard() {
                 {deptEmployees.map((emp) => (
                   <div
                     key={emp.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border ${isDark
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                    className={`flex flex-col sm:flex-row justify-between sm:items-center p-4 rounded-xl border gap-4 ${isDark
+                      ? "bg-gray-700 border-gray-600"
+                      : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                       }`}
                   >
                     <div className="flex items-center gap-4">
@@ -1468,7 +1488,7 @@ export default function ManagerDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                       <button
                         onClick={() =>
                           handleDeleteEmployee(
@@ -1476,7 +1496,7 @@ export default function ManagerDashboard() {
                             `${emp.firstName} ${emp.lastName}`
                           )
                         }
-                        className="px-3 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium"
+                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium"
                       >
                         Remove
                       </button>
@@ -1555,8 +1575,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <div className="space-y-3">
@@ -1568,9 +1588,9 @@ export default function ManagerDashboard() {
                   return (
                     <div
                       key={emp.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border ${isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                      className={`flex flex-col sm:flex-row justify-between sm:items-center p-4 rounded-xl border gap-4 ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                         }`}
                     >
                       <div className="flex items-center gap-4">
@@ -1589,10 +1609,10 @@ export default function ManagerDashboard() {
                       </div>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${attendanceFilter === "onLeave"
-                            ? "bg-amber-100 text-amber-700"
-                            : presentIds.includes(emp.id)
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
+                          ? "bg-amber-100 text-amber-700"
+                          : presentIds.includes(emp.id)
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
                           }`}
                       >
                         {attendanceFilter === "onLeave"
@@ -1641,18 +1661,18 @@ export default function ManagerDashboard() {
                 Reports
               </h1>
               <div
-                className={`p-1 flex rounded-xl border ${isDark
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-white border-gray-200"
+                className={`p-1 flex flex-wrap gap-1 sm:gap-0 rounded-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-200"
                   }`}
               >
                 <button
                   onClick={() => setReportFilter("daily")}
                   className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "daily"
-                      ? "bg-violet-600 text-white"
-                      : isDark
-                        ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    ? "bg-violet-600 text-white"
+                    : isDark
+                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
                 >
                   Daily
@@ -1660,10 +1680,10 @@ export default function ManagerDashboard() {
                 <button
                   onClick={() => setReportFilter("weekly")}
                   className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "weekly"
-                      ? "bg-violet-600 text-white"
-                      : isDark
-                        ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    ? "bg-violet-600 text-white"
+                    : isDark
+                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
                 >
                   Weekly
@@ -1671,10 +1691,10 @@ export default function ManagerDashboard() {
                 <button
                   onClick={() => setReportFilter("monthly")}
                   className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "monthly"
-                      ? "bg-violet-600 text-white"
-                      : isDark
-                        ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    ? "bg-violet-600 text-white"
+                    : isDark
+                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
                 >
                   Monthly
@@ -1683,16 +1703,16 @@ export default function ManagerDashboard() {
             </div>
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
-              <div className="flex gap-6 border-b mb-6 border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap gap-4 sm:gap-6 border-b mb-6 border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setReportRoleFilter("employee")}
                   className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "employee"
-                      ? "border-violet-500 text-violet-500"
-                      : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    ? "border-violet-500 text-violet-500"
+                    : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     }`}
                 >
                   Employee Reports
@@ -1700,8 +1720,8 @@ export default function ManagerDashboard() {
                 <button
                   onClick={() => setReportRoleFilter("manager")}
                   className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "manager"
-                      ? "border-violet-500 text-violet-500"
-                      : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    ? "border-violet-500 text-violet-500"
+                    : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     }`}
                 >
                   Manager Reports
@@ -1730,12 +1750,12 @@ export default function ManagerDashboard() {
                   {finalReports.map((log) => (
                     <div
                       key={log.id}
-                      className={`p-4 rounded-xl border ${isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                      className={`flex flex-col justify-between p-4 rounded-xl border gap-2 ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                         }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                         <span
                           className={`font-bold ${isDark ? "text-white" : "text-gray-800"
                             }`}
@@ -1755,8 +1775,8 @@ export default function ManagerDashboard() {
                       >
                         <i
                           className={`fas ${log.workType === "office"
-                              ? "fa-briefcase"
-                              : "fa-laptop"
+                            ? "fa-briefcase"
+                            : "fa-laptop"
                             } mr-1`}
                         ></i>
                         {WORK_TYPES?.[log.workType]?.name ||
@@ -1777,6 +1797,139 @@ export default function ManagerDashboard() {
           </motion.div>
         );
 
+      case "holidays": {
+        const currentYear = new Date().getFullYear();
+        // Generate current month info
+        const todayDate = new Date();
+        const calYear = currentCalendarDate.getFullYear();
+        const calMonth = currentCalendarDate.getMonth();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+
+        const IT_HOLIDAYS = publicHolidays;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        const calendarDays = Array(firstDayOfMonth).fill(null);
+        for (let i = 1; i <= daysInMonth; i++) {
+          calendarDays.push(i);
+        }
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
+                Public Holidays
+              </h1>
+            </div>
+
+            <div className="flex flex-col xl:flex-row gap-6 items-start">
+              {/* Holidays List */}
+              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+                {IT_HOLIDAYS.map((holiday, idx) => {
+                  const holDate = new Date(holiday.date);
+                  const todayZero = new Date(todayDate);
+                  todayZero.setHours(0, 0, 0, 0);
+                  const holZero = new Date(holDate);
+                  holZero.setHours(0, 0, 0, 0);
+
+                  const isPast = holZero < todayZero;
+
+                  return (
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-teal-400 to-emerald-500 text-white shadow-md'}`}>
+                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
+                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        </div>
+                        <div>
+                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
+                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {isPast ? (
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-md">Upcoming</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Current Month Calendar */}
+              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {monthNames[calMonth]}
+                    </h3>
+                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{calYear}</p>
+                  </div>
+                  <div className="flex gap-1.5 items-center">
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-left text-sm"></i></button>
+                    <button onClick={() => setCurrentCalendarDate(new Date())} className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>Today</button>
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-right text-sm"></i></button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 text-center mb-2">
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                    <div key={day} className={`text-xs font-bold py-1 ${day === 'Su' || day === 'Sa' ? 'text-rose-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{day}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                  {calendarDays.map((day, idx) => {
+                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+
+                    const currentDateStr = `${currentYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isHoliday = IT_HOLIDAYS.some(h => h.date === currentDateStr);
+                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
+                    const isWeekend = new Date(currentYear, calMonth, day).getDay() === 0 || new Date(currentYear, calMonth, day).getDay() === 6;
+
+                    let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
+                    if (isToday) {
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                    } else if (isHoliday) {
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 scale-105`;
+                    } else if (isWeekend) {
+                      dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                    } else {
+                      dayClass += isDark ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600` : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                    }
+
+                    return (
+                      <div key={day} className={dayClass} title={isHoliday ? IT_HOLIDAYS.find(h => h.date === currentDateStr)?.name : ''}>
+                        {day}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </motion.div>
+        );
+      }
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
       default:
@@ -1792,7 +1945,7 @@ export default function ManagerDashboard() {
             initial={{ opacity: 0, x: 100, scale: 0.8 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.8 }}
-            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-[100] ${toast.type === "success" ? "bg-green-600" : "bg-red-600"
               } text-white`}
           >
             {toast.message}
@@ -1800,21 +1953,44 @@ export default function ManagerDashboard() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Hamburger Button */}
+      {!isSidebarOpen && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsSidebarOpen(true)}
+          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}
+        >
+          <i className="fas fa-bars text-xl"></i>
+        </motion.button>
+      )}
+
       <div
-        className={`flex min-h-screen ${isDark
-            ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-            : "bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50"
+        className={`flex min-h-screen relative ${isDark
+          ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+          : "bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50"
           }`}
       >
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {isSidebarOpen && window.innerWidth < 1024 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${isDark
-              ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
-              : "bg-gradient-to-b from-white to-violet-50 border-violet-100"
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+            ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
+            : "bg-gradient-to-b from-white to-violet-50 border-violet-100"
             }`}
-          style={{
-            display:
-              isSidebarOpen || window.innerWidth >= 1024 ? "flex" : "none",
-          }}
         >
           <div className="text-center mb-8 pt-2">
             <div
@@ -1839,16 +2015,19 @@ export default function ManagerDashboard() {
               className={`text-sm font-medium ${isDark ? "text-violet-400" : "text-violet-600"
                 }`}
             >
-              {DEPARTMENTS?.[dept]?.name}
+              {departmentsMap?.[dept]?.name}
             </p>
           </div>
 
           <nav className="flex-1 space-y-2 px-2 overflow-y-auto">
             <button
-              onClick={() => setCurrentSection("pending")}
+              onClick={() => {
+                setCurrentSection("pending");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "pending"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <span>
@@ -1856,64 +2035,98 @@ export default function ManagerDashboard() {
               </span>
             </button>
             <button
-              onClick={() => setCurrentSection("myLeave")}
+              onClick={() => {
+                setCurrentSection("myLeave");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myLeave"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-calendar-minus w-5"></i> My Leave
             </button>
             <button
-              onClick={() => setCurrentSection("leave")}
+              onClick={() => {
+                setCurrentSection("leave");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-calendar-check w-5"></i> Leave Requests
             </button>
             <button
-              onClick={() => setCurrentSection("myWork")}
+              onClick={() => {
+                setCurrentSection("myWork");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myWork"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-clock w-5"></i> My Work
             </button>
             <button
-              onClick={() => setCurrentSection("team")}
+              onClick={() => {
+                setCurrentSection("team");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "team"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-users w-5"></i> My Team
             </button>
             <button
-              onClick={() => setCurrentSection("attendance")}
+              onClick={() => {
+                setCurrentSection("attendance");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "attendance"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-calendar-check w-5"></i> Attendance
             </button>
             <button
-              onClick={() => setCurrentSection("reports")}
+              onClick={() => {
+                setCurrentSection("reports");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "reports"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-file-pdf w-5"></i> Reports
             </button>
             <button
-              onClick={() => setCurrentSection("profile")}
+              onClick={() => {
+                setCurrentSection("holidays");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "holidays"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSection("profile");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "profile"
-                  ? "bg-violet-500 text-white"
-                  : "hover:bg-violet-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-user-circle w-5"></i> My Profile
@@ -1932,7 +2145,7 @@ export default function ManagerDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 sm:p-8 relative w-full transition-all duration-300 lg:ml-64`}
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24 lg:p-8 relative w-full transition-all duration-300 lg:ml-64`}
           style={{ height: "100vh" }}
         >
           <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>
@@ -1985,6 +2198,8 @@ export default function ManagerDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </>
   );
 }

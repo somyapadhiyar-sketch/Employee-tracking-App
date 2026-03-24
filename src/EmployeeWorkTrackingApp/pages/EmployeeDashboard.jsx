@@ -2,22 +2,23 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
-  DEPARTMENTS,
   WORK_TYPES,
   LATE_THRESHOLD_HOUR,
   LATE_THRESHOLD_MINUTE,
 } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
 
 // NEW FIREBASE IMPORTS
-import { collection, getDocs, addDoc, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 
 export default function EmployeeDashboard() {
   const { auth, onLogout } = useOutletContext();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+  const { departmentsMap } = useDepartments();
 
   const [currentSection, setCurrentSection] = useState("workLog");
   const [reportFilter, setReportFilter] = useState("daily");
@@ -42,6 +43,8 @@ export default function EmployeeDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
   );
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [publicHolidays, setPublicHolidays] = useState([]);
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
@@ -76,6 +79,23 @@ export default function EmployeeDashboard() {
       setAllLeaveRequests(
         leaveSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       );
+
+      const holidaysSnap = await getDocs(collection(db, "publicHolidays"));
+      if (!holidaysSnap.empty) {
+        const seen = new Set();
+        const uniqueHols = [];
+        for (const docItem of holidaysSnap.docs) {
+          const data = docItem.data();
+          if (seen.has(data.date)) {
+            deleteDoc(doc(db, "publicHolidays", docItem.id));
+          } else {
+            seen.add(data.date);
+            uniqueHols.push({ id: docItem.id, ...data });
+          }
+        }
+        uniqueHols.sort((a, b) => new Date(a.date) - new Date(b.date));
+        setPublicHolidays(uniqueHols);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       showToastMessage("Failed to load database records.", "error");
@@ -88,48 +108,7 @@ export default function EmployeeDashboard() {
     fetchDashboardData();
   }, []);
 
-  // Menu visibility logic
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      const { clientX, clientY } = e;
-      if (clientX < 100 && clientY < 100) {
-        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-        menuTimeoutRef.current = setTimeout(() => setIsMenuVisible(true), 1000);
-      } else {
-        if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-        menuTimeoutRef.current = setTimeout(
-          () => setIsMenuVisible(false),
-          2000
-        );
-      }
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const startHideTimer = () => {
-      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-      menuTimeoutRef.current = setTimeout(() => setIsMenuVisible(false), 2000);
-    };
-    startHideTimer();
-    return () => {
-      if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-    };
-  }, [isSidebarOpen]);
-
-  const handleMenuMouseEnter = () => {
-    setIsMenuVisible(true);
-    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-  };
-
-  const handleMenuMouseLeave = () => {
-    if (menuTimeoutRef.current) clearTimeout(menuTimeoutRef.current);
-    menuTimeoutRef.current = setTimeout(() => setIsMenuVisible(false), 2000);
-  };
+  // Mobile menu visibility simplified
 
   const LEAVE_BALANCE = {
     sick: { total: 6, name: "Sick Leave", icon: "fa-user-nurse" },
@@ -375,8 +354,8 @@ export default function EmployeeDashboard() {
             {/* Welcome & Clock */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
-                  : "bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 border-blue-100"
+                ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
+                : "bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 border-blue-100"
                 }`}
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
@@ -449,8 +428,8 @@ export default function EmployeeDashboard() {
             {/* Work Type Selection */}
             <motion.div
               className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -466,16 +445,16 @@ export default function EmployeeDashboard() {
                   type="button"
                   onClick={() => selectWorkType("office")}
                   className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
-                      ? "border-blue-500 bg-blue-50/50 shadow-sm"
-                      : isDark
-                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                        : "border-gray-100 hover:border-blue-100 hover:shadow-sm bg-white"
+                    ? "border-blue-500 bg-blue-50/50 shadow-sm"
+                    : isDark
+                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                      : "border-gray-100 hover:border-blue-100 hover:shadow-sm bg-white"
                     }`}
                 >
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "office"
-                        ? "bg-blue-600 shadow-md"
-                        : "bg-blue-500"
+                      ? "bg-blue-600 shadow-md"
+                      : "bg-blue-500"
                       }`}
                   >
                     <i className="fas fa-briefcase text-white text-2xl"></i>
@@ -499,16 +478,16 @@ export default function EmployeeDashboard() {
                   type="button"
                   onClick={() => selectWorkType("non_office")}
                   className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
-                      ? "border-purple-500 bg-purple-50/50 shadow-sm"
-                      : isDark
-                        ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                        : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
+                    ? "border-purple-500 bg-purple-50/50 shadow-sm"
+                    : isDark
+                      ? "border-gray-700 hover:border-gray-600 bg-gray-800"
+                      : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
                     }`}
                 >
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "non_office"
-                        ? "bg-purple-600 shadow-md"
-                        : "bg-purple-500"
+                      ? "bg-purple-600 shadow-md"
+                      : "bg-purple-500"
                       }`}
                   >
                     <i className="fas fa-laptop text-white text-2xl"></i>
@@ -552,8 +531,8 @@ export default function EmployeeDashboard() {
             {/* Add Work Entry Form */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -575,8 +554,8 @@ export default function EmployeeDashboard() {
                     rows="4"
                     required
                     className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "border-gray-200"
                       }`}
                     placeholder="Describe your work..."
                   ></textarea>
@@ -596,8 +575,8 @@ export default function EmployeeDashboard() {
                         onChange={handleStartTimeChange}
                         required
                         className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
-                            ? "bg-gray-700 border-gray-600 text-white"
-                            : "border-gray-200"
+                          ? "bg-gray-700 border-gray-600 text-white"
+                          : "border-gray-200"
                           }`}
                       />
                       <button
@@ -623,8 +602,8 @@ export default function EmployeeDashboard() {
                         onChange={handleEndTimeChange}
                         required
                         className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
-                            ? "bg-gray-700 border-gray-600 text-white"
-                            : "border-gray-200"
+                          ? "bg-gray-700 border-gray-600 text-white"
+                          : "border-gray-200"
                           }`}
                       />
                       <button
@@ -673,7 +652,7 @@ export default function EmployeeDashboard() {
               >
                 My Reports
               </h1>
-              <div className={`p-1 flex rounded-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+              <div className={`p-1 flex flex-wrap gap-1 sm:gap-0 rounded-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                 <button
                   onClick={() => setReportFilter('daily')}
                   className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'daily' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
@@ -696,8 +675,8 @@ export default function EmployeeDashboard() {
             </div>
             <div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -718,12 +697,12 @@ export default function EmployeeDashboard() {
                   {filteredWorkLogs.map((log) => (
                     <div
                       key={log.id}
-                      className={`p-4 rounded-xl border ${isDark
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-gray-50 border-gray-200"
+                      className={`flex flex-col justify-between p-4 rounded-xl border gap-2 ${isDark
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gray-50 border-gray-200"
                         }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                         <span
                           className={`font-bold ${isDark ? "text-white" : "text-gray-800"
                             }`}
@@ -775,16 +754,16 @@ export default function EmployeeDashboard() {
                   <div
                     key={type}
                     className={`rounded-2xl p-6 shadow-lg border ${isDark
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-white border-gray-100"
+                      ? "bg-gray-800 border-gray-700"
+                      : "bg-white border-gray-100"
                       }`}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-12 h-12 rounded-xl flex items-center justify-center ${type === "sick"
-                              ? "bg-gradient-to-br from-rose-400 to-red-500"
-                              : "bg-gradient-to-br from-blue-400 to-cyan-500"
+                            ? "bg-gradient-to-br from-rose-400 to-red-500"
+                            : "bg-gradient-to-br from-blue-400 to-cyan-500"
                             }`}
                         >
                           <i
@@ -833,8 +812,8 @@ export default function EmployeeDashboard() {
                     >
                       <div
                         className={`h-3 rounded-full ${type === "sick"
-                            ? "bg-gradient-to-r from-rose-400 to-red-500"
-                            : "bg-gradient-to-r from-blue-400 to-cyan-500"
+                          ? "bg-gradient-to-r from-rose-400 to-red-500"
+                          : "bg-gradient-to-r from-blue-400 to-cyan-500"
                           }`}
                         style={{ width: `${(used / data.total) * 100}%` }}
                       ></div>
@@ -853,8 +832,8 @@ export default function EmployeeDashboard() {
             {/* Request Form */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -881,20 +860,20 @@ export default function EmployeeDashboard() {
                           onClick={() => setLeaveType(type)}
                           disabled={!isAvailable}
                           className={`p-4 rounded-xl border-2 text-left transition ${leaveType === type
-                              ? type === "sick"
-                                ? "border-rose-500 bg-rose-50"
-                                : "border-blue-500 bg-blue-50"
-                              : isDark
-                                ? "border-gray-600 bg-gray-700"
-                                : "border-gray-200"
+                            ? type === "sick"
+                              ? "border-rose-500 bg-rose-50"
+                              : "border-blue-500 bg-blue-50"
+                            : isDark
+                              ? "border-gray-600 bg-gray-700"
+                              : "border-gray-200"
                             } ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-10 h-10 rounded-lg flex items-center justify-center ${type === "sick"
-                                  ? "bg-gradient-to-br from-rose-400 to-red-500"
-                                  : "bg-gradient-to-br from-blue-400 to-cyan-500"
+                                ? "bg-gradient-to-br from-rose-400 to-red-500"
+                                : "bg-gradient-to-br from-blue-400 to-cyan-500"
                                 }`}
                             >
                               <i className={`fas ${data.icon} text-white`}></i>
@@ -908,8 +887,8 @@ export default function EmployeeDashboard() {
                               </p>
                               <p
                                 className={`text-sm ${isAvailable
-                                    ? "text-emerald-500"
-                                    : "text-rose-500"
+                                  ? "text-emerald-500"
+                                  : "text-rose-500"
                                   }`}
                               >
                                 {data.total - getUsedLeaves(type)} available
@@ -935,8 +914,8 @@ export default function EmployeeDashboard() {
                       onChange={(e) => setLeaveStartDate(e.target.value)}
                       required
                       className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
+                        ? "bg-gray-700 border-gray-600 text-white"
+                        : "border-gray-200"
                         }`}
                     />
                   </div>
@@ -953,8 +932,8 @@ export default function EmployeeDashboard() {
                       onChange={(e) => setLeaveEndDate(e.target.value)}
                       required
                       className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
+                        ? "bg-gray-700 border-gray-600 text-white"
+                        : "border-gray-200"
                         }`}
                     />
                   </div>
@@ -972,8 +951,8 @@ export default function EmployeeDashboard() {
                     rows="3"
                     required
                     className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "border-gray-200"
                       }`}
                     placeholder="Enter reason for leave..."
                   ></textarea>
@@ -990,8 +969,8 @@ export default function EmployeeDashboard() {
             {/* Leave History */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
                 }`}
             >
               <h2
@@ -1000,14 +979,14 @@ export default function EmployeeDashboard() {
               >
                 Leave History
               </h2>
-              <div className="flex gap-3 mb-4">
+              <div className="flex flex-wrap gap-3 mb-4">
                 <button
                   onClick={() => setLeaveFilter("all")}
                   className={`px-4 py-2 rounded-xl ${leaveFilter === "all"
-                      ? "bg-blue-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-blue-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   All ({myLeaveRequests.length})
@@ -1015,10 +994,10 @@ export default function EmployeeDashboard() {
                 <button
                   onClick={() => setLeaveFilter("pending")}
                   className={`px-4 py-2 rounded-xl ${leaveFilter === "pending"
-                      ? "bg-amber-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-amber-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   Pending ({myPendingLeaveRequests.length})
@@ -1026,10 +1005,10 @@ export default function EmployeeDashboard() {
                 <button
                   onClick={() => setLeaveFilter("approved")}
                   className={`px-4 py-2 rounded-xl ${leaveFilter === "approved"
-                      ? "bg-emerald-500 text-white"
-                      : isDark
-                        ? "bg-gray-700 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
+                    ? "bg-emerald-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-200"
+                      : "bg-gray-200 text-gray-700"
                     }`}
                 >
                   Approved ({myApprovedLeaveRequests.length})
@@ -1044,24 +1023,24 @@ export default function EmployeeDashboard() {
                 ).map((req) => (
                   <div
                     key={req.id}
-                    className={`p-4 rounded-xl ${isDark ? "bg-gray-700" : "bg-gray-50"
+                    className={`flex flex-col justify-between p-4 rounded-xl gap-2 ${isDark ? "bg-gray-700" : "bg-gray-50"
                       }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-wrap gap-2 justify-between items-start mb-2">
                       <span
                         className={`px-2 py-1 rounded-lg text-xs font-medium ${req.leaveType === "sick"
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-blue-100 text-blue-700"
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-blue-100 text-blue-700"
                           }`}
                       >
                         {LEAVE_BALANCE[req.leaveType]?.name}
                       </span>
                       <span
                         className={`px-3 py-1 rounded-full text-xs ${req.status === "pending"
-                            ? "bg-amber-100 text-amber-700"
-                            : req.status === "approved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
+                          ? "bg-amber-100 text-amber-700"
+                          : req.status === "approved"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
                           }`}
                       >
                         {req.status}
@@ -1089,6 +1068,139 @@ export default function EmployeeDashboard() {
           </motion.div>
         );
 
+      case "holidays": {
+        const currentYear = new Date().getFullYear();
+        // Generate current month info
+        const todayDate = new Date();
+        const calYear = currentCalendarDate.getFullYear();
+        const calMonth = currentCalendarDate.getMonth();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+
+        const IT_HOLIDAYS = publicHolidays;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        const calendarDays = Array(firstDayOfMonth).fill(null);
+        for (let i = 1; i <= daysInMonth; i++) {
+          calendarDays.push(i);
+        }
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
+                Public Holidays
+              </h1>
+            </div>
+
+            <div className="flex flex-col xl:flex-row gap-6 items-start">
+              {/* Holidays List */}
+              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+                {IT_HOLIDAYS.map((holiday, idx) => {
+                  const holDate = new Date(holiday.date);
+                  const todayZero = new Date(todayDate);
+                  todayZero.setHours(0, 0, 0, 0);
+                  const holZero = new Date(holDate);
+                  holZero.setHours(0, 0, 0, 0);
+
+                  const isPast = holZero < todayZero;
+
+                  return (
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-teal-400 to-emerald-500 text-white shadow-md'}`}>
+                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
+                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        </div>
+                        <div>
+                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
+                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {isPast ? (
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-md">Upcoming</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Current Month Calendar */}
+              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {monthNames[calMonth]}
+                    </h3>
+                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{calYear}</p>
+                  </div>
+                  <div className="flex gap-1.5 items-center">
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-left text-sm"></i></button>
+                    <button onClick={() => setCurrentCalendarDate(new Date())} className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>Today</button>
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-right text-sm"></i></button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 text-center mb-2">
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                    <div key={day} className={`text-xs font-bold py-1 ${day === 'Su' || day === 'Sa' ? 'text-rose-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{day}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                  {calendarDays.map((day, idx) => {
+                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+
+                    const currentDateStr = `${currentYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isHoliday = IT_HOLIDAYS.some(h => h.date === currentDateStr);
+                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
+                    const isWeekend = new Date(currentYear, calMonth, day).getDay() === 0 || new Date(currentYear, calMonth, day).getDay() === 6;
+
+                    let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
+                    if (isToday) {
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                    } else if (isHoliday) {
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 scale-105`;
+                    } else if (isWeekend) {
+                      dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                    } else {
+                      dayClass += isDark ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600` : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                    }
+
+                    return (
+                      <div key={day} className={dayClass} title={isHoliday ? IT_HOLIDAYS.find(h => h.date === currentDateStr)?.name : ''}>
+                        {day}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </motion.div>
+        );
+      }
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
       default:
@@ -1112,21 +1224,44 @@ export default function EmployeeDashboard() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Hamburger Button */}
+      {!isSidebarOpen && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsSidebarOpen(true)}
+          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}
+        >
+          <i className="fas fa-bars text-xl"></i>
+        </motion.button>
+      )}
+
       <div
-        className={`flex min-h-screen ${isDark
-            ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-            : "bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50"
+        className={`flex min-h-screen relative ${isDark
+          ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+          : "bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50"
           }`}
       >
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {isSidebarOpen && window.innerWidth < 1024 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto ${isDark
-              ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
-              : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+            ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
+            : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
             }`}
-          style={{
-            display:
-              isSidebarOpen || window.innerWidth >= 1024 ? "flex" : "none",
-          }}
         >
           <div className="text-center mb-8 pt-2">
             <div
@@ -1151,43 +1286,68 @@ export default function EmployeeDashboard() {
               className={`text-sm font-medium ${isDark ? "text-cyan-400" : "text-blue-600"
                 }`}
             >
-              {DEPARTMENTS?.[user?.department]?.name}
+              {departmentsMap?.[user?.department]?.name}
             </p>
           </div>
 
           <nav className="flex-1 space-y-2 px-2 overflow-y-auto">
             <button
-              onClick={() => setCurrentSection("workLog")}
+              onClick={() => {
+                setCurrentSection("workLog");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "workLog"
-                  ? "bg-blue-500 text-white"
-                  : "hover:bg-blue-50 text-gray-700"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-clock w-5"></i> Log Work
             </button>
             <button
-              onClick={() => setCurrentSection("myReports")}
+              onClick={() => {
+                setCurrentSection("myReports");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myReports"
-                  ? "bg-blue-500 text-white"
-                  : "hover:bg-blue-50 text-gray-700"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-file-alt w-5"></i> My Reports
             </button>
             <button
-              onClick={() => setCurrentSection("leave")}
+              onClick={() => {
+                setCurrentSection("leave");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
-                  ? "bg-blue-500 text-white"
-                  : "hover:bg-blue-50 text-gray-700"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-calendar-minus w-5"></i> Leave Requests
             </button>
             <button
-              onClick={() => setCurrentSection("profile")}
+              onClick={() => {
+                setCurrentSection("holidays");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "holidays"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSection("profile");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "profile"
-                  ? "bg-blue-500 text-white"
-                  : "hover:bg-blue-50 text-gray-700"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
               <i className="fas fa-user-circle w-5"></i> My Profile
@@ -1206,7 +1366,7 @@ export default function EmployeeDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 sm:p-8 relative w-full transition-all duration-300 lg:ml-64`}
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24 lg:p-8 relative w-full transition-all duration-300 lg:ml-64`}
           style={{ height: "100vh" }}
         >
           <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>
@@ -1239,6 +1399,8 @@ export default function EmployeeDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </>
   );
 }

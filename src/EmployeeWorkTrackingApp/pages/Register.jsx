@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { DEPARTMENTS } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import {
   doc,
@@ -13,6 +13,8 @@ import {
 import { auth, db } from "../../firebase"; // Make sure db is exported from here
 
 export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
+  const { departmentsMap, loading: loadingDepts } = useDepartments();
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -54,7 +56,7 @@ export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
         if (!querySnapshot.empty) {
           setError(
             `A manager already exists (or is pending) for ${
-              DEPARTMENTS[formData.department]?.name
+              departmentsMap[formData.department]?.name || "this department"
             }.`
           );
           setLoading(false);
@@ -198,9 +200,11 @@ export default function Register({ onSwitchToLogin, onRegisterSuccess }) {
               name="department"
               value={formData.department}
               onChange={handleDepartmentChange}
+              disabled={loadingDepts}
               className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none bg-white"
             >
-              {Object.entries(DEPARTMENTS).map(([key, dept]) => (
+              <option value="" disabled>Select Department</option>
+              {Object.entries(departmentsMap).map(([key, dept]) => (
                 <option key={key} value={key}>
                   {dept.name}
                 </option>

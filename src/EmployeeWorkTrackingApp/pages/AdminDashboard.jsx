@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { DEPARTMENTS } from "../constants/config";
+import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import AdminSidebar from "../components/AdminSidebar";
 import ProfileModal, { ProfileCard } from "../components/ProfileModal";
+
 import ProfilePage from "./ProfilePage";
+import SelectHolidaysModal from "../components/SelectHolidaysModal";
 
 import {
   collection,
@@ -12,13 +14,55 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  addDoc
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useOutletContext } from "react-router-dom";
 
+const FONT_AWESOME_ICONS = [
+  { class: 'fa-building', name: 'Building' },
+  { class: 'fa-users', name: 'Users' },
+  { class: 'fa-briefcase', name: 'Briefcase' },
+  { class: 'fa-chart-line', name: 'Chart' },
+  { class: 'fa-chart-pie', name: 'Pie Chart' },
+  { class: 'fa-chart-bar', name: 'Bar Chart' },
+  { class: 'fa-laptop-code', name: 'Laptop' },
+  { class: 'fa-desktop', name: 'Desktop' },
+  { class: 'fa-cogs', name: 'Cogs' },
+  { class: 'fa-headset', name: 'Headset' },
+  { class: 'fa-calculator', name: 'Calculator' },
+  { class: 'fa-bullhorn', name: 'Bullhorn' },
+  { class: 'fa-balance-scale', name: 'Scale' },
+  { class: 'fa-microscope', name: 'Science' },
+  { class: 'fa-paint-brush', name: 'Art' },
+  { class: 'fa-heartbeat', name: 'Healthcare' },
+  { class: 'fa-shield-alt', name: 'Security' },
+  { class: 'fa-truck', name: 'Logistics' },
+  { class: 'fa-shopping-cart', name: 'Retail' },
+  { class: 'fa-leaf', name: 'Environment' },
+  { class: 'fa-globe', name: 'Global' },
+  { class: 'fa-lightbulb', name: 'Idea' },
+  { class: 'fa-server', name: 'Server' },
+  { class: 'fa-cloud', name: 'Cloud' },
+  { class: 'fa-project-diagram', name: 'Project' },
+  { class: 'fa-boxes', name: 'Stock' },
+  { class: 'fa-bullseye', name: 'Target' },
+  { class: 'fa-comments', name: 'Communications' },
+  { class: 'fa-handshake', name: 'Partnership' },
+  { class: 'fa-coins', name: 'Finance' },
+];
+
 export default function AdminDashboard() {
   const { auth, onLogout } = useOutletContext();
   const { isDark } = useTheme();
+  const { departmentsMap, addDepartment, editDepartment, deleteDepartment } = useDepartments();
+
+  const [showAddDeptModal, setShowAddDeptModal] = useState(false);
+  const [newDept, setNewDept] = useState({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [isAddingDept, setIsAddingDept] = useState(false);
+  const [editingDeptId, setEditingDeptId] = useState(null);
+  const [deptActionView, setDeptActionView] = useState("view");
 
   const [currentSection, setCurrentSection] = useState("dashboard");
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -39,6 +83,9 @@ export default function AdminDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
   );
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [publicHolidays, setPublicHolidays] = useState([]);
+  const [showSelectHolidaysModal, setShowSelectHolidaysModal] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoadingData(true);
@@ -53,6 +100,38 @@ export default function AdminDashboard() {
       setLeaveRequests(
         leaveSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       );
+
+      const holidaysSnap = await getDocs(collection(db, "publicHolidays"));
+      if (holidaysSnap.empty) {
+        // Initialize with default if empty
+        const currentYear = new Date().getFullYear();
+        const IT_HOLIDAYS = [
+          { date: `${currentYear}-01-14`, name: "Makar Sankranti", type: "Optional" },
+          { date: `${currentYear}-03-04`, name: "Dhuleti", type: "Mandatory" },
+          { date: `${currentYear}-08-28`, name: "Raksha Bandhan", type: "Optional" },
+          { date: `${currentYear}-10-19`, name: "Dussehra", type: "Mandatory" },
+          { date: `${currentYear}-11-09`, name: "New Year", type: "Mandatory" },
+        ];
+        
+        for (const holiday of IT_HOLIDAYS) {
+          await addDoc(collection(db, "publicHolidays"), holiday);
+        }
+        setPublicHolidays(IT_HOLIDAYS);
+      } else {
+        const seen = new Set();
+        const uniqueHols = [];
+        for (const docItem of holidaysSnap.docs) {
+          const data = docItem.data();
+          if (seen.has(data.date)) {
+            deleteDoc(doc(db, "publicHolidays", docItem.id));
+          } else {
+            seen.add(data.date);
+            uniqueHols.push({ id: docItem.id, ...data });
+          }
+        }
+        uniqueHols.sort((a,b) => new Date(a.date) - new Date(b.date));
+        setPublicHolidays(uniqueHols);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       showToast("Failed to load some database records.", "error");
@@ -213,6 +292,68 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAddNewDepartment = async (e) => {
+    e.preventDefault();
+    if (!newDept.name || !newDept.description) {
+      showToast("Please fill in all required fields", "error");
+      return;
+    }
+    setIsAddingDept(true);
+
+    if (editingDeptId) {
+      const { success } = await editDepartment(editingDeptId, newDept);
+      setIsAddingDept(false);
+
+      if (success) {
+        showToast("Department updated successfully!", "success");
+        setShowAddDeptModal(false);
+        setEditingDeptId(null);
+        setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+      } else {
+        showToast("Failed to update department", "error");
+      }
+    } else {
+      const deptId = newDept.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+
+      if (departmentsMap[deptId]) {
+        showToast("Department already exists", "error");
+        setIsAddingDept(false);
+        return;
+      }
+
+      const { success } = await addDepartment(deptId, newDept);
+      setIsAddingDept(false);
+
+      if (success) {
+        showToast("Department added successfully!", "success");
+        setShowAddDeptModal(false);
+        setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+      } else {
+        showToast("Failed to add department", "error");
+      }
+    }
+  };
+
+  const handleDeleteDepartment = async (e, deptId, deptName) => {
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete the department "${deptName}"? This action cannot be undone.`)) {
+      const { success } = await deleteDepartment(deptId);
+      if (success) {
+        showToast(`Department "${deptName}" deleted.`, "success");
+        if (selectedDepartment === deptId) setSelectedDepartment(null);
+      } else {
+        showToast("Failed to delete department.", "error");
+      }
+    }
+  };
+
+  const openEditDeptModal = (e, deptId, deptData) => {
+    e.stopPropagation();
+    setEditingDeptId(deptId);
+    setNewDept(deptData);
+    setShowAddDeptModal(true);
+  };
+
   const handleApproveLeave = async (requestId) => {
     try {
       await updateDoc(doc(db, "leaveRequests", requestId), {
@@ -267,24 +408,35 @@ export default function AdminDashboard() {
       value: approvedEmployees.length,
       icon: "fa-users",
       color: "from-cyan-400 to-blue-500",
+      action: () => setCurrentSection("employees"),
     },
     {
       title: "Departments",
-      value: Object.keys(DEPARTMENTS).length,
+      value: Object.keys(departmentsMap).length,
       icon: "fa-building",
       color: "from-emerald-400 to-green-500",
+      action: () => {
+        setCurrentSection("departments");
+        setDeptActionView("view");
+      },
     },
     {
       title: "Present Today",
       value: presentIds.length,
       icon: "fa-user-check",
       color: "from-violet-400 to-purple-500",
+      action: () => {
+        setCurrentSection("attendance");
+        setAttendanceFilter("present");
+        setPresentSubFilter("all");
+      },
     },
     {
       title: "Pending",
       value: pendingRegistrations.length,
       icon: "fa-user-clock",
       color: "from-amber-400 to-orange-500",
+      action: () => setCurrentSection("pending"),
     },
   ];
 
@@ -353,10 +505,11 @@ export default function AdminDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                   whileHover={{ scale: 1.03, y: -5 }}
-                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border ${isDark
+                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border cursor-pointer ${isDark
                     ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
                     : "bg-white border-gray-100"
                     }`}
+                  onClick={stat.action}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -462,13 +615,13 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${isDark
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl shadow-md border ${isDark
                         ? "bg-gray-700 border-gray-600"
                         : "bg-white border-violet-100"
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
                           {emp.firstName?.[0]}
                           {emp.lastName?.[0]}
                         </div>
@@ -489,20 +642,20 @@ export default function AdminDashboard() {
                             {emp.email}
                           </p>
                           <p className="text-violet-400 text-sm font-medium">
-                            {DEPARTMENTS[emp.department]?.name}
+                            {departmentsMap[emp.department]?.name}
                           </p>
                         </div>
                       </div>
-                      <div className="flex space-x-3">
+                      <div className="flex gap-3 mt-4 sm:mt-0 w-full sm:w-auto">
                         <button
                           onClick={() => handleApproveUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg flex items-center justify-center"
                         >
                           <i className="fas fa-check mr-2"></i>Approve
                         </button>
                         <button
                           onClick={() => handleRejectUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg flex items-center justify-center"
                         >
                           <i className="fas fa-times mr-2"></i>Reject
                         </button>
@@ -547,13 +700,13 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`flex items-center justify-between p-4 rounded-xl shadow-md border ${isDark
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl shadow-md border ${isDark
                         ? "bg-gray-700 border-gray-600"
                         : "bg-white border-blue-100"
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
                           {emp.firstName?.[0]}
                           {emp.lastName?.[0]}
                         </div>
@@ -574,20 +727,20 @@ export default function AdminDashboard() {
                             {emp.email}
                           </p>
                           <p className="text-blue-400 text-sm font-medium">
-                            {DEPARTMENTS[emp.department]?.name}
+                            {departmentsMap[emp.department]?.name}
                           </p>
                         </div>
                       </div>
-                      <div className="flex space-x-3">
+                      <div className="flex gap-3 mt-4 sm:mt-0 w-full sm:w-auto">
                         <button
                           onClick={() => handleApproveUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg flex items-center justify-center"
                         >
                           <i className="fas fa-check mr-2"></i>Approve
                         </button>
                         <button
                           onClick={() => handleRejectUser(emp.id)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg"
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl shadow-lg flex items-center justify-center"
                         >
                           <i className="fas fa-times mr-2"></i>Reject
                         </button>
@@ -612,26 +765,29 @@ export default function AdminDashboard() {
                   }`}
               >
                 {selectedDepartment
-                  ? DEPARTMENTS[selectedDepartment]?.name
+                  ? departmentsMap[selectedDepartment]?.name
                   : "Departments"}
               </h1>
-              {selectedDepartment && (
-                <button
-                  onClick={() => setSelectedDepartment(null)}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium"
-                >
-                  <i className="fas fa-arrow-left mr-2"></i> Back
-                </button>
-              )}
+              <div className="flex gap-4">
+
+                {selectedDepartment && (
+                  <button
+                    onClick={() => setSelectedDepartment(null)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium"
+                  >
+                    <i className="fas fa-arrow-left mr-2"></i> Back
+                  </button>
+                )}
+              </div>
             </div>
             {!selectedDepartment ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Object.entries(DEPARTMENTS).map(([key, dept]) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+                {Object.entries(departmentsMap).map(([key, dept]) => (
                   <motion.div
                     key={key}
                     whileHover={{ scale: 1.02, y: -4 }}
                     onClick={() => setSelectedDepartment(key)}
-                    className={`rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all cursor-pointer ${isDark ? "bg-gray-800" : "bg-white"
+                    className={`relative rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all cursor-pointer flex flex-col h-full ${isDark ? "bg-gray-800" : "bg-white"
                       }`}
                   >
                     <div className="flex items-center mb-4">
@@ -674,11 +830,21 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <p
-                      className={`text-sm leading-relaxed mt-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                      className={`text-sm leading-relaxed mt-2 mb-2 flex-grow ${isDark ? "text-gray-400" : "text-gray-500"
                         }`}
                     >
                       {dept.description}
                     </p>
+                    {deptActionView !== "view" && (
+                      <div className="flex gap-3 mt-4">
+                        {(deptActionView === "edit" || deptActionView === "both") && (
+                          <button onClick={(e) => openEditDeptModal(e, key, dept)} className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark ? "bg-cyan-900/30 text-cyan-400 hover:bg-cyan-900/50" : "bg-cyan-50 hover:bg-cyan-100 text-cyan-600"}`}><i className="fas fa-pencil-alt"></i> edit</button>
+                        )}
+                        {(deptActionView === "delete" || deptActionView === "both") && (
+                          <button onClick={(e) => handleDeleteDepartment(e, key, dept.name)} className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark ? "bg-rose-900/40 hover:bg-rose-900/60 text-rose-400" : "bg-rose-50 hover:bg-rose-100 text-rose-500"}`}><i className="fas fa-trash-alt"></i> delete</button>
+                        )}
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>
@@ -834,7 +1000,7 @@ export default function AdminDashboard() {
                                   : "text-gray-500 text-xs"
                               }
                             >
-                              {DEPARTMENTS[emp.department]?.name}
+                              {departmentsMap[emp.department]?.name}
                             </p>
                           </div>
                         </div>
@@ -912,7 +1078,7 @@ export default function AdminDashboard() {
                           className={`px-4 py-3 ${isDark ? "text-gray-300" : ""
                             }`}
                         >
-                          {DEPARTMENTS[emp.department]?.name}
+                          {departmentsMap[emp.department]?.name}
                         </td>
                         <td className="px-4 py-3 flex gap-2">
                           <button
@@ -1314,6 +1480,146 @@ export default function AdminDashboard() {
           </motion.div>
         );
 
+      case "holidays": {
+        const currentYear = new Date().getFullYear();
+        // Generate current month info
+        const todayDate = new Date();
+        const calYear = currentCalendarDate.getFullYear();
+        const calMonth = currentCalendarDate.getMonth();
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        const firstDayOfMonth = new Date(calYear, calMonth, 1).getDay();
+
+        const IT_HOLIDAYS = publicHolidays;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        const calendarDays = Array(firstDayOfMonth).fill(null);
+        for (let i = 1; i <= daysInMonth; i++) {
+          calendarDays.push(i);
+        }
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
+                Public Holidays
+              </h1>
+              <button 
+                onClick={() => setShowSelectHolidaysModal(true)} 
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-500/30 flex items-center gap-2"
+              >
+                <i className="fas fa-plus"></i>
+                <span className="hidden sm:inline">Select Holidays</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col xl:flex-row gap-6 items-start">
+              {/* Holidays List */}
+              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+                {IT_HOLIDAYS.map((holiday, idx) => {
+                  const holDate = new Date(holiday.date);
+                  const todayZero = new Date(todayDate);
+                  todayZero.setHours(0, 0, 0, 0);
+                  const holZero = new Date(holDate);
+                  holZero.setHours(0, 0, 0, 0);
+
+                  const isPast = holZero < todayZero;
+
+                  return (
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-teal-400 to-emerald-500 text-white shadow-md'}`}>
+                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
+                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        </div>
+                        <div>
+                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
+                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        {isPast ? (
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-md">Upcoming</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Current Month Calendar */}
+              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {monthNames[calMonth]}
+                    </h3>
+                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{calYear}</p>
+                  </div>
+                  <div className="flex gap-1.5 items-center">
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-left text-sm"></i></button>
+                    <button onClick={() => setCurrentCalendarDate(new Date())} className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>Today</button>
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-right text-sm"></i></button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 text-center mb-2">
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                    <div key={day} className={`text-xs font-bold py-1 ${day === 'Su' || day === 'Sa' ? 'text-rose-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{day}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                  {calendarDays.map((day, idx) => {
+                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+
+                    const currentDateStr = `${currentYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isHoliday = IT_HOLIDAYS.some(h => h.date === currentDateStr);
+                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
+                    const isWeekend = new Date(currentYear, calMonth, day).getDay() === 0 || new Date(currentYear, calMonth, day).getDay() === 6;
+
+                    let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
+                    if (isToday) {
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                    } else if (isHoliday) {
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 scale-105`;
+                    } else if (isWeekend) {
+                      dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                    } else {
+                      dayClass += isDark ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600` : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                    }
+
+                    return (
+                      <div key={day} className={dayClass} title={isHoliday ? IT_HOLIDAYS.find(h => h.date === currentDateStr)?.name : ''}>
+                        {day}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </motion.div>
+        );
+      }
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
 
@@ -1354,9 +1660,19 @@ export default function AdminDashboard() {
           leaveRequestCount={pendingLeaveRequests.length}
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onAddDepartment={() => {
+            setEditingDeptId(null);
+            setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+            setShowAddDeptModal(true);
+            setCurrentSection("departments");
+          }}
+          onDeptAction={(action) => {
+            setCurrentSection("departments");
+            setDeptActionView(action);
+          }}
         />
         <div
-          className={`flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-6 sm:pt-24 md:p-8 md:pt-24 lg:p-8 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
             }`}
           style={{ height: "100vh" }}
         >
@@ -1376,7 +1692,189 @@ export default function AdminDashboard() {
         workLogs={
           selectedEmployee ? getEmployeeWorkLogs(selectedEmployee.id) : []
         }
+        isSidebarOpen={isSidebarOpen}
       />
+
+      <AnimatePresence>
+        {showAddDeptModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed top-0 right-0 bottom-0 ${isSidebarOpen ? "left-0 lg:left-72" : "left-0"} z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300`}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className={`w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl ${isDark ? "bg-gray-800" : "bg-white"
+                }`}
+            >
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white flex items-center">
+                  <i className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"} mr-3`}></i> {editingDeptId ? "Edit Department" : "Add Department"}
+                </h2>
+                <button
+                  onClick={() => setShowAddDeptModal(false)}
+                  className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+
+              <form onSubmit={handleAddNewDepartment} className="p-6 space-y-5">
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Department Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newDept.name}
+                    onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
+                    placeholder="e.g. Human Resources"
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${isDark
+                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-emerald-500"
+                      }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">FontAwesome</a>)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        <i className={`fas ${newDept.icon} text-emerald-500 text-lg`}></i>
+                      </div>
+                      <input
+                        type="text"
+                        value={newDept.icon}
+                        onChange={(e) => setNewDept({ ...newDept, icon: e.target.value })}
+                        onFocus={() => setShowIconPicker(true)}
+                        onBlur={() => setTimeout(() => setShowIconPicker(false), 200)}
+                        className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 transition-all outline-none ${showIconPicker ? "border-emerald-500 ring-2 ring-emerald-500/20" : ""} ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                          : "bg-gray-50 border-gray-200 focus:border-emerald-500"
+                          }`}
+                        placeholder="e.g. fa-building"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowIconPicker(!showIconPicker)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                      >
+                        <i className={`fas fa-chevron-${showIconPicker ? 'up' : 'down'} text-xs`}></i>
+                      </button>
+
+                      <AnimatePresence>
+                        {showIconPicker && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={`absolute z-[100] w-full mt-2 p-2 rounded-xl shadow-2xl max-h-56 overflow-y-auto ${isDark ? "bg-gray-800 border-[1px] border-gray-700" : "bg-white border-[1px] border-gray-100"}`}
+                          >
+                            <div className="grid grid-cols-2 gap-1">
+                              {FONT_AWESOME_ICONS.map(icon => (
+                                <button
+                                  key={icon.class}
+                                  type="button"
+                                  onClick={() => { setNewDept({ ...newDept, icon: icon.class }); setShowIconPicker(false); }}
+                                  className={`flex items-center gap-3 p-2 rounded-lg transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
+                                >
+                                  <i className={`fas ${icon.class} w-5 text-center`}></i> {icon.name}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Theme Color
+                    </label>
+                    <select
+                      value={newDept.color}
+                      onChange={(e) => setNewDept({ ...newDept, color: e.target.value })}
+                      className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                        : "bg-gray-50 border-gray-200 focus:border-emerald-500"
+                        }`}
+                    >
+                      <option value="blue">Blue</option>
+                      <option value="green">Green</option>
+                      <option value="purple">Purple</option>
+                      <option value="yellow">Yellow</option>
+                      <option value="red">Red</option>
+                      <option value="orange">Orange</option>
+                      <option value="teal">Teal</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Description
+                  </label>
+                  <textarea
+                    required
+                    value={newDept.description}
+                    onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
+                    placeholder="Brief description of the department's role..."
+                    rows="3"
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none resize-none ${isDark
+                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-emerald-500"
+                      }`}
+                  ></textarea>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDeptModal(false)}
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                      }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingDept}
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isAddingDept ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+                        <span>Saving...</span>
+                      </div>
+                    ) : (
+                      <span>
+                        <i className={`fas ${editingDeptId ? "fa-save" : "fa-plus"} mr-2`}></i> {editingDeptId ? "Save Changes" : "Create Department"}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <SelectHolidaysModal 
+        isOpen={showSelectHolidaysModal} 
+        onClose={() => setShowSelectHolidaysModal(false)} 
+        currentHolidays={publicHolidays} 
+        onSaveSuccess={fetchDashboardData} 
+        isSidebarOpen={isSidebarOpen}
+      />
+
+
     </>
   );
 }
