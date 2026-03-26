@@ -2156,7 +2156,7 @@ export default function ManagerDashboard() {
             >
               <span><i className="fas fa-comments w-5"></i> Messages</span>
               {unreadCount > 0 && currentSection !== "messages" && (
-                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg">
+                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-md">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
