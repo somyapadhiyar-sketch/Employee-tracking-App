@@ -9,7 +9,9 @@ import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfileModal from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
+import MessagingDashboard from "../components/MessagingDashboard";
 import { useOutletContext } from "react-router-dom";
+import useMessageNotification from "../hooks/useMessageNotification";
 
 import {
   collection,
@@ -42,6 +44,8 @@ export default function ManagerDashboard() {
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
+  const [msgToast, setMsgToast] = useState(null);
+  const msgToastTimerRef = useRef(null);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [publicHolidays, setPublicHolidays] = useState([]);
 
@@ -204,6 +208,25 @@ export default function ManagerDashboard() {
     : "M";
   const dept = user?.department;
   const currentUserId = user?.uid || user?.id;
+
+  // Real-time message notifications
+  const { unreadCount, latestMessage, clearNotification } = useMessageNotification(
+    currentUserId,
+    "manager",
+    currentSection === "messages"
+  );
+
+  // Show toast when a new message arrives
+  useEffect(() => {
+    if (latestMessage) {
+      setMsgToast(latestMessage);
+      clearTimeout(msgToastTimerRef.current);
+      msgToastTimerRef.current = setTimeout(() => {
+        setMsgToast(null);
+        clearNotification();
+      }, 5000);
+    }
+  }, [latestMessage]);
 
   const deptEmployees = allUsers.filter(
     (emp) =>
@@ -1932,6 +1955,8 @@ export default function ManagerDashboard() {
 
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
+      case "messages":
+        return <MessagingDashboard user={user} role="manager" isDark={isDark} />;
       default:
         return null;
     }
@@ -2117,6 +2142,19 @@ export default function ManagerDashboard() {
                 }`}
             >
               <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSection("messages");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "messages"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-comments w-5"></i> Messages
             </button>
 
             <button

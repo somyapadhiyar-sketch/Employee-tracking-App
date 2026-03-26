@@ -9,6 +9,8 @@ import {
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
+import MessagingDashboard from "../components/MessagingDashboard";
+import useMessageNotification from "../hooks/useMessageNotification";
 
 // NEW FIREBASE IMPORTS
 import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
@@ -48,6 +50,8 @@ export default function EmployeeDashboard() {
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
+  const [msgToast, setMsgToast] = useState(null);
+  const msgToastTimerRef = useRef(null);
 
   // NEW STATE FOR FIREBASE DATA
   const [allWorkLogs, setAllWorkLogs] = useState([]);
@@ -153,6 +157,25 @@ export default function EmployeeDashboard() {
   const user = auth?.currentUser || {};
   const currentUserId = user?.uid || user?.id;
   const today = new Date().toISOString().split("T")[0];
+
+  // Real-time message notifications
+  const { unreadCount, latestMessage, clearNotification } = useMessageNotification(
+    currentUserId,
+    "employee",
+    currentSection === "messages"
+  );
+
+  // Show toast when a new message arrives
+  useEffect(() => {
+    if (latestMessage) {
+      setMsgToast(latestMessage);
+      clearTimeout(msgToastTimerRef.current);
+      msgToastTimerRef.current = setTimeout(() => {
+        setMsgToast(null);
+        clearNotification();
+      }, 5000);
+    }
+  }, [latestMessage]);
 
   const filteredWorkLogs = allWorkLogs.filter((log) => {
     if (log.employeeId !== currentUserId) return false;
@@ -1203,6 +1226,8 @@ export default function EmployeeDashboard() {
 
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
+      case "messages":
+        return <MessagingDashboard user={user} role="employee" isDark={isDark} />;
       default:
         return null;
     }
@@ -1220,6 +1245,31 @@ export default function EmployeeDashboard() {
               } text-white`}
           >
             {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Message Notification Toast */}
+      <AnimatePresence>
+        {msgToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -80, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -80, scale: 0.9 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="fixed top-5 right-5 z-[200] flex items-start gap-4 bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-700 text-gray-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl max-w-xs cursor-pointer"
+            onClick={() => { setCurrentSection("messages"); setMsgToast(null); clearNotification(); }}
+          >
+            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-md">
+              <i className="fas fa-comments text-lg"></i>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">New Message from Admin</p>
+              <p className="text-sm font-medium truncate">{msgToast}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setMsgToast(null); clearNotification(); }} className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
+              <i className="fas fa-times text-sm"></i>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1338,6 +1388,24 @@ export default function EmployeeDashboard() {
                 }`}
             >
               <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSection("messages");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "messages"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
+                }`}
+            >
+              <span><i className="fas fa-comments w-5"></i> Messages</span>
+              {unreadCount > 0 && currentSection !== "messages" && (
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full animate-bounce">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </button>
 
             <button

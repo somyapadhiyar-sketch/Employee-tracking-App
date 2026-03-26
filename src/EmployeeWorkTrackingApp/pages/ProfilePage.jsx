@@ -751,7 +751,7 @@ export default function ProfilePage() {
                   <label
                     className={`text-[12px] font-medium tracking-wide !mb-1.5 ${
                       isDark ? "text-gray-400" : "text-[#9CA3AF]"
-                    }`}
+                    }`}       
                   >
                     Account Password
                   </label>

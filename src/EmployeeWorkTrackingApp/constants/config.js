@@ -1,35 +1,35 @@
 // Department configurations
 export const DEPARTMENTS = {
-  market_analysis_sales: {
-    name: 'Market Analysis & Sales',
-    icon: 'fa-chart-line',
-    color: 'blue',
-    description: 'Focuses on market research, client acquisition, and sales targets.'
-  },
-  production_operations: {
-    name: 'Production & Operations',
-    icon: 'fa-cogs',
-    color: 'green',
-    description: 'Handles the actual creation, manufacturing, or operational delivery of products.'
-  },
-  it_engineering: {
-    name: 'IT & Engineering',
-    icon: 'fa-laptop-code',
-    color: 'purple',
-    description: 'Manages software development, system maintenance, and internal tech support.'
-  },
-  customer_support: {
-    name: 'Customer Support',
-    icon: 'fa-headset',
-    color: 'yellow',
-    description: 'Handles client tickets, troubleshooting, and user satisfaction.'
-  },
-  finance_accounting: {
-    name: 'Finance & Accounting',
-    icon: 'fa-coins',
-    color: 'red',
-    description: 'Manages payroll, company budgets, and financial reporting.'
-  }
+  // market_analysis_sales: {
+  //   name: 'Market Analysis & Sales',
+  //   icon: 'fa-chart-line',
+  //   color: 'blue',
+  //   description: 'Focuses on market research, client acquisition, and sales targets.'
+  // },
+  // production_operations: {
+  //   name: 'Production & Operations',
+  //   icon: 'fa-cogs',
+  //   color: 'green',
+  //   description: 'Handles the actual creation, manufacturing, or operational delivery of products.'
+  // },
+  // it_engineering: {
+  //   name: 'IT & Engineering',
+  //   icon: 'fa-laptop-code',
+  //   color: 'purple',
+  //   description: 'Manages software development, system maintenance, and internal tech support.'
+  // },
+  // customer_support: {
+  //   name: 'Customer Support',
+  //   icon: 'fa-headset',
+  //   color: 'yellow',
+  //   description: 'Handles client tickets, troubleshooting, and user satisfaction.'
+  // },
+  // finance_accounting: {
+  //   name: 'Finance & Accounting',
+  //   icon: 'fa-coins',
+  //   color: 'red',
+  //   description: 'Manages payroll, company budgets, and financial reporting.'
+  // }
 };
 
 // Work types

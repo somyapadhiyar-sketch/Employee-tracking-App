@@ -72,6 +72,12 @@ export default function AdminSidebar({
 
 
     {
+      id: "messages",
+      icon: "fa-comments",
+      label: "Messages",
+      color: "from-emerald-400 to-green-600",
+    },
+    {
       id: "profile",
       icon: "fa-user-circle",
       label: "My Profile",
@@ -203,7 +209,7 @@ export default function AdminSidebar({
                 whileHover={{ scale: 1.02, x: 5 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleMenuClick(item)}
-                className={`w-full text-left px-4 py-3 sm:py-3.5 transition-all duration-300 flex items-center justify-between group ${currentSection === item.id
+                className={`w-full text-left px-4 py-3 sm:py-3.5 transition-all duration-300 flex items-center justify-between group ${(currentSection === item.id || (item.id === "departments" && currentSection === "add_department"))
                   ? `bg-gradient-to-r ${item.color} text-white shadow-lg ${item.id === "departments" && isDepartmentsExpanded ? "rounded-t-xl" : "rounded-xl"}`
                   : isDark
                     ? `bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white ${item.id === "departments" && isDepartmentsExpanded ? "rounded-t-xl" : "rounded-xl"}`

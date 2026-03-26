@@ -7,6 +7,7 @@ import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 
 import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
+import MessagingDashboard from "../components/MessagingDashboard";
 
 import {
   collection,
@@ -112,7 +113,7 @@ export default function AdminDashboard() {
           { date: `${currentYear}-10-19`, name: "Dussehra", type: "Mandatory" },
           { date: `${currentYear}-11-09`, name: "New Year", type: "Mandatory" },
         ];
-        
+
         for (const holiday of IT_HOLIDAYS) {
           await addDoc(collection(db, "publicHolidays"), holiday);
         }
@@ -129,7 +130,7 @@ export default function AdminDashboard() {
             uniqueHols.push({ id: docItem.id, ...data });
           }
         }
-        uniqueHols.sort((a,b) => new Date(a.date) - new Date(b.date));
+        uniqueHols.sort((a, b) => new Date(a.date) - new Date(b.date));
         setPublicHolidays(uniqueHols);
       }
     } catch (error) {
@@ -306,7 +307,7 @@ export default function AdminDashboard() {
 
       if (success) {
         showToast("Department updated successfully!", "success");
-        setShowAddDeptModal(false);
+        setCurrentSection("departments");
         setEditingDeptId(null);
         setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
       } else {
@@ -326,7 +327,7 @@ export default function AdminDashboard() {
 
       if (success) {
         showToast("Department added successfully!", "success");
-        setShowAddDeptModal(false);
+        setCurrentSection("departments");
         setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
       } else {
         showToast("Failed to add department", "error");
@@ -351,7 +352,7 @@ export default function AdminDashboard() {
     e.stopPropagation();
     setEditingDeptId(deptId);
     setNewDept(deptData);
-    setShowAddDeptModal(true);
+    setCurrentSection("add_department");
   };
 
   const handleApproveLeave = async (requestId) => {
@@ -1509,8 +1510,8 @@ export default function AdminDashboard() {
                 <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
                 Public Holidays
               </h1>
-              <button 
-                onClick={() => setShowSelectHolidaysModal(true)} 
+              <button
+                onClick={() => setShowSelectHolidaysModal(true)}
                 className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-500/30 flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
@@ -1542,7 +1543,7 @@ export default function AdminDashboard() {
                           <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
                         </div>
                       </div>
-                      
+
                       <div>
                         {isPast ? (
                           <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
@@ -1620,6 +1621,169 @@ export default function AdminDashboard() {
         );
       }
 
+      case "add_department":
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className={`w-full max-w-5xl mx-auto rounded-3xl shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"}`}
+          >
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 sm:p-6 flex items-center justify-between shrink-0">
+              <h2 className="text-2xl font-bold text-white flex items-center">
+                <i className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"} mr-3`}></i>
+                {editingDeptId ? "Edit Department" : "Add Department"}
+              </h2>
+            </div>
+
+            <div className="p-5 sm:p-6 flex-1">
+              <form onSubmit={handleAddNewDepartment} className="space-y-4 sm:space-y-5">
+                <div>
+                  <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Department Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newDept.name}
+                    onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
+                    placeholder="e.g. Human Resources"
+                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base ${isDark
+                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                      }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">FontAwesome</a>)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        <i className={`fas ${newDept.icon} text-emerald-500 text-lg`}></i>
+                      </div>
+                      <input
+                        type="text"
+                        value={newDept.icon}
+                        onChange={(e) => setNewDept({ ...newDept, icon: e.target.value })}
+                        onFocus={() => setShowIconPicker(true)}
+                        onBlur={() => setTimeout(() => setShowIconPicker(false), 200)}
+                        className={`w-full pl-12 pr-10 py-3 rounded-xl border-2 transition-all outline-none text-base ${showIconPicker ? "border-emerald-500 ring-4 ring-emerald-500/20" : ""} ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                          : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                          }`}
+                        placeholder="e.g. fa-building"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowIconPicker(!showIconPicker)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                      >
+                        <i className={`fas fa-chevron-${showIconPicker ? 'up' : 'down'}`}></i>
+                      </button>
+
+                      <AnimatePresence>
+                        {showIconPicker && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={`absolute z-[100] w-full mt-2 p-3 rounded-2xl shadow-2xl max-h-72 overflow-y-auto ${isDark ? "bg-gray-800 border-[1px] border-gray-700" : "bg-white border-[1px] border-gray-100"}`}
+                          >
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {FONT_AWESOME_ICONS.map(icon => (
+                                <button
+                                  key={icon.class}
+                                  type="button"
+                                  onClick={() => { setNewDept({ ...newDept, icon: icon.class }); setShowIconPicker(false); }}
+                                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
+                                >
+                                  <i className={`fas ${icon.class} w-6 text-center text-lg`}></i>
+                                  <span className="truncate">{icon.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Theme Color
+                    </label>
+                    <select
+                      value={newDept.color}
+                      onChange={(e) => setNewDept({ ...newDept, color: e.target.value })}
+                      className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base cursor-pointer ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                        : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                        }`}
+                    >
+                      <option value="blue">Blue</option>
+                      <option value="green">Green</option>
+                      <option value="purple">Purple</option>
+                      <option value="yellow">Yellow</option>
+                      <option value="red">Red</option>
+                      <option value="orange">Orange</option>
+                      <option value="teal">Teal</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Description
+                  </label>
+                  <textarea
+                    required
+                    value={newDept.description}
+                    onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
+                    placeholder="Brief description of the department's role..."
+                    rows="4"
+                    className={`w-full px-5 py-4 rounded-xl border-2 transition-all outline-none resize-none text-lg ${isDark
+                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                      }`}
+                  ></textarea>
+                </div>
+
+                <div className="pt-6 flex flex-col sm:flex-row gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentSection("departments")}
+                    className={`flex-1 py-4 rounded-xl font-bold transition-all text-lg shadow-sm hover:shadow-md ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                      }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingDept}
+                    className="flex-[2] py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transform hover:-translate-y-1"
+                  >
+                    {isAddingDept ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 border-4 border-white/50 border-t-white rounded-full animate-spin"></div>
+                        <span>Saving...</span>
+                      </div>
+                    ) : (
+                      <span>
+                        <i className={`fas ${editingDeptId ? "fa-save" : "fa-plus"} mr-3`}></i> {editingDeptId ? "Save Changes" : "Create Department"}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        );
+
+      case "messages":
+        return <MessagingDashboard user={user} role="admin" isDark={isDark} />;
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
 
@@ -1663,8 +1827,7 @@ export default function AdminDashboard() {
           onAddDepartment={() => {
             setEditingDeptId(null);
             setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
-            setShowAddDeptModal(true);
-            setCurrentSection("departments");
+            setCurrentSection("add_department");
           }}
           onDeptAction={(action) => {
             setCurrentSection("departments");
@@ -1695,182 +1858,14 @@ export default function AdminDashboard() {
         isSidebarOpen={isSidebarOpen}
       />
 
-      <AnimatePresence>
-        {showAddDeptModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={`fixed top-0 right-0 bottom-0 ${isSidebarOpen ? "left-0 lg:left-72" : "left-0"} z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300`}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className={`w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl ${isDark ? "bg-gray-800" : "bg-white"
-                }`}
-            >
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white flex items-center">
-                  <i className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"} mr-3`}></i> {editingDeptId ? "Edit Department" : "Add Department"}
-                </h2>
-                <button
-                  onClick={() => setShowAddDeptModal(false)}
-                  className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
 
-              <form onSubmit={handleAddNewDepartment} className="p-6 space-y-5">
-                <div>
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Department Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newDept.name}
-                    onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
-                    placeholder="e.g. Human Resources"
-                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${isDark
-                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                      : "bg-gray-50 border-gray-200 focus:border-emerald-500"
-                      }`}
-                  />
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">FontAwesome</a>)
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <i className={`fas ${newDept.icon} text-emerald-500 text-lg`}></i>
-                      </div>
-                      <input
-                        type="text"
-                        value={newDept.icon}
-                        onChange={(e) => setNewDept({ ...newDept, icon: e.target.value })}
-                        onFocus={() => setShowIconPicker(true)}
-                        onBlur={() => setTimeout(() => setShowIconPicker(false), 200)}
-                        className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 transition-all outline-none ${showIconPicker ? "border-emerald-500 ring-2 ring-emerald-500/20" : ""} ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                          : "bg-gray-50 border-gray-200 focus:border-emerald-500"
-                          }`}
-                        placeholder="e.g. fa-building"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowIconPicker(!showIconPicker)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer"
-                      >
-                        <i className={`fas fa-chevron-${showIconPicker ? 'up' : 'down'} text-xs`}></i>
-                      </button>
 
-                      <AnimatePresence>
-                        {showIconPicker && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className={`absolute z-[100] w-full mt-2 p-2 rounded-xl shadow-2xl max-h-56 overflow-y-auto ${isDark ? "bg-gray-800 border-[1px] border-gray-700" : "bg-white border-[1px] border-gray-100"}`}
-                          >
-                            <div className="grid grid-cols-2 gap-1">
-                              {FONT_AWESOME_ICONS.map(icon => (
-                                <button
-                                  key={icon.class}
-                                  type="button"
-                                  onClick={() => { setNewDept({ ...newDept, icon: icon.class }); setShowIconPicker(false); }}
-                                  className={`flex items-center gap-3 p-2 rounded-lg transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
-                                >
-                                  <i className={`fas ${icon.class} w-5 text-center`}></i> {icon.name}
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                      Theme Color
-                    </label>
-                    <select
-                      value={newDept.color}
-                      onChange={(e) => setNewDept({ ...newDept, color: e.target.value })}
-                      className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                        : "bg-gray-50 border-gray-200 focus:border-emerald-500"
-                        }`}
-                    >
-                      <option value="blue">Blue</option>
-                      <option value="green">Green</option>
-                      <option value="purple">Purple</option>
-                      <option value="yellow">Yellow</option>
-                      <option value="red">Red</option>
-                      <option value="orange">Orange</option>
-                      <option value="teal">Teal</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Description
-                  </label>
-                  <textarea
-                    required
-                    value={newDept.description}
-                    onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
-                    placeholder="Brief description of the department's role..."
-                    rows="3"
-                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none resize-none ${isDark
-                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                      : "bg-gray-50 border-gray-200 focus:border-emerald-500"
-                      }`}
-                  ></textarea>
-                </div>
-
-                <div className="pt-4 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddDeptModal(false)}
-                    className={`flex-1 py-3 rounded-xl font-bold transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                      }`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isAddingDept}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    {isAddingDept ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
-                        <span>Saving...</span>
-                      </div>
-                    ) : (
-                      <span>
-                        <i className={`fas ${editingDeptId ? "fa-save" : "fa-plus"} mr-2`}></i> {editingDeptId ? "Save Changes" : "Create Department"}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <SelectHolidaysModal 
-        isOpen={showSelectHolidaysModal} 
-        onClose={() => setShowSelectHolidaysModal(false)} 
-        currentHolidays={publicHolidays} 
-        onSaveSuccess={fetchDashboardData} 
+      <SelectHolidaysModal
+        isOpen={showSelectHolidaysModal}
+        onClose={() => setShowSelectHolidaysModal(false)}
+        currentHolidays={publicHolidays}
+        onSaveSuccess={fetchDashboardData}
         isSidebarOpen={isSidebarOpen}
       />
 
