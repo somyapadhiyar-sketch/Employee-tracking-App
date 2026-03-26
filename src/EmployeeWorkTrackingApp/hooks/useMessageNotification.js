@@ -88,7 +88,7 @@ export default function useMessageNotification(userId, role, isMessagesOpen) {
     unsubscribers.push(dmUnsub);
 
     return () => unsubscribers.forEach(unsub => unsub());
-  }, [userId, role]);
+  }, [userId, role, isMessagesOpen]);
 
   // Reset unread when user opens Messages
   useEffect(() => {

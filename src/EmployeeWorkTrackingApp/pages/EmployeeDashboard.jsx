@@ -159,10 +159,11 @@ export default function EmployeeDashboard() {
   const today = new Date().toISOString().split("T")[0];
 
   // Real-time message notifications
+  const isMessagesOpen = currentSection === "messages";
   const { unreadCount, latestMessage, clearNotification } = useMessageNotification(
     currentUserId,
     "employee",
-    currentSection === "messages"
+    isMessagesOpen
   );
 
   // Show toast when a new message arrives
@@ -175,7 +176,7 @@ export default function EmployeeDashboard() {
         clearNotification();
       }, 5000);
     }
-  }, [latestMessage]);
+  }, [latestMessage, clearNotification]); // Added clearNotification to dependencies
 
   const filteredWorkLogs = allWorkLogs.filter((log) => {
     if (log.employeeId !== currentUserId) return false;
@@ -1346,48 +1347,48 @@ export default function EmployeeDashboard() {
                 setCurrentSection("workLog");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "workLog"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex justify-between items-center ${currentSection === "workLog"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-clock w-5"></i> Log Work
+              <span><i className="fas fa-clock w-5"></i> Log Work</span>
             </button>
             <button
               onClick={() => {
                 setCurrentSection("myReports");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myReports"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex justify-between items-center ${currentSection === "myReports"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-file-alt w-5"></i> My Reports
+              <span><i className="fas fa-file-alt w-5"></i> My Reports</span>
             </button>
             <button
               onClick={() => {
                 setCurrentSection("leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex justify-between items-center ${currentSection === "leave"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-calendar-minus w-5"></i> Leave Requests
+              <span><i className="fas fa-calendar-minus w-5"></i> Leave Requests</span>
             </button>
             <button
               onClick={() => {
                 setCurrentSection("holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "holidays"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex justify-between items-center ${currentSection === "holidays"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
+              <span><i className="fas fa-umbrella-beach w-5"></i> Public Holidays</span>
             </button>
 
             <button
@@ -1396,13 +1397,13 @@ export default function EmployeeDashboard() {
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "messages"
-                ? "bg-blue-500 text-white"
-                : "hover:bg-blue-50 text-gray-700"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
               <span><i className="fas fa-comments w-5"></i> Messages</span>
               {unreadCount > 0 && currentSection !== "messages" && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full animate-bounce">
+                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}

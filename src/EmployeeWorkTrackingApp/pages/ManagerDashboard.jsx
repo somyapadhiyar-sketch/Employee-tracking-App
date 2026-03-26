@@ -2149,12 +2149,17 @@ export default function ManagerDashboard() {
                 setCurrentSection("messages");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "messages"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "messages"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-comments w-5"></i> Messages
+              <span><i className="fas fa-comments w-5"></i> Messages</span>
+              {unreadCount > 0 && currentSection !== "messages" && (
+                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </button>
 
             <button
