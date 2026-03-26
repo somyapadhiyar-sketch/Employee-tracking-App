@@ -29,59 +29,52 @@ export default function AdminSidebar({
       id: "dashboard",
       icon: "fa-home",
       label: "Dashboard",
-      color: "from-cyan-400 to-blue-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "pending",
       icon: "fa-user-clock",
       label: "Pending",
       badge: pendingCount,
-      color: "from-amber-400 to-orange-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "departments",
       icon: "fa-building",
       label: "Departments",
-      color: "from-emerald-400 to-green-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "employees",
       icon: "fa-users",
       label: "Employees",
-      color: "from-violet-400 to-purple-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "attendance",
       icon: "fa-calendar-check",
       label: "Attendance",
-      color: "from-rose-400 to-pink-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "leave",
       icon: "fa-calendar-minus",
       label: "Leave",
       badge: leaveRequestCount,
-      color: "from-orange-400 to-red-500",
+      color: "from-blue-500 to-blue-600",
     },
     {
       id: "holidays",
       icon: "fa-umbrella-beach",
       label: "Public Holidays",
-      color: "from-teal-400 to-emerald-500",
+      color: "from-blue-500 to-blue-600",
     },
 
-
-    {
-      id: "messages",
-      icon: "fa-comments",
-      label: "Messages",
-      color: "from-emerald-400 to-green-600",
-    },
     {
       id: "profile",
       icon: "fa-user-circle",
       label: "My Profile",
-      color: "from-blue-400 to-indigo-500",
+      color: "from-blue-500 to-blue-600",
     },
   ];
 

@@ -9,8 +9,7 @@ import {
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
-import MessagingDashboard from "../components/MessagingDashboard";
-import useMessageNotification from "../hooks/useMessageNotification";
+
 
 // NEW FIREBASE IMPORTS
 import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
@@ -50,8 +49,7 @@ export default function EmployeeDashboard() {
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
-  const [msgToast, setMsgToast] = useState(null);
-  const msgToastTimerRef = useRef(null);
+
 
   // NEW STATE FOR FIREBASE DATA
   const [allWorkLogs, setAllWorkLogs] = useState([]);
@@ -158,24 +156,7 @@ export default function EmployeeDashboard() {
   const currentUserId = user?.uid || user?.id;
   const today = new Date().toISOString().split("T")[0];
 
-  // Real-time message notifications
-  const { unreadCount, latestMessage, clearNotification } = useMessageNotification(
-    currentUserId,
-    "employee",
-    currentSection === "messages"
-  );
 
-  // Show toast when a new message arrives
-  useEffect(() => {
-    if (latestMessage) {
-      setMsgToast(latestMessage);
-      clearTimeout(msgToastTimerRef.current);
-      msgToastTimerRef.current = setTimeout(() => {
-        setMsgToast(null);
-        clearNotification();
-      }, 5000);
-    }
-  }, [latestMessage]);
 
   const filteredWorkLogs = allWorkLogs.filter((log) => {
     if (log.employeeId !== currentUserId) return false;
@@ -1117,7 +1098,7 @@ export default function EmployeeDashboard() {
           >
             <div className="flex items-center justify-between mb-8">
               <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
-                <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
+                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
                 Public Holidays
               </h1>
             </div>
@@ -1135,9 +1116,9 @@ export default function EmployeeDashboard() {
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20' : 'bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50')} transition-all hover:scale-[1.01] duration-300`}>
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-teal-400 to-emerald-500 text-white shadow-md'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md'}`}>
                           <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
                           <span className="text-lg leading-none">{holDate.getDate()}</span>
                         </div>
@@ -1151,7 +1132,7 @@ export default function EmployeeDashboard() {
                         {isPast ? (
                           <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
                         ) : (
-                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-md">Upcoming</span>
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">Upcoming</span>
                         )}
                       </div>
                     </div>
@@ -1191,9 +1172,9 @@ export default function EmployeeDashboard() {
 
                     let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
                     if (isToday) {
-                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
                     } else if (isHoliday) {
-                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 scale-105`;
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 scale-105`;
                     } else if (isWeekend) {
                       dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
                     } else {
@@ -1209,11 +1190,11 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
                   </div>
                 </div>
@@ -1226,8 +1207,7 @@ export default function EmployeeDashboard() {
 
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
-      case "messages":
-        return <MessagingDashboard user={user} role="employee" isDark={isDark} />;
+
       default:
         return null;
     }
@@ -1249,30 +1229,7 @@ export default function EmployeeDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Message Notification Toast */}
-      <AnimatePresence>
-        {msgToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -80, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -80, scale: 0.9 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="fixed top-5 right-5 z-[200] flex items-start gap-4 bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-700 text-gray-800 dark:text-white px-5 py-4 rounded-2xl shadow-2xl max-w-xs cursor-pointer"
-            onClick={() => { setCurrentSection("messages"); setMsgToast(null); clearNotification(); }}
-          >
-            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-md">
-              <i className="fas fa-comments text-lg"></i>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">New Message from Admin</p>
-              <p className="text-sm font-medium truncate">{msgToast}</p>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); setMsgToast(null); clearNotification(); }} className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
-              <i className="fas fa-times text-sm"></i>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Mobile Hamburger Button */}
       {!isSidebarOpen && (
@@ -1390,23 +1347,6 @@ export default function EmployeeDashboard() {
               <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
             </button>
 
-            <button
-              onClick={() => {
-                setCurrentSection("messages");
-                if (window.innerWidth < 1024) setIsSidebarOpen(false);
-              }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "messages"
-                ? "bg-blue-500 text-white"
-                : "hover:bg-blue-50 text-gray-700"
-                }`}
-            >
-              <span><i className="fas fa-comments w-5"></i> Messages</span>
-              {unreadCount > 0 && currentSection !== "messages" && (
-                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-md">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
 
             <button
               onClick={() => {

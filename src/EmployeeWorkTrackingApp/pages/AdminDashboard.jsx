@@ -7,7 +7,7 @@ import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 
 import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
-import MessagingDashboard from "../components/MessagingDashboard";
+
 
 import {
   collection,
@@ -804,7 +804,11 @@ export default function AdminDashboard() {
                                   ? "bg-[#f5b00b]"
                                   : dept.color === "red"
                                     ? "bg-[#ef4444]"
-                                    : "bg-blue-500"
+                                    : dept.color === "orange"
+                                      ? "bg-[#f97316]"
+                                      : dept.color === "teal"
+                                        ? "bg-[#14b8a6]"
+                                        : "bg-blue-500"
                           }
                       `}
                       >
@@ -1348,7 +1352,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setLeaveFilter("pending")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "pending"
-                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
@@ -1360,7 +1364,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setLeaveFilter("approved")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "approved"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
@@ -1372,7 +1376,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setLeaveFilter("all")}
                 className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "all"
-                  ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
@@ -1507,12 +1511,12 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center justify-between mb-8">
               <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
-                <i className="fas fa-umbrella-beach mr-3 text-emerald-500"></i>
+                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
                 Public Holidays
               </h1>
               <button
                 onClick={() => setShowSelectHolidaysModal(true)}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-500/30 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-500/30 flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
                 <span className="hidden sm:inline">Select Holidays</span>
@@ -1532,9 +1536,9 @@ export default function AdminDashboard() {
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20' : 'bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50')} transition-all hover:scale-[1.01] duration-300`}>
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-teal-400 to-emerald-500 text-white shadow-md'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md'}`}>
                           <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
                           <span className="text-lg leading-none">{holDate.getDate()}</span>
                         </div>
@@ -1548,7 +1552,7 @@ export default function AdminDashboard() {
                         {isPast ? (
                           <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
                         ) : (
-                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 rounded-md">Upcoming</span>
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">Upcoming</span>
                         )}
                       </div>
                     </div>
@@ -1588,9 +1592,9 @@ export default function AdminDashboard() {
 
                     let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
                     if (isToday) {
-                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 ring-2 ring-blue-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
                     } else if (isHoliday) {
-                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 scale-105`;
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 scale-105`;
                     } else if (isWeekend) {
                       dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
                     } else {
@@ -1606,11 +1610,11 @@ export default function AdminDashboard() {
                 </div>
                 <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
                   </div>
                 </div>
@@ -1629,7 +1633,7 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className={`w-full max-w-5xl mx-auto rounded-3xl shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"}`}
           >
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 sm:p-6 flex items-center justify-between shrink-0">
+            <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 transition-all duration-300 bg-gradient-to-r from-blue-500 to-blue-600`}>
               <h2 className="text-2xl font-bold text-white flex items-center">
                 <i className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"} mr-3`}></i>
                 {editingDeptId ? "Edit Department" : "Add Department"}
@@ -1649,8 +1653,8 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
                     placeholder="e.g. Human Resources"
                     className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base ${isDark
-                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                      : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                      ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
                       }`}
                   />
                 </div>
@@ -1658,11 +1662,11 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">FontAwesome</a>)
+                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">FontAwesome</a>)
                     </label>
                     <div className="relative">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <i className={`fas ${newDept.icon} text-emerald-500 text-lg`}></i>
+                        <i className={`fas ${newDept.icon} text-blue-500 text-lg`}></i>
                       </div>
                       <input
                         type="text"
@@ -1670,9 +1674,9 @@ export default function AdminDashboard() {
                         onChange={(e) => setNewDept({ ...newDept, icon: e.target.value })}
                         onFocus={() => setShowIconPicker(true)}
                         onBlur={() => setTimeout(() => setShowIconPicker(false), 200)}
-                        className={`w-full pl-12 pr-10 py-3 rounded-xl border-2 transition-all outline-none text-base ${showIconPicker ? "border-emerald-500 ring-4 ring-emerald-500/20" : ""} ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                          : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                        className={`w-full pl-12 pr-10 py-3 rounded-xl border-2 transition-all outline-none text-base ${showIconPicker ? "border-blue-500 ring-4 ring-blue-500/20" : ""} ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                          : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
                           }`}
                         placeholder="e.g. fa-building"
                       />
@@ -1698,7 +1702,7 @@ export default function AdminDashboard() {
                                   key={icon.class}
                                   type="button"
                                   onClick={() => { setNewDept({ ...newDept, icon: icon.class }); setShowIconPicker(false); }}
-                                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
+                                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-blue-900/40 text-blue-400" : "bg-blue-50 text-blue-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
                                 >
                                   <i className={`fas ${icon.class} w-6 text-center text-lg`}></i>
                                   <span className="truncate">{icon.name}</span>
@@ -1711,15 +1715,25 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                      Theme Color
-                    </label>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className={`block text-base font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                        Theme Color
+                      </label>
+                      <div className={`w-6 h-6 rounded-full shadow-sm border ${newDept.color === 'blue' ? 'bg-blue-500' :
+                        newDept.color === 'green' ? 'bg-emerald-500' :
+                          newDept.color === 'purple' ? 'bg-violet-500' :
+                            newDept.color === 'yellow' ? 'bg-amber-500' :
+                              newDept.color === 'red' ? 'bg-rose-500' :
+                                newDept.color === 'orange' ? 'bg-orange-500' :
+                                  newDept.color === 'teal' ? 'bg-teal-500' : 'bg-gray-400'
+                        }`}></div>
+                    </div>
                     <select
                       value={newDept.color}
                       onChange={(e) => setNewDept({ ...newDept, color: e.target.value })}
                       className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base cursor-pointer ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                        : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
                         }`}
                     >
                       <option value="blue">Blue</option>
@@ -1744,8 +1758,8 @@ export default function AdminDashboard() {
                     placeholder="Brief description of the department's role..."
                     rows="4"
                     className={`w-full px-5 py-4 rounded-xl border-2 transition-all outline-none resize-none text-lg ${isDark
-                      ? "bg-gray-700 border-gray-600 focus:border-emerald-500 text-white"
-                      : "bg-gray-50 border-gray-200 focus:border-emerald-500 text-gray-800"
+                      ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                      : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
                       }`}
                   ></textarea>
                 </div>
@@ -1762,7 +1776,7 @@ export default function AdminDashboard() {
                   <button
                     type="submit"
                     disabled={isAddingDept}
-                    className="flex-[2] py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transform hover:-translate-y-1"
+                    className={`flex-[2] py-4 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transform hover:-translate-y-1 bg-gradient-to-r from-blue-500 to-blue-600 shadow-blue-500/30`}
                   >
                     {isAddingDept ? (
                       <div className="flex items-center gap-3">
@@ -1781,8 +1795,7 @@ export default function AdminDashboard() {
           </motion.div>
         );
 
-      case "messages":
-        return <MessagingDashboard user={user} role="admin" isDark={isDark} />;
+
 
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
