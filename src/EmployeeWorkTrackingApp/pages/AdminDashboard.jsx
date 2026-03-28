@@ -8,58 +8,63 @@ import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
 
-
 import {
   collection,
   getDocs,
   doc,
   updateDoc,
   deleteDoc,
-  addDoc
+  addDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useOutletContext } from "react-router-dom";
 
 const FONT_AWESOME_ICONS = [
-  { class: 'fa-building', name: 'Building' },
-  { class: 'fa-users', name: 'Users' },
-  { class: 'fa-briefcase', name: 'Briefcase' },
-  { class: 'fa-chart-line', name: 'Chart' },
-  { class: 'fa-chart-pie', name: 'Pie Chart' },
-  { class: 'fa-chart-bar', name: 'Bar Chart' },
-  { class: 'fa-laptop-code', name: 'Laptop' },
-  { class: 'fa-desktop', name: 'Desktop' },
-  { class: 'fa-cogs', name: 'Cogs' },
-  { class: 'fa-headset', name: 'Headset' },
-  { class: 'fa-calculator', name: 'Calculator' },
-  { class: 'fa-bullhorn', name: 'Bullhorn' },
-  { class: 'fa-balance-scale', name: 'Scale' },
-  { class: 'fa-microscope', name: 'Science' },
-  { class: 'fa-paint-brush', name: 'Art' },
-  { class: 'fa-heartbeat', name: 'Healthcare' },
-  { class: 'fa-shield-alt', name: 'Security' },
-  { class: 'fa-truck', name: 'Logistics' },
-  { class: 'fa-shopping-cart', name: 'Retail' },
-  { class: 'fa-leaf', name: 'Environment' },
-  { class: 'fa-globe', name: 'Global' },
-  { class: 'fa-lightbulb', name: 'Idea' },
-  { class: 'fa-server', name: 'Server' },
-  { class: 'fa-cloud', name: 'Cloud' },
-  { class: 'fa-project-diagram', name: 'Project' },
-  { class: 'fa-boxes', name: 'Stock' },
-  { class: 'fa-bullseye', name: 'Target' },
-  { class: 'fa-comments', name: 'Communications' },
-  { class: 'fa-handshake', name: 'Partnership' },
-  { class: 'fa-coins', name: 'Finance' },
+  { class: "fa-building", name: "Building" },
+  { class: "fa-users", name: "Users" },
+  { class: "fa-briefcase", name: "Briefcase" },
+  { class: "fa-chart-line", name: "Chart" },
+  { class: "fa-chart-pie", name: "Pie Chart" },
+  { class: "fa-chart-bar", name: "Bar Chart" },
+  { class: "fa-laptop-code", name: "Laptop" },
+  { class: "fa-desktop", name: "Desktop" },
+  { class: "fa-cogs", name: "Cogs" },
+  { class: "fa-headset", name: "Headset" },
+  { class: "fa-calculator", name: "Calculator" },
+  { class: "fa-bullhorn", name: "Bullhorn" },
+  { class: "fa-balance-scale", name: "Scale" },
+  { class: "fa-microscope", name: "Science" },
+  { class: "fa-paint-brush", name: "Art" },
+  { class: "fa-heartbeat", name: "Healthcare" },
+  { class: "fa-shield-alt", name: "Security" },
+  { class: "fa-truck", name: "Logistics" },
+  { class: "fa-shopping-cart", name: "Retail" },
+  { class: "fa-leaf", name: "Environment" },
+  { class: "fa-globe", name: "Global" },
+  { class: "fa-lightbulb", name: "Idea" },
+  { class: "fa-server", name: "Server" },
+  { class: "fa-cloud", name: "Cloud" },
+  { class: "fa-project-diagram", name: "Project" },
+  { class: "fa-boxes", name: "Stock" },
+  { class: "fa-bullseye", name: "Target" },
+  { class: "fa-comments", name: "Communications" },
+  { class: "fa-handshake", name: "Partnership" },
+  { class: "fa-coins", name: "Finance" },
 ];
 
 export default function AdminDashboard() {
   const { auth, onLogout } = useOutletContext();
   const { isDark } = useTheme();
-  const { departmentsMap, addDepartment, editDepartment, deleteDepartment } = useDepartments();
+  const { departmentsMap, addDepartment, editDepartment, deleteDepartment } =
+    useDepartments();
 
   const [showAddDeptModal, setShowAddDeptModal] = useState(false);
-  const [newDept, setNewDept] = useState({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+  const [newDept, setNewDept] = useState({
+    name: "",
+    icon: "fa-building",
+    color: "blue",
+    description: "",
+  });
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [isAddingDept, setIsAddingDept] = useState(false);
   const [editingDeptId, setEditingDeptId] = useState(null);
@@ -71,6 +76,8 @@ export default function AdminDashboard() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [expandedEmployeeId, setExpandedEmployeeId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [managerSearchTerm, setManagerSearchTerm] = useState("");
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
 
   const [allUsers, setAllUsers] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
@@ -107,9 +114,17 @@ export default function AdminDashboard() {
         // Initialize with default if empty
         const currentYear = new Date().getFullYear();
         const IT_HOLIDAYS = [
-          { date: `${currentYear}-01-14`, name: "Makar Sankranti", type: "Optional" },
+          {
+            date: `${currentYear}-01-14`,
+            name: "Makar Sankranti",
+            type: "Optional",
+          },
           { date: `${currentYear}-03-04`, name: "Dhuleti", type: "Mandatory" },
-          { date: `${currentYear}-08-28`, name: "Raksha Bandhan", type: "Optional" },
+          {
+            date: `${currentYear}-08-28`,
+            name: "Raksha Bandhan",
+            type: "Optional",
+          },
           { date: `${currentYear}-10-19`, name: "Dussehra", type: "Mandatory" },
           { date: `${currentYear}-11-09`, name: "New Year", type: "Mandatory" },
         ];
@@ -309,12 +324,20 @@ export default function AdminDashboard() {
         showToast("Department updated successfully!", "success");
         setCurrentSection("departments");
         setEditingDeptId(null);
-        setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+        setNewDept({
+          name: "",
+          icon: "fa-building",
+          color: "blue",
+          description: "",
+        });
       } else {
         showToast("Failed to update department", "error");
       }
     } else {
-      const deptId = newDept.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+      const deptId = newDept.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/(^_|_$)/g, "");
 
       if (departmentsMap[deptId]) {
         showToast("Department already exists", "error");
@@ -328,7 +351,12 @@ export default function AdminDashboard() {
       if (success) {
         showToast("Department added successfully!", "success");
         setCurrentSection("departments");
-        setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+        setNewDept({
+          name: "",
+          icon: "fa-building",
+          color: "blue",
+          description: "",
+        });
       } else {
         showToast("Failed to add department", "error");
       }
@@ -337,7 +365,11 @@ export default function AdminDashboard() {
 
   const handleDeleteDepartment = async (e, deptId, deptName) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete the department "${deptName}"? This action cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete the department "${deptName}"? This action cannot be undone.`
+      )
+    ) {
       const { success } = await deleteDepartment(deptId);
       if (success) {
         showToast(`Department "${deptName}" deleted.`, "success");
@@ -473,26 +505,26 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h1
-                    className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
-                    Welcome back, {userName}! 👋
+                    Welcome back, <span className="text-blue-500 font-extrabold">{userName}</span>
                   </h1>
-                  <p
-                    className={
-                      isDark ? "text-gray-400 mt-1" : "text-gray-500 mt-1"
-                    }
-                  >
-                    {formatDate(currentTime)}
+                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Have a great day ahead!
                   </p>
                 </div>
                 <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl px-6 py-3 shadow-lg"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col items-center sm:items-end"
                 >
-                  <p className="text-white text-2xl font-mono font-bold">
+                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"
+                    }`}>
                     {formatTime(currentTime)}
+                  </p>
+                  <p className={`text-sm font-bold tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    {formatDate(currentTime)}
                   </p>
                 </motion.div>
               </div>
@@ -770,7 +802,6 @@ export default function AdminDashboard() {
                   : "Departments"}
               </h1>
               <div className="flex gap-4">
-
                 {selectedDepartment && (
                   <button
                     onClick={() => setSelectedDepartment(null)}
@@ -842,12 +873,32 @@ export default function AdminDashboard() {
                     </p>
                     {deptActionView !== "view" && (
                       <div className="flex gap-3 mt-4">
-                        {(deptActionView === "edit" || deptActionView === "both") && (
-                          <button onClick={(e) => openEditDeptModal(e, key, dept)} className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark ? "bg-cyan-900/30 text-cyan-400 hover:bg-cyan-900/50" : "bg-cyan-50 hover:bg-cyan-100 text-cyan-600"}`}><i className="fas fa-pencil-alt"></i> edit</button>
-                        )}
-                        {(deptActionView === "delete" || deptActionView === "both") && (
-                          <button onClick={(e) => handleDeleteDepartment(e, key, dept.name)} className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark ? "bg-rose-900/40 hover:bg-rose-900/60 text-rose-400" : "bg-rose-50 hover:bg-rose-100 text-rose-500"}`}><i className="fas fa-trash-alt"></i> delete</button>
-                        )}
+                        {(deptActionView === "edit" ||
+                          deptActionView === "both") && (
+                            <button
+                              onClick={(e) => openEditDeptModal(e, key, dept)}
+                              className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark
+                                ? "bg-cyan-900/30 text-cyan-400 hover:bg-cyan-900/50"
+                                : "bg-cyan-50 hover:bg-cyan-100 text-cyan-600"
+                                }`}
+                            >
+                              <i className="fas fa-pencil-alt"></i> edit
+                            </button>
+                          )}
+                        {(deptActionView === "delete" ||
+                          deptActionView === "both") && (
+                            <button
+                              onClick={(e) =>
+                                handleDeleteDepartment(e, key, dept.name)
+                              }
+                              className={`flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isDark
+                                ? "bg-rose-900/40 hover:bg-rose-900/60 text-rose-400"
+                                : "bg-rose-50 hover:bg-rose-100 text-rose-500"
+                                }`}
+                            >
+                              <i className="fas fa-trash-alt"></i> delete
+                            </button>
+                          )}
                       </div>
                     )}
                   </motion.div>
@@ -884,7 +935,8 @@ export default function AdminDashboard() {
                             className={`font-bold text-lg ${isDark ? "text-white" : "text-gray-800"
                               }`}
                           >
-                            {getDepartmentManager(selectedDepartment).firstName} {getDepartmentManager(selectedDepartment).lastName}
+                            {getDepartmentManager(selectedDepartment).firstName}{" "}
+                            {getDepartmentManager(selectedDepartment).lastName}
                           </p>
                           <p
                             className={
@@ -909,7 +961,8 @@ export default function AdminDashboard() {
                       }`}
                   >
                     <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center">
-                      <i className="fas fa-users mr-2"></i> Department Employees ({getDepartmentEmployees(selectedDepartment).length})
+                      <i className="fas fa-users mr-2"></i> Department Employees
+                      ({getDepartmentEmployees(selectedDepartment).length})
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {getDepartmentEmployees(selectedDepartment).map((emp) => (
@@ -952,201 +1005,174 @@ export default function AdminDashboard() {
           </motion.div>
         );
 
-      case "employees":
+      case "employees": {
+        const filterFn = (u, term) => {
+          if (!term) return true;
+          const s = term.toLowerCase();
+          return (
+            `${u.firstName} ${u.lastName}`.toLowerCase().includes(s) ||
+            u.email.toLowerCase().includes(s) ||
+            departmentsMap[u.department]?.name.toLowerCase().includes(s)
+          );
+        };
+        const filteredManagers = approvedManagers.filter(u => filterFn(u, managerSearchTerm));
+        const filteredEmployees = regularEmployees.filter(u => filterFn(u, employeeSearchTerm));
+
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                } mb-8`}
-            >
+            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"} mb-8`}>
               All Employees & Managers
             </h1>
 
-            {approvedManagers.length > 0 && (
-              <div
-                className={`rounded-2xl p-6 shadow-lg mb-6 border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100"
-                  }`}
-              >
-                <h2 className="text-xl font-bold text-violet-400 mb-4 flex items-center">
-                  <i className="fas fa-user-tie mr-2"></i>Department Managers (
-                  {approvedManagers.length})
+            {/* Department Managers Section */}
+            <div className={`rounded-2xl p-6 shadow-lg mb-8 overflow-x-auto border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h2 className="text-xl font-bold text-violet-400 flex items-center whitespace-nowrap">
+                  <i className="fas fa-user-tie mr-2"></i>Department Managers ({filteredManagers.length})
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {approvedManagers.map((emp) => (
-                    <div
-                      key={emp.id}
-                      className={`p-4 rounded-xl shadow-md ${isDark
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-white border-gray-100"
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">
-                            {emp.firstName?.[0]}
-                            {emp.lastName?.[0]}
-                          </div>
-                          <div>
-                            <p
-                              className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                                }`}
-                            >
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p
-                              className={
-                                isDark
-                                  ? "text-gray-400 text-xs"
-                                  : "text-gray-500 text-xs"
-                              }
-                            >
-                              {departmentsMap[emp.department]?.name}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 mt-4">
-                        <button
-                          onClick={() => viewEmployeeProfile(emp)}
-                          className="flex-1 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex items-center justify-center shadow-md"
-                        >
-                          <i className="fas fa-eye mr-2"></i> View
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDeleteEmployee(emp.id, emp.firstName)
-                          }
-                          className="px-3.5 py-2 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex items-center justify-center shadow-md"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="relative group w-full sm:w-64">
+                  <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
+                  <input
+                    type="text"
+                    placeholder="Search managers..."
+                    value={managerSearchTerm}
+                    onChange={(e) => setManagerSearchTerm(e.target.value)}
+                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-violet-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-violet-100 focus:bg-white"}`}
+                  />
                 </div>
               </div>
-            )}
 
-            <div
-              className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${isDark
-                ? "bg-gray-800 border-gray-700"
-                : "bg-white border-gray-100"
-                }`}
-            >
-              <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center">
-                <i className="fas fa-users mr-2"></i>Employees (
-                {regularEmployees.length})
-              </h2>
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                    <th className="px-4 py-4 font-bold rounded-tl-lg">Name</th>
-                    <th className="px-4 py-4 font-bold">Email</th>
-                    <th className="px-4 py-4 font-bold">Department</th>
-                    <th className="px-4 py-4 font-bold rounded-tr-lg">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {regularEmployees.map((emp) => (
-                    <React.Fragment key={emp.id}>
-                      <tr
-                        className={`border-b ${isDark
-                          ? "border-gray-600 hover:bg-gray-700"
-                          : "hover:bg-gray-50"
-                          } ${expandedEmployeeId === emp.id
-                            ? isDark
-                              ? "bg-gray-700"
-                              : "bg-gray-50"
-                            : ""
-                          }`}
-                      >
-                        <td
-                          className={`px-4 py-3 font-medium ${isDark ? "text-white" : ""
-                            }`}
-                        >
-                          {emp.firstName} {emp.lastName}
-                        </td>
-                        <td
-                          className={`px-4 py-3 ${isDark ? "text-gray-400" : "text-gray-500"
-                            }`}
-                        >
-                          {emp.email}
-                        </td>
-                        <td
-                          className={`px-4 py-3 ${isDark ? "text-gray-300" : ""
-                            }`}
-                        >
-                          {departmentsMap[emp.department]?.name}
-                        </td>
-                        <td className="px-4 py-3 flex gap-2">
-                          <button
-                            onClick={() => toggleEmployeeExpand(emp.id)}
-                            className="px-4 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex items-center justify-center shadow-sm"
-                          >
-                            <i
-                              className={`fas fa-${expandedEmployeeId === emp.id
-                                ? "eye-slash"
-                                : "eye"
-                                } mr-2`}
-                            ></i>{" "}
-                            {expandedEmployeeId === emp.id ? "Close" : "View"}
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteEmployee(emp.id, emp.firstName)
-                            }
-                            className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex items-center justify-center shadow-sm"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </td>
-                      </tr>
-                      <AnimatePresence>
-                        {expandedEmployeeId === emp.id && (
-                          <tr>
-                            <td colSpan="4" className="p-0 border-b-0">
-                              <div
-                                className={`px-4 ${isDark ? "bg-gray-800" : "bg-slate-50"
-                                  }`}
-                              >
-                                <ProfileCard
-                                  user={emp}
-                                  role={emp.role}
-                                  isAdminView={true}
-                                  workLogs={getEmployeeWorkLogs(emp.id)}
-                                  isInline={true}
-                                  onClose={() => setExpandedEmployeeId(null)}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </AnimatePresence>
-                    </React.Fragment>
-                  ))}
-                  {regularEmployees.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className={`px-4 py-8 text-center ${isDark ? "text-gray-400" : "text-gray-500"
-                          }`}
-                      >
-                        No employees found
-                      </td>
+              {filteredManagers.length > 0 ? (
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">Name</th>
+                      <th className="px-4 py-4 font-bold text-sm">Email</th>
+                      <th className="px-4 py-4 font-bold text-sm">Department</th>
+                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredManagers.map((emp) => (
+                      <React.Fragment key={emp.id}>
+                        <tr className={`border-b ${isDark ? "border-gray-600 hover:bg-gray-700" : "hover:bg-gray-50"} ${expandedEmployeeId === emp.id ? (isDark ? "bg-gray-700" : "bg-gray-50") : ""}`}>
+                          <td className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""}`}>{emp.firstName} {emp.lastName}</td>
+                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{emp.email}</td>
+                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""}`}>{departmentsMap[emp.department]?.name}</td>
+                          <td className="px-4 py-3 flex gap-3">
+                            <button
+                              onClick={() => toggleEmployeeExpand(emp.id)}
+                              title={expandedEmployeeId === emp.id ? "Close" : "View"}
+                              className="w-9 h-9 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                            >
+                              <i className={`fas fa-${expandedEmployeeId === emp.id ? "eye-slash" : "eye"}`}></i>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEmployee(emp.id, emp.firstName)}
+                              title="Delete"
+                              className="w-9 h-9 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                            >
+                              <i className="fas fa-trash-alt"></i>
+                            </button>
+                          </td>
+                        </tr>
+                        <AnimatePresence>
+                          {expandedEmployeeId === emp.id && (
+                            <tr>
+                              <td colSpan="4" className="p-0">
+                                <div className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"}`}>
+                                  <ProfileCard user={emp} role={emp.role} isAdminView={true} workLogs={getEmployeeWorkLogs(emp.id)} isInline={true} onClose={() => setExpandedEmployeeId(null)} />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}>No managers found for "{managerSearchTerm}"</p>
+              )}
+            </div>
+
+            {/* Regular Employees Section */}
+            <div className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h2 className="text-xl font-bold text-blue-400 flex items-center whitespace-nowrap">
+                  <i className="fas fa-users mr-2"></i>Employees ({filteredEmployees.length})
+                </h2>
+                <div className="relative group w-full sm:w-64">
+                  <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
+                  <input
+                    type="text"
+                    placeholder="Search employees..."
+                    value={employeeSearchTerm}
+                    onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-blue-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-100 focus:bg-white"}`}
+                  />
+                </div>
+              </div>
+
+              {filteredEmployees.length > 0 ? (
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">Name</th>
+                      <th className="px-4 py-4 font-bold text-sm">Email</th>
+                      <th className="px-4 py-4 font-bold text-sm">Department</th>
+                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEmployees.map((emp) => (
+                      <React.Fragment key={emp.id}>
+                        <tr className={`border-b ${isDark ? "border-gray-600 hover:bg-gray-700" : "hover:bg-gray-50"} ${expandedEmployeeId === emp.id ? (isDark ? "bg-gray-700" : "bg-gray-50") : ""}`}>
+                          <td className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""}`}>{emp.firstName} {emp.lastName}</td>
+                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{emp.email}</td>
+                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""}`}>{departmentsMap[emp.department]?.name}</td>
+                          <td className="px-4 py-3 flex gap-3">
+                            <button
+                              onClick={() => toggleEmployeeExpand(emp.id)}
+                              title={expandedEmployeeId === emp.id ? "Close" : "View"}
+                              className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                            >
+                              <i className={`fas fa-${expandedEmployeeId === emp.id ? "eye-slash" : "eye"}`}></i>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEmployee(emp.id, emp.firstName)}
+                              title="Delete"
+                              className="w-9 h-9 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
+                            >
+                              <i className="fas fa-trash-alt"></i>
+                            </button>
+                          </td>
+                        </tr>
+                        <AnimatePresence>
+                          {expandedEmployeeId === emp.id && (
+                            <tr>
+                              <td colSpan="4" className="p-0">
+                                <div className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"}`}>
+                                  <ProfileCard user={emp} role={emp.role} isAdminView={true} workLogs={getEmployeeWorkLogs(emp.id)} isInline={true} onClose={() => setExpandedEmployeeId(null)} />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}>No employees found for "{employeeSearchTerm}"</p>
+              )}
             </div>
           </motion.div>
         );
+      }
 
       case "attendance": {
         let statsEmployees = approvedEmployees;
@@ -1154,18 +1180,25 @@ export default function AdminDashboard() {
 
         if (presentSubFilter === "managers") {
           statsEmployees = approvedManagers;
-          statsOnLeave = employeesOnLeave.filter(req => approvedManagers.some(m => m.id === req.employeeId));
+          statsOnLeave = employeesOnLeave.filter((req) =>
+            approvedManagers.some((m) => m.id === req.employeeId)
+          );
         } else if (presentSubFilter === "employees") {
           statsEmployees = regularEmployees;
-          statsOnLeave = employeesOnLeave.filter(req => regularEmployees.some(e => e.id === req.employeeId));
+          statsOnLeave = employeesOnLeave.filter((req) =>
+            regularEmployees.some((e) => e.id === req.employeeId)
+          );
         }
 
-        const statsPresentIds = statsEmployees.filter(emp => presentIds.includes(emp.id)).map(e => e.id);
+        const statsPresentIds = statsEmployees
+          .filter((emp) => presentIds.includes(emp.id))
+          .map((e) => e.id);
         const presentCount = statsPresentIds.length;
         const totalCount = statsEmployees.length;
         const absentCount = totalCount - presentCount;
         const onLeaveCount = statsOnLeave.length;
-        const attPercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+        const attPercentage =
+          totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
         return (
           <motion.div
@@ -1203,9 +1236,7 @@ export default function AdminDashboard() {
                 className={`bg-gradient-to-br from-rose-400 to-red-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer ${attendanceFilter === "absent" ? "ring-4 ring-white" : ""
                   }`}
               >
-                <p className="text-3xl font-bold">
-                  {absentCount}
-                </p>
+                <p className="text-3xl font-bold">{absentCount}</p>
                 <p className="text-white/80">Absent</p>
               </motion.div>
               <motion.div
@@ -1233,9 +1264,7 @@ export default function AdminDashboard() {
                 <p className="text-white/80">Total</p>
               </motion.div>
               <motion.div className="bg-gradient-to-br from-violet-400 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-                <p className="text-3xl font-bold">
-                  {attPercentage}%
-                </p>
+                <p className="text-3xl font-bold">{attPercentage}%</p>
                 <p className="text-white/80">Attendance</p>
               </motion.div>
             </div>
@@ -1394,92 +1423,113 @@ export default function AdminDashboard() {
                 }`}
             >
               <div className="space-y-4">
-                {(leaveFilter === "pending"
-                  ? pendingLeaveRequests
-                  : leaveFilter === "approved"
-                    ? approvedLeaveRequests
-                    : allLeaveRequests
-                ).map((req) => {
-                  const emp = allUsers.find((e) => e.id === req.employeeId);
-                  if (!emp) return null;
-                  return (
-                    <div
-                      key={req.id}
-                      className={`p-4 rounded-xl border ${isDark
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {emp.firstName?.[0]}
-                            {emp.lastName?.[0]}
-                          </div>
-                          <div>
-                            <p
-                              className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                                }`}
-                            >
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p
-                              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
-                                }`}
-                            >
-                              {emp.email}
-                            </p>
-                          </div>
+                {(() => {
+                  const filteredReqs = leaveFilter === "pending"
+                    ? pendingLeaveRequests
+                    : leaveFilter === "approved"
+                      ? approvedLeaveRequests
+                      : allLeaveRequests;
+
+                  if (filteredReqs.length === 0) {
+                    return (
+                      <div className="text-center py-16">
+                        <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
+                          <i className="fas fa-clipboard-check text-4xl text-white"></i>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "pending"
-                            ? "bg-amber-100 text-amber-700"
-                            : req.status === "approved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
-                            }`}
-                        >
-                          {req.status.charAt(0).toUpperCase() +
-                            req.status.slice(1)}
-                        </span>
+                        <h3 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>
+                          No {leaveFilter} leave requests
+                        </h3>
+                        <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+                          {leaveFilter === "pending"
+                            ? "All clear! There are no new requests waiting for your approval."
+                            : `There are currently no ${leaveFilter} requests in the system.`}
+                        </p>
                       </div>
+                    );
+                  }
+
+                  return filteredReqs.map((req) => {
+                    const emp = allUsers.find((e) => e.id === req.employeeId);
+                    if (!emp) return null;
+                    return (
                       <div
-                        className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                        key={req.id}
+                        className={`p-4 rounded-xl border ${isDark
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                           }`}
                       >
-                        <p
-                          className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"
-                            }`}
-                        >
-                          <strong>Reason:</strong> {req.reason}
-                        </p>
-                        <p
-                          className={`text-sm mt-2 ${isDark ? "text-gray-300" : "text-gray-600"
-                            }`}
-                        >
-                          <strong>Dates:</strong> {req.startDate} to{" "}
-                          {req.endDate}
-                        </p>
-                      </div>
-                      {req.status === "pending" && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApproveLeave(req.id)}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-medium"
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                              {emp.firstName?.[0]}
+                              {emp.lastName?.[0]}
+                            </div>
+                            <div>
+                              <p
+                                className={`font-bold ${isDark ? "text-white" : "text-gray-800"
+                                  }`}
+                              >
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              <p
+                                className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                                  }`}
+                              >
+                                {emp.email}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "pending"
+                              ? "bg-amber-100 text-amber-700"
+                              : req.status === "approved"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-rose-100 text-rose-700"
+                              }`}
                           >
-                            <i className="fas fa-check mr-2"></i>Approve
-                          </button>
-                          <button
-                            onClick={() => handleRejectLeave(req.id)}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg font-medium"
-                          >
-                            <i className="fas fa-times mr-2"></i>Reject
-                          </button>
+                            {req.status.charAt(0).toUpperCase() +
+                              req.status.slice(1)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        <div
+                          className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                            }`}
+                        >
+                          <p
+                            className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"
+                              }`}
+                          >
+                            <strong>Reason:</strong> {req.reason}
+                          </p>
+                          <p
+                            className={`text-sm mt-2 ${isDark ? "text-gray-300" : "text-gray-600"
+                              }`}
+                          >
+                            <strong>Dates:</strong> {req.startDate} to{" "}
+                            {req.endDate}
+                          </p>
+                        </div>
+                        {req.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleApproveLeave(req.id)}
+                              className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-medium shadow-md transition-all hover:scale-105"
+                            >
+                              <i className="fas fa-check mr-2"></i>Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectLeave(req.id)}
+                              className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg font-medium shadow-md transition-all hover:scale-105"
+                            >
+                              <i className="fas fa-times mr-2"></i>Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           </motion.div>
@@ -1496,7 +1546,20 @@ export default function AdminDashboard() {
 
         const IT_HOLIDAYS = publicHolidays;
 
-        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthNames = [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ];
 
         const calendarDays = Array(firstDayOfMonth).fill(null);
         for (let i = 1; i <= daysInMonth; i++) {
@@ -1510,7 +1573,10 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <div className="flex items-center justify-between mb-8">
-              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              <h1
+                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  }`}
+              >
                 <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
                 Public Holidays
               </h1>
@@ -1536,59 +1602,171 @@ export default function AdminDashboard() {
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20' : 'bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50')} transition-all hover:scale-[1.01] duration-300`}>
+                    <div
+                      key={idx}
+                      onClick={() =>
+                        setCurrentCalendarDate(new Date(holiday.date))
+                      }
+                      className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast
+                        ? isDark
+                          ? "bg-gray-800/80 border-gray-700 opacity-60"
+                          : "bg-gray-100 border-gray-200 opacity-70"
+                        : isDark
+                          ? "bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20"
+                          : "bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50"
+                        } transition-all hover:scale-[1.01] duration-300`}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md'}`}>
-                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
-                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        <div
+                          className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
+                            ? "bg-gray-300 text-gray-500"
+                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md"
+                            }`}
+                        >
+                          <span className="text-[10px] uppercase">
+                            {holDate.toLocaleString("default", {
+                              month: "short",
+                            })}
+                          </span>
+                          <span className="text-lg leading-none">
+                            {holDate.getDate()}
+                          </span>
                         </div>
                         <div>
-                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
-                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                          <p
+                            className={`font-bold text-[15px] leading-tight ${isPast
+                              ? isDark
+                                ? "text-gray-400"
+                                : "text-gray-600"
+                              : isDark
+                                ? "text-white"
+                                : "text-gray-800"
+                              }`}
+                          >
+                            {holiday.name}
+                          </p>
+                          <span
+                            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
+                              } font-medium mt-1 inline-block`}
+                          >
+                            <i className="far fa-calendar mr-1.5"></i>
+                            {holDate.toLocaleDateString(undefined, {
+                              weekday: "long",
+                            })}
+                          </span>
                         </div>
                       </div>
 
                       <div>
                         {isPast ? (
-                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                            Passed
+                          </span>
                         ) : (
-                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">Upcoming</span>
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+                            Upcoming
+                          </span>
                         )}
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
 
               {/* Current Month Calendar */}
-              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div
+                className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
+                  }`}
+              >
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                    <h3
+                      className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                        }`}
+                    >
                       {monthNames[calMonth]}
                     </h3>
-                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{calYear}</p>
+                    <p
+                      className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      {calYear}
+                    </p>
                   </div>
                   <div className="flex gap-1.5 items-center">
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-left text-sm"></i></button>
-                    <button onClick={() => setCurrentCalendarDate(new Date())} className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>Today</button>
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-right text-sm"></i></button>
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth - 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-left text-sm"></i>
+                    </button>
+                    <button
+                      onClick={() => setCurrentCalendarDate(new Date())}
+                      className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-300"
+                        : "hover:bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth + 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-right text-sm"></i>
+                    </button>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-7 gap-2 text-center mb-2">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                    <div key={day} className={`text-xs font-bold py-1 ${day === 'Su' || day === 'Sa' ? 'text-rose-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{day}</div>
+                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                    <div
+                      key={day}
+                      className={`text-xs font-bold py-1 ${day === "Su" || day === "Sa"
+                        ? "text-rose-400"
+                        : isDark
+                          ? "text-gray-400"
+                          : "text-gray-500"
+                        }`}
+                    >
+                      {day}
+                    </div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-2 text-center">
                   {calendarDays.map((day, idx) => {
-                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+                    if (!day)
+                      return <div key={`empty-${idx}`} className="p-2"></div>;
 
-                    const currentDateStr = `${currentYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const isHoliday = IT_HOLIDAYS.some(h => h.date === currentDateStr);
-                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
-                    const isWeekend = new Date(currentYear, calMonth, day).getDay() === 0 || new Date(currentYear, calMonth, day).getDay() === 6;
+                    const currentDateStr = `${currentYear}-${String(
+                      calMonth + 1
+                    ).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const isHoliday = IT_HOLIDAYS.some(
+                      (h) => h.date === currentDateStr
+                    );
+                    const isToday =
+                      day === todayDate.getDate() &&
+                      calMonth === todayDate.getMonth() &&
+                      currentYear === todayDate.getFullYear();
+                    const isWeekend =
+                      new Date(currentYear, calMonth, day).getDay() === 0 ||
+                      new Date(currentYear, calMonth, day).getDay() === 6;
 
                     let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
                     if (isToday) {
@@ -1596,13 +1774,26 @@ export default function AdminDashboard() {
                     } else if (isHoliday) {
                       dayClass += `bg-blue-500 text-white shadow-blue-500/30 scale-105`;
                     } else if (isWeekend) {
-                      dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                      dayClass += isDark
+                        ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 `
+                        : `bg-gray-50 text-rose-500/80 border border-gray-100`;
                     } else {
-                      dayClass += isDark ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600` : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                      dayClass += isDark
+                        ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600`
+                        : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
                     }
 
                     return (
-                      <div key={day} className={dayClass} title={isHoliday ? IT_HOLIDAYS.find(h => h.date === currentDateStr)?.name : ''}>
+                      <div
+                        key={day}
+                        className={dayClass}
+                        title={
+                          isHoliday
+                            ? IT_HOLIDAYS.find((h) => h.date === currentDateStr)
+                              ?.name
+                            : ""
+                        }
+                      >
                         {day}
                       </div>
                     );
@@ -1611,16 +1802,23 @@ export default function AdminDashboard() {
                 <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center gap-3 text-sm font-medium">
                     <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                    <span
+                      className={isDark ? "text-gray-300" : "text-gray-700"}
+                    >
+                      Public Holiday
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 text-sm font-medium">
                     <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
+                    <span
+                      className={isDark ? "text-gray-300" : "text-gray-700"}
+                    >
+                      Today
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-
           </motion.div>
         );
       }
@@ -1631,26 +1829,42 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className={`w-full max-w-5xl mx-auto rounded-3xl shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"}`}
+            className={`w-full max-w-5xl mx-auto rounded-3xl shadow-xl flex flex-col overflow-hidden ${isDark
+              ? "bg-gray-800 border border-gray-700"
+              : "bg-white border border-gray-100"
+              }`}
           >
-            <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 transition-all duration-300 bg-gradient-to-r from-blue-500 to-blue-600`}>
+            <div
+              className={`p-5 sm:p-6 flex items-center justify-between shrink-0 transition-all duration-300 bg-gradient-to-r from-blue-500 to-blue-600`}
+            >
               <h2 className="text-2xl font-bold text-white flex items-center">
-                <i className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"} mr-3`}></i>
+                <i
+                  className={`fas ${editingDeptId ? "fa-edit" : "fa-plus-circle"
+                    } mr-3`}
+                ></i>
                 {editingDeptId ? "Edit Department" : "Add Department"}
               </h2>
             </div>
 
             <div className="p-5 sm:p-6 flex-1">
-              <form onSubmit={handleAddNewDepartment} className="space-y-4 sm:space-y-5">
+              <form
+                onSubmit={handleAddNewDepartment}
+                className="space-y-4 sm:space-y-5"
+              >
                 <div>
-                  <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  <label
+                    className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"
+                      }`}
+                  >
                     Department Name
                   </label>
                   <input
                     type="text"
                     required
                     value={newDept.name}
-                    onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
+                    onChange={(e) =>
+                      setNewDept({ ...newDept, name: e.target.value })
+                    }
                     placeholder="e.g. Human Resources"
                     className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base ${isDark
                       ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
@@ -1661,22 +1875,43 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                      Icon Class (<a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">FontAwesome</a>)
+                    <label
+                      className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"
+                        }`}
+                    >
+                      Icon Class (
+                      <a
+                        href="https://fontawesome.com/search?o=r&m=free"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        FontAwesome
+                      </a>
+                      )
                     </label>
                     <div className="relative">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                        <i className={`fas ${newDept.icon} text-blue-500 text-lg`}></i>
+                        <i
+                          className={`fas ${newDept.icon} text-blue-500 text-lg`}
+                        ></i>
                       </div>
                       <input
                         type="text"
                         value={newDept.icon}
-                        onChange={(e) => setNewDept({ ...newDept, icon: e.target.value })}
+                        onChange={(e) =>
+                          setNewDept({ ...newDept, icon: e.target.value })
+                        }
                         onFocus={() => setShowIconPicker(true)}
-                        onBlur={() => setTimeout(() => setShowIconPicker(false), 200)}
-                        className={`w-full pl-12 pr-10 py-3 rounded-xl border-2 transition-all outline-none text-base ${showIconPicker ? "border-blue-500 ring-4 ring-blue-500/20" : ""} ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                          : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
+                        onBlur={() =>
+                          setTimeout(() => setShowIconPicker(false), 200)
+                        }
+                        className={`w-full pl-12 pr-10 py-3 rounded-xl border-2 transition-all outline-none text-base ${showIconPicker
+                          ? "border-blue-500 ring-4 ring-blue-500/20"
+                          : ""
+                          } ${isDark
+                            ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                            : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
                           }`}
                         placeholder="e.g. fa-building"
                       />
@@ -1685,7 +1920,10 @@ export default function AdminDashboard() {
                         onClick={() => setShowIconPicker(!showIconPicker)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer"
                       >
-                        <i className={`fas fa-chevron-${showIconPicker ? 'up' : 'down'}`}></i>
+                        <i
+                          className={`fas fa-chevron-${showIconPicker ? "up" : "down"
+                            }`}
+                        ></i>
                       </button>
 
                       <AnimatePresence>
@@ -1694,17 +1932,35 @@ export default function AdminDashboard() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className={`absolute z-[100] w-full mt-2 p-3 rounded-2xl shadow-2xl max-h-72 overflow-y-auto ${isDark ? "bg-gray-800 border-[1px] border-gray-700" : "bg-white border-[1px] border-gray-100"}`}
+                            className={`absolute z-[100] w-full mt-2 p-3 rounded-2xl shadow-2xl max-h-72 overflow-y-auto ${isDark
+                              ? "bg-gray-800 border-[1px] border-gray-700"
+                              : "bg-white border-[1px] border-gray-100"
+                              }`}
                           >
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {FONT_AWESOME_ICONS.map(icon => (
+                              {FONT_AWESOME_ICONS.map((icon) => (
                                 <button
                                   key={icon.class}
                                   type="button"
-                                  onClick={() => { setNewDept({ ...newDept, icon: icon.class }); setShowIconPicker(false); }}
-                                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors text-sm font-medium ${newDept.icon === icon.class ? (isDark ? "bg-blue-900/40 text-blue-400" : "bg-blue-50 text-blue-600") : (isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700")}`}
+                                  onClick={() => {
+                                    setNewDept({
+                                      ...newDept,
+                                      icon: icon.class,
+                                    });
+                                    setShowIconPicker(false);
+                                  }}
+                                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors text-sm font-medium ${newDept.icon === icon.class
+                                    ? isDark
+                                      ? "bg-blue-900/40 text-blue-400"
+                                      : "bg-blue-50 text-blue-600"
+                                    : isDark
+                                      ? "hover:bg-gray-700 text-gray-300"
+                                      : "hover:bg-gray-50 text-gray-700"
+                                    }`}
                                 >
-                                  <i className={`fas ${icon.class} w-6 text-center text-lg`}></i>
+                                  <i
+                                    className={`fas ${icon.class} w-6 text-center text-lg`}
+                                  ></i>
                                   <span className="truncate">{icon.name}</span>
                                 </button>
                               ))}
@@ -1716,21 +1972,36 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <label className={`block text-base font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      <label
+                        className={`block text-base font-semibold ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
                         Theme Color
                       </label>
-                      <div className={`w-6 h-6 rounded-full shadow-sm border ${newDept.color === 'blue' ? 'bg-blue-500' :
-                        newDept.color === 'green' ? 'bg-emerald-500' :
-                          newDept.color === 'purple' ? 'bg-violet-500' :
-                            newDept.color === 'yellow' ? 'bg-amber-500' :
-                              newDept.color === 'red' ? 'bg-rose-500' :
-                                newDept.color === 'orange' ? 'bg-orange-500' :
-                                  newDept.color === 'teal' ? 'bg-teal-500' : 'bg-gray-400'
-                        }`}></div>
+                      <div
+                        className={`w-6 h-6 rounded-full shadow-sm border ${newDept.color === "blue"
+                          ? "bg-blue-500"
+                          : newDept.color === "green"
+                            ? "bg-emerald-500"
+                            : newDept.color === "purple"
+                              ? "bg-violet-500"
+                              : newDept.color === "yellow"
+                                ? "bg-amber-500"
+                                : newDept.color === "red"
+                                  ? "bg-rose-500"
+                                  : newDept.color === "orange"
+                                    ? "bg-orange-500"
+                                    : newDept.color === "teal"
+                                      ? "bg-teal-500"
+                                      : "bg-gray-400"
+                          }`}
+                      ></div>
                     </div>
                     <select
                       value={newDept.color}
-                      onChange={(e) => setNewDept({ ...newDept, color: e.target.value })}
+                      onChange={(e) =>
+                        setNewDept({ ...newDept, color: e.target.value })
+                      }
                       className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-base cursor-pointer ${isDark
                         ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
                         : "bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-800"
@@ -1748,13 +2019,18 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  <label
+                    className={`block text-base font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"
+                      }`}
+                  >
                     Description
                   </label>
                   <textarea
                     required
                     value={newDept.description}
-                    onChange={(e) => setNewDept({ ...newDept, description: e.target.value })}
+                    onChange={(e) =>
+                      setNewDept({ ...newDept, description: e.target.value })
+                    }
                     placeholder="Brief description of the department's role..."
                     rows="4"
                     className={`w-full px-5 py-4 rounded-xl border-2 transition-all outline-none resize-none text-lg ${isDark
@@ -1768,7 +2044,9 @@ export default function AdminDashboard() {
                   <button
                     type="button"
                     onClick={() => setCurrentSection("departments")}
-                    className={`flex-1 py-4 rounded-xl font-bold transition-all text-lg shadow-sm hover:shadow-md ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                    className={`flex-1 py-4 rounded-xl font-bold transition-all text-lg shadow-sm hover:shadow-md ${isDark
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-800"
                       }`}
                   >
                     Cancel
@@ -1785,7 +2063,11 @@ export default function AdminDashboard() {
                       </div>
                     ) : (
                       <span>
-                        <i className={`fas ${editingDeptId ? "fa-save" : "fa-plus"} mr-3`}></i> {editingDeptId ? "Save Changes" : "Create Department"}
+                        <i
+                          className={`fas ${editingDeptId ? "fa-save" : "fa-plus"
+                            } mr-3`}
+                        ></i>{" "}
+                        {editingDeptId ? "Save Changes" : "Create Department"}
                       </span>
                     )}
                   </button>
@@ -1794,8 +2076,6 @@ export default function AdminDashboard() {
             </div>
           </motion.div>
         );
-
-
 
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
@@ -1839,7 +2119,12 @@ export default function AdminDashboard() {
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onAddDepartment={() => {
             setEditingDeptId(null);
-            setNewDept({ name: '', icon: 'fa-building', color: 'blue', description: '' });
+            setNewDept({
+              name: "",
+              icon: "fa-building",
+              color: "blue",
+              description: "",
+            });
             setCurrentSection("add_department");
           }}
           onDeptAction={(action) => {
@@ -1871,9 +2156,6 @@ export default function AdminDashboard() {
         isSidebarOpen={isSidebarOpen}
       />
 
-
-
-
       <SelectHolidaysModal
         isOpen={showSelectHolidaysModal}
         onClose={() => setShowSelectHolidaysModal(false)}
@@ -1881,8 +2163,6 @@ export default function AdminDashboard() {
         onSaveSuccess={fetchDashboardData}
         isSidebarOpen={isSidebarOpen}
       />
-
-
     </>
   );
 }

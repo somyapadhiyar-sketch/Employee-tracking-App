@@ -39,6 +39,8 @@ export default function EmployeeDashboard() {
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveType, setLeaveType] = useState("sick");
   const [leaveFilter, setLeaveFilter] = useState("all");
+  const [leaveSearchTerm, setLeaveSearchTerm] = useState("");
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState("all");
 
   const [toast, setToast] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(
@@ -55,6 +57,8 @@ export default function EmployeeDashboard() {
   const [allWorkLogs, setAllWorkLogs] = useState([]);
   const [allLeaveRequests, setAllLeaveRequests] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDate, setSearchDate] = useState("");
 
   // 1. Fetch data from Firestore
   const fetchDashboardData = async () => {
@@ -164,27 +168,73 @@ export default function EmployeeDashboard() {
     const todayObj = new Date();
     const logDateObj = new Date(log.date);
 
-    if (reportFilter === "daily") {
-      return log.date === today;
-    } else if (reportFilter === "weekly") {
-      const diffTime = Math.abs(todayObj - logDateObj);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays <= 7;
-    } else if (reportFilter === "monthly") {
-      return logDateObj.getMonth() === todayObj.getMonth() && logDateObj.getFullYear() === todayObj.getFullYear();
+    const logWorkTypeName = WORK_TYPES?.[log.workType]?.name || log.workType || "";
+    const logDescription = log.description || "";
+    const searchString = searchTerm.toLowerCase();
+
+    if (searchTerm &&
+      !logDescription.toLowerCase().includes(searchString) &&
+      !logWorkTypeName.toLowerCase().includes(searchString) &&
+      !log.date.toLowerCase().includes(searchString) &&
+      !(log.duration || "").toLowerCase().includes(searchString)
+    ) return false;
+
+    // If searchDate or searchTerm is set, it overrides the reportFilter period
+    if (searchDate) {
+      if (log.date !== searchDate) return false;
+    } else if (searchTerm) {
+      // If searching by keyword, show matching logs regardless of the period filter
+      // to ensure the user can find messages from the past easily
+    } else {
+      if (reportFilter === "daily") {
+        if (log.date !== today) return false;
+      } else if (reportFilter === "weekly") {
+        const diffTime = Math.abs(todayObj - logDateObj);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 7) return false;
+      } else if (reportFilter === "monthly") {
+        if (logDateObj.getMonth() !== todayObj.getMonth() || logDateObj.getFullYear() !== todayObj.getFullYear()) return false;
+      }
     }
+
     return true;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const myLeaveRequests = allLeaveRequests.filter(
     (req) => req.employeeId === currentUserId
   );
+
+  const filteredMyLeaveHistory = myLeaveRequests
+    .filter((req) => {
+      const searchLow = leaveSearchTerm.toLowerCase();
+      const typeName = (LEAVE_BALANCE[req.leaveType]?.name || "").toLowerCase();
+      const reason = (req.reason || "").toLowerCase();
+      const matchesSearch =
+        typeName.includes(searchLow) || reason.includes(searchLow);
+      const matchesStatus =
+        leaveStatusFilter === "all" || req.status === leaveStatusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.appliedAt || b.startDate) -
+        new Date(a.appliedAt || a.startDate)
+    );
+
   const myPendingLeaveRequests = myLeaveRequests.filter(
     (req) => req.status === "pending"
   );
   const myApprovedLeaveRequests = myLeaveRequests.filter(
     (req) => req.status === "approved"
   );
+
+  const calculateLeaveDuration = (start, end) => {
+    if (!start || !end) return 0;
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffTime = Math.abs(e - s);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
 
   const getUsedLeaves = (type) =>
     myApprovedLeaveRequests.filter((req) => req.leaveType === type).length;
@@ -250,6 +300,7 @@ export default function EmployeeDashboard() {
         status: "pending",
         isManager: false,
         role: user.role,
+        appliedAt: new Date().toISOString(),
       });
       showToastMessage("Leave request submitted!", "success");
       setLeaveStartDate("");
@@ -365,23 +416,26 @@ export default function EmployeeDashboard() {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h1
-                    className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Log Your Work
                   </h1>
-                  <p
-                    className={
-                      isDark ? "text-gray-400 mt-1" : "text-gray-500 mt-1"
-                    }
-                  >
-                    {formatDate(currentTime)}
+                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Keep track of your daily tasks
                   </p>
                 </div>
-                <motion.div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl px-6 py-3 shadow-lg">
-                  <p className="text-white text-xs font-medium">Current Time</p>
-                  <p className="text-white text-2xl font-mono font-bold">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col items-center sm:items-end"
+                >
+                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"
+                    }`}>
                     {formatTime(currentTime)}
+                  </p>
+                  <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    {formatDate(currentTime)}
                   </p>
                 </motion.div>
               </div>
@@ -649,36 +703,67 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                My Reports
-              </h1>
-              <div className={`p-1 flex flex-wrap gap-1 sm:gap-0 rounded-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                <button
-                  onClick={() => setReportFilter('daily')}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'daily' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1
+                  className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
                 >
-                  Daily
-                </button>
-                <button
-                  onClick={() => setReportFilter('weekly')}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'weekly' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                >
-                  Weekly
-                </button>
-                <button
-                  onClick={() => setReportFilter('monthly')}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === 'monthly' ? 'bg-blue-600 text-white' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                >
-                  Monthly
-                </button>
+                  My Reports
+                </h1>
+                <div className={`p-1 flex rounded-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                  <button
+                    onClick={() => setReportFilter('daily')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'daily' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    onClick={() => setReportFilter('weekly')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'weekly' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Weekly
+                  </button>
+                  <button
+                    onClick={() => setReportFilter('monthly')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'monthly' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Monthly
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative group">
+                  <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
+                  <input
+                    type="text"
+                    placeholder="Search messages / keywords..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
+                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-blue-500/50"
+                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-blue-100 placeholder:text-gray-400"
+                      }`}
+                  />
+                </div>
+
+                <div className="relative group">
+                  <i className={`fas fa-calendar absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
+                  <input
+                    type="date"
+                    value={searchDate}
+                    onChange={(e) => setSearchDate(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
+                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-blue-500/50"
+                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-blue-100"
+                      }`}
+                  />
+                </div>
               </div>
             </div>
+
             <div
-              className={`rounded-2xl p-6 shadow-lg border ${isDark
+              className={`rounded-2xl p-6 shadow-xl border ${isDark
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-gray-100"
                 }`}
@@ -687,7 +772,7 @@ export default function EmployeeDashboard() {
                 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
                   }`}
               >
-                {reportFilter === 'daily' ? "Today's Work History" : reportFilter === 'weekly' ? "Last 7 Days Work History" : "This Month's Work History"}
+                {searchDate ? `Work History for ${searchDate}` : searchTerm ? `Search Results for "${searchTerm}"` : (reportFilter === 'daily' ? "Today's Work History" : reportFilter === 'weekly' ? "Last 7 Days Work History" : "This Month's Work History")}
               </h2>
               {filteredWorkLogs.length === 0 ? (
                 <p
@@ -970,103 +1055,115 @@ export default function EmployeeDashboard() {
               </form>
             </motion.div>
 
-            {/* Leave History */}
+            {/* New Leave History with Table and Search */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-gray-100"
                 }`}
             >
-              <h2
-                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                Leave History
-              </h2>
-              <div className="flex flex-wrap gap-3 mb-4">
-                <button
-                  onClick={() => setLeaveFilter("all")}
-                  className={`px-4 py-2 rounded-xl ${leaveFilter === "all"
-                    ? "bg-blue-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h2
+                  className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
                 >
-                  All ({myLeaveRequests.length})
-                </button>
-                <button
-                  onClick={() => setLeaveFilter("pending")}
-                  className={`px-4 py-2 rounded-xl ${leaveFilter === "pending"
-                    ? "bg-amber-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
-                >
-                  Pending ({myPendingLeaveRequests.length})
-                </button>
-                <button
-                  onClick={() => setLeaveFilter("approved")}
-                  className={`px-4 py-2 rounded-xl ${leaveFilter === "approved"
-                    ? "bg-emerald-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
-                >
-                  Approved ({myApprovedLeaveRequests.length})
-                </button>
-              </div>
-              <div className="space-y-3">
-                {(leaveFilter === "all"
-                  ? myLeaveRequests
-                  : leaveFilter === "pending"
-                    ? myPendingLeaveRequests
-                    : myApprovedLeaveRequests
-                ).map((req) => (
-                  <div
-                    key={req.id}
-                    className={`flex flex-col justify-between p-4 rounded-xl gap-2 ${isDark ? "bg-gray-700" : "bg-gray-50"
+                  Leave History
+                </h2>
+
+                {/* Search and Filter Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative group">
+                    <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
+                    <input
+                      type="text"
+                      placeholder="Search leave type or reason..."
+                      value={leaveSearchTerm}
+                      onChange={(e) => setLeaveSearchTerm(e.target.value)}
+                      className={`pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500/50"
+                        : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-100"
+                        }`}
+                    />
+                  </div>
+
+                  <select
+                    value={leaveStatusFilter}
+                    onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                    className={`px-4 py-2 rounded-xl border text-sm focus:outline-none cursor-pointer ${isDark
+                      ? "bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500/50"
+                      : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-100"
                       }`}
                   >
-                    <div className="flex flex-wrap gap-2 justify-between items-start mb-2">
-                      <span
-                        className={`px-2 py-1 rounded-lg text-xs font-medium ${req.leaveType === "sick"
-                          ? "bg-rose-100 text-rose-700"
-                          : "bg-blue-100 text-blue-700"
-                          }`}
-                      >
-                        {LEAVE_BALANCE[req.leaveType]?.name}
-                      </span>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs ${req.status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : req.status === "approved"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
-                          }`}
-                      >
-                        {req.status}
-                      </span>
-                    </div>
-                    <p
-                      className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                        }`}
-                    >
-                      {req.startDate} - {req.endDate}
-                    </p>
-                    <p
-                      className={
-                        isDark
-                          ? "text-gray-300 text-sm"
-                          : "text-gray-600 text-sm"
-                      }
-                    >
-                      {req.reason}
-                    </p>
-                  </div>
-                ))}
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Container */}
+              <div className="overflow-x-auto -mx-6 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                      <tr>
+                        {["Date Applied", "Leave Type", "From", "To", "Duration", "Reason", "Status"].map((head) => (
+                          <th key={head} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                            {head}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}>
+                      {filteredMyLeaveHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="px-4 py-8 text-center text-gray-500 italic">
+                            No leave records found matching your selection.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredMyLeaveHistory.map((req) => (
+                          <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                              {new Date(req.appliedAt || req.startDate).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
+                                {LEAVE_BALANCE[req.leaveType]?.name}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                              {req.startDate}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                              {req.endDate}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                              {calculateLeaveDuration(req.startDate, req.endDate)} Days
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className={`text-sm line-clamp-1 max-w-[150px] ${isDark ? "text-gray-400" : "text-gray-500"}`} title={req.reason}>
+                                {req.reason}
+                              </p>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${req.status === "pending"
+                                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+                                  : req.status === "approved"
+                                    ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                                    : "bg-rose-100 text-rose-700 ring-1 ring-rose-200"
+                                  }`}
+                              >
+                                {req.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1103,9 +1200,9 @@ export default function EmployeeDashboard() {
               </h1>
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-6 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 mt-8 items-start">
               {/* Holidays List */}
-              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full lg:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -1141,7 +1238,7 @@ export default function EmployeeDashboard() {
               </div>
 
               {/* Current Month Calendar */}
-              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div className={`w-full lg:w-2/5 lg:sticky lg:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -1374,7 +1471,8 @@ export default function EmployeeDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24 lg:p-8 relative w-full transition-all duration-300 lg:ml-64`}
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-64" : "lg:ml-0"
+            }`}
           style={{ height: "100vh" }}
         >
           <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>

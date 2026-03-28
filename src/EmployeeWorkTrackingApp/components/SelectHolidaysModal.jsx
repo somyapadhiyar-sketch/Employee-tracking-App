@@ -131,10 +131,10 @@ export default function SelectHolidaysModal({ isOpen, onClose, currentHolidays, 
                   <div
                     key={idx}
                     onClick={() => handleToggle(holiday.name)}
-                    className={`flex items-center justify-between p-3.5 mx-2 rounded-xl cursor-pointer transition-all ${isSelected ? (isDark ? 'bg-emerald-900/20 border border-emerald-500/30' : 'bg-emerald-50 border border-emerald-200') : (isDark ? 'hover:bg-gray-700/50 border border-transparent' : 'hover:bg-gray-50 border border-transparent')}`}
+                    className={`flex items-center justify-between p-3.5 mx-2 rounded-xl cursor-pointer transition-all ${isSelected ? (isDark ? 'bg-blue-900/20 border border-blue-500/30' : 'bg-blue-50 border border-blue-200') : (isDark ? 'hover:bg-gray-700/50 border border-transparent' : 'hover:bg-gray-50 border border-transparent')}`}
                   >
                     <div className="flex flex-col">
-                      <span className={`font-bold text-[15px] ${isSelected ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-gray-200' : 'text-gray-700')}`}>
+                      <span className={`font-bold text-[15px] ${isSelected ? (isDark ? 'text-blue-400' : 'text-blue-700') : (isDark ? 'text-gray-200' : 'text-gray-700')}`}>
                         {holiday.name}
                       </span>
                       <span className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -142,7 +142,7 @@ export default function SelectHolidaysModal({ isOpen, onClose, currentHolidays, 
                       </span>
                     </div>
 
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : (isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-300 bg-white')}`}>
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors border-2 ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : (isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-300 bg-white')}`}>
                       {isSelected && <i className="fas fa-check text-xs"></i>}
                     </div>
                   </div>
@@ -162,7 +162,7 @@ export default function SelectHolidaysModal({ isOpen, onClose, currentHolidays, 
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={`px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 transition-all ${isSaving ? "opacity-70 cursor-not-allowed" : ""}`}
+              className={`px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/20 ${isSaving ? "opacity-70 cursor-not-allowed" : ""}`}
             >
               {isSaving ? (
                 <span className="flex items-center gap-2">

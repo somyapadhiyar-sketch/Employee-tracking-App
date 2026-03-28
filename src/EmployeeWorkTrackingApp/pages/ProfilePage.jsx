@@ -13,9 +13,12 @@ import {
   AlertCircle,
   Camera,
   Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "../../firebase";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { auth as fbAuth, db } from "../../firebase";
 
 export default function ProfilePage() {
   const contextAuth = useOutletContext()?.auth;
@@ -42,6 +45,12 @@ export default function ProfilePage() {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+  });
+
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
   });
 
   const [saving, setSaving] = useState(false);
@@ -210,6 +219,12 @@ export default function ProfilePage() {
     }
   };
 
+  const isManager = formData.role === "manager" || formData.role === "dept_manager";
+  const brandColor = isManager ? "violet" : "blue";
+  const brandGradient = isManager
+    ? "from-violet-400 via-purple-500 to-pink-500"
+    : "from-cyan-400 via-blue-500 to-indigo-600";
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -264,9 +279,23 @@ export default function ProfilePage() {
     }
     setSaving(true);
     try {
+      const fbUser = fbAuth.currentUser;
+      if (!fbUser) throw new Error("No authenticated user found.");
+
+      // 1. Re-authenticate the user first (required for security-sensitive operations like password change)
+      const credential = EmailAuthProvider.credential(fbUser.email, passwordData.currentPassword);
+      await reauthenticateWithCredential(fbUser, credential);
+
+      // 2. Update the password in Firebase Auth
+      await updatePassword(fbUser, passwordData.newPassword);
+
+      // 3. Update local state and context (though context will mostly update via onAuthStateChanged)
       const updatedUser = { ...user, password: passwordData.newPassword };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser)); // Update in localStorage directly
-      auth.updateUser(updatedUser); // Update in context
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      if (typeof auth?.updateUser === 'function') {
+        auth.updateUser(updatedUser);
+      }
+
       setMessage({ text: "Password updated successfully!", type: "success" });
       setPasswordData({
         currentPassword: "",
@@ -276,7 +305,13 @@ export default function ProfilePage() {
       setShowPasswordSection(false);
     } catch (error) {
       console.error(error);
-      setMessage({ text: "Failed to update password.", type: "error" });
+      if (error.code === 'auth/wrong-password') {
+        setMessage({ text: "Current password is incorrect.", type: "error" });
+      } else if (error.code === 'auth/requires-recent-login') {
+        setMessage({ text: "Please log out and log in again to change password.", type: "error" });
+      } else {
+        setMessage({ text: error.message || "Failed to update password.", type: "error" });
+      }
     } finally {
       setSaving(false);
     }
@@ -351,7 +386,7 @@ export default function ProfilePage() {
               }`}
           >
             <div className="relative group">
-              <div className="w-[100px] h-[100px] rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white flex items-center justify-center text-4xl font-bold uppercase shadow-inner overflow-hidden border border-blue-500/50">
+              <div className={`w-[100px] h-[100px] rounded-full bg-gradient-to-br ${brandGradient} text-white flex items-center justify-center text-4xl font-bold uppercase shadow-inner overflow-hidden border ${isManager ? "border-purple-500/50" : "border-blue-500/50"}`}>
                 {formData.profileImage ? (
                   <img
                     src={formData.profileImage}
@@ -426,7 +461,7 @@ export default function ProfilePage() {
           >
             <div className="flex justify-between items-center mb-8 border-b pb-4 border-gray-100 dark:border-gray-700/50">
               <h3
-                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : "text-blue-600"
+                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : `text-${brandColor}-600`
                   }`}
               >
                 Personal Information
@@ -439,7 +474,7 @@ export default function ProfilePage() {
                 }}
                 className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${editMode
                     ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                    : `bg-${brandColor}-600 text-white hover:bg-${brandColor}-700 shadow-sm`
                   }`}
               >
                 {editMode ? "Cancel" : "Edit"}
@@ -591,7 +626,7 @@ export default function ProfilePage() {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all flex items-center gap-2"
+                      className={`px-8 py-2.5 bg-${brandColor}-600 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-${brandColor}-700 focus:ring-2 focus:ring-${brandColor}-600 focus:ring-offset-2 transition-all flex items-center gap-2`}
                     >
                       {saving ? (
                         <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
@@ -610,7 +645,7 @@ export default function ProfilePage() {
           <div className="p-6 sm:p-8">
             <div className="flex justify-between items-center mb-8 border-b pb-4 border-gray-100 dark:border-gray-700/50">
               <h3
-                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : "text-blue-600"
+                className={`text-lg font-bold ${isDark ? "text-[#e5e7eb]" : `text-${brandColor}-600`
                   }`}
               >
                 Security
@@ -623,7 +658,7 @@ export default function ProfilePage() {
                 }}
                 className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${showPasswordSection
                     ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                    : `bg-${brandColor}-600 text-white hover:bg-${brandColor}-700 shadow-sm`
                   }`}
               >
                 {showPasswordSection ? "Cancel" : "Edit"}
@@ -643,19 +678,28 @@ export default function ProfilePage() {
                   >
                     Current Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={passwordData.currentPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        currentPassword: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                    placeholder="••••••••"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPasswords.current ? "text" : "password"}
+                      required
+                      value={passwordData.currentPassword}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          currentPassword: e.target.value,
+                        })
+                      }
+                      className={`${inputClassName} pr-10`}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showPasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col">
@@ -665,20 +709,29 @@ export default function ProfilePage() {
                   >
                     New Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={passwordData.newPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        newPassword: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                    placeholder="••••••••"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPasswords.new ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={passwordData.newPassword}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          newPassword: e.target.value,
+                        })
+                      }
+                      className={`${inputClassName} pr-10`}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col">
@@ -688,27 +741,36 @@ export default function ProfilePage() {
                   >
                     Confirm Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={passwordData.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                    placeholder="••••••••"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPasswords.confirm ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className={`${inputClassName} pr-10`}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showPasswords.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="col-span-full pt-4 flex justify-end">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all flex items-center gap-2"
+                    className={`px-8 py-2.5 bg-${brandColor}-600 text-white text-sm font-bold rounded-lg shadow-sm hover:bg-${brandColor}-700 focus:ring-2 focus:ring-${brandColor}-600 focus:ring-offset-2 transition-all flex items-center gap-2`}
                   >
                     {saving ? (
                       <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />

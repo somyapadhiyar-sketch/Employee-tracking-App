@@ -35,6 +35,8 @@ export default function ManagerDashboard() {
   const [reportRoleFilter, setReportRoleFilter] = useState("employee");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toast, setToast] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDate, setSearchDate] = useState("");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
@@ -152,6 +154,8 @@ export default function ManagerDashboard() {
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveType, setLeaveType] = useState("sick");
   const [myLeaveFilter, setMyLeaveFilter] = useState("all");
+  const [myLeaveSearchTerm, setMyLeaveSearchTerm] = useState("");
+  const [myLeaveStatusFilter, setMyLeaveStatusFilter] = useState("all");
 
   const LEAVE_BALANCE = {
     sick: { total: 6, name: "Sick Leave", icon: "fa-user-nurse" },
@@ -206,8 +210,6 @@ export default function ManagerDashboard() {
   const dept = user?.department;
   const currentUserId = user?.uid || user?.id;
 
-
-
   const deptEmployees = allUsers.filter(
     (emp) =>
       emp.department === dept &&
@@ -251,18 +253,37 @@ export default function ManagerDashboard() {
       const todayObj = new Date();
       const logDateObj = new Date(log.date);
 
-      if (reportFilter === "daily") {
-        return log.date === today;
-      } else if (reportFilter === "weekly") {
-        const diffTime = Math.abs(todayObj - logDateObj);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays <= 7;
-      } else if (reportFilter === "monthly") {
-        return (
-          logDateObj.getMonth() === todayObj.getMonth() &&
-          logDateObj.getFullYear() === todayObj.getFullYear()
-        );
+      // Search matching logic (consistent with Employee Dashboard)
+      const logWorkTypeName = WORK_TYPES?.[log.workType]?.name || (log.workType === 'office' ? 'Office Work' : 'Non-Office Work');
+      const logDescription = log.description || "";
+      const logEmployeeName = log.employeeName || "";
+      const searchString = searchTerm.toLowerCase();
+
+      if (searchTerm &&
+        !logDescription.toLowerCase().includes(searchString) &&
+        !logWorkTypeName.toLowerCase().includes(searchString) &&
+        !logEmployeeName.toLowerCase().includes(searchString) &&
+        !log.date.toLowerCase().includes(searchString) &&
+        !(log.duration || "").toLowerCase().includes(searchString)
+      ) return false;
+
+      // Period or Specific Date filter
+      if (searchDate) {
+        if (log.date !== searchDate) return false;
+      } else if (searchTerm) {
+        // Keyword override: ignore Daily/Weekly filter when searching
+      } else {
+        if (reportFilter === "daily") {
+          if (log.date !== today) return false;
+        } else if (reportFilter === "weekly") {
+          const diffTime = Math.abs(todayObj - logDateObj);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays > 7) return false;
+        } else if (reportFilter === "monthly") {
+          if (logDateObj.getMonth() !== todayObj.getMonth() || logDateObj.getFullYear() !== todayObj.getFullYear()) return false;
+        }
       }
+
       return true;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -287,6 +308,31 @@ export default function ManagerDashboard() {
   const myLeaveRequests = allLeaveRequests.filter(
     (req) => req.employeeId === currentUserId
   );
+  const filteredMyLeaveHistory = myLeaveRequests
+    .filter((req) => {
+      const searchLow = myLeaveSearchTerm.toLowerCase();
+      const typeName = (LEAVE_BALANCE[req.leaveType]?.name || "").toLowerCase();
+      const reason = (req.reason || "").toLowerCase();
+      const matchesSearch =
+        typeName.includes(searchLow) || reason.includes(searchLow);
+      const matchesStatus =
+        myLeaveStatusFilter === "all" || req.status === myLeaveStatusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.appliedAt || b.startDate) -
+        new Date(a.appliedAt || a.startDate)
+    );
+
+  const calculateLeaveDuration = (start, end) => {
+    if (!start || !end) return 0;
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffTime = Math.abs(e - s);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
   const myPendingLeaveRequests = myLeaveRequests.filter(
     (req) => req.status === "pending"
   );
@@ -361,6 +407,7 @@ export default function ManagerDashboard() {
         status: "pending",
         isManager: true,
         role: user.role,
+        appliedAt: new Date().toISOString(),
       });
       showToastMessage("Leave request submitted!", "success");
       setLeaveStartDate("");
@@ -551,22 +598,26 @@ export default function ManagerDashboard() {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h1
-                    className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
-                    Welcome, {userName}! 👋
+                    Welcome, <span className="text-violet-500 font-extrabold">{userName}</span>
                   </h1>
-                  <p
-                    className={
-                      isDark ? "text-gray-400 mt-1" : "text-gray-500 mt-1"
-                    }
-                  >
-                    {formatDate(currentTime)}
+                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Manage your team and approve requests
                   </p>
                 </div>
-                <motion.div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl px-6 py-3 shadow-lg">
-                  <p className="text-white text-2xl font-mono font-bold">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col items-center sm:items-end"
+                >
+                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-violet-600"
+                    }`}>
                     {formatTime(currentTime)}
+                  </p>
+                  <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    {formatDate(currentTime)}
                   </p>
                 </motion.div>
               </div>
@@ -895,107 +946,115 @@ export default function ManagerDashboard() {
               </form>
             </motion.div>
 
+            {/* My Leave History with Table and Search */}
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-gray-100"
                 }`}
             >
-              <h2
-                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                <i className="fas fa-history mr-2"></i>Leave History
-              </h2>
-              <div className="flex flex-wrap gap-3 mb-4">
-                <button
-                  onClick={() => setMyLeaveFilter("all")}
-                  className={`px-4 py-2 rounded-xl ${myLeaveFilter === "all"
-                    ? "bg-violet-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h2
+                  className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
                 >
-                  All ({myLeaveRequests.length})
-                </button>
-                <button
-                  onClick={() => setMyLeaveFilter("pending")}
-                  className={`px-4 py-2 rounded-xl ${myLeaveFilter === "pending"
-                    ? "bg-amber-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
-                >
-                  Pending ({myPendingLeaveRequests.length})
-                </button>
-                <button
-                  onClick={() => setMyLeaveFilter("approved")}
-                  className={`px-4 py-2 rounded-xl ${myLeaveFilter === "approved"
-                    ? "bg-emerald-500 text-white"
-                    : isDark
-                      ? "bg-gray-700 text-gray-200"
-                      : "bg-gray-200 text-gray-700"
-                    }`}
-                >
-                  Approved (
-                  {
-                    myLeaveRequests.filter((r) => r.status === "approved")
-                      .length
-                  }
-                  )
-                </button>
-              </div>
-              <div className="space-y-3">
-                {(myLeaveFilter === "all"
-                  ? myLeaveRequests
-                  : myLeaveFilter === "pending"
-                    ? myPendingLeaveRequests
-                    : myLeaveRequests.filter((r) => r.status === "approved")
-                ).map((req) => (
-                  <div
-                    key={req.id}
-                    className={`flex flex-col justify-between p-4 rounded-xl gap-2 ${isDark ? "bg-gray-700" : "bg-gray-50"
+                  <i className="fas fa-history mr-2"></i>My Leave History
+                </h2>
+
+                {/* Search and Filter Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative group">
+                    <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
+                    <input
+                      type="text"
+                      placeholder="Search leave type or reason..."
+                      value={myLeaveSearchTerm}
+                      onChange={(e) => setMyLeaveSearchTerm(e.target.value)}
+                      className={`pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-violet-500/50"
+                        : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-violet-100"
+                        }`}
+                    />
+                  </div>
+
+                  <select
+                    value={myLeaveStatusFilter}
+                    onChange={(e) => setMyLeaveStatusFilter(e.target.value)}
+                    className={`px-4 py-2 rounded-xl border text-sm focus:outline-none cursor-pointer ${isDark
+                      ? "bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-violet-500/50"
+                      : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-violet-100"
                       }`}
                   >
-                    <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
-                      <span
-                        className={`px-2 py-1 rounded-lg text-xs font-medium ${req.leaveType === "sick"
-                          ? "bg-rose-100 text-rose-700"
-                          : "bg-blue-100 text-blue-700"
-                          }`}
-                      >
-                        {LEAVE_BALANCE[req.leaveType]?.name}
-                      </span>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs ${req.status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : req.status === "approved"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
-                          }`}
-                      >
-                        {req.status}
-                      </span>
-                    </div>
-                    <p
-                      className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                        }`}
-                    >
-                      {req.startDate} - {req.endDate}
-                    </p>
-                    <p
-                      className={
-                        isDark
-                          ? "text-gray-300 text-sm"
-                          : "text-gray-600 text-sm"
-                      }
-                    >
-                      {req.reason}
-                    </p>
-                  </div>
-                ))}
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Container */}
+              <div className="overflow-x-auto -mx-6 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                      <tr>
+                        {["Date Applied", "Leave Type", "From", "To", "Duration", "Reason", "Status"].map((head) => (
+                          <th key={head} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                            {head}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"}`}>
+                      {filteredMyLeaveHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="px-4 py-8 text-center text-gray-500 italic">
+                            No personal leave records found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredMyLeaveHistory.map((req) => (
+                          <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                              {new Date(req.appliedAt || req.startDate).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
+                                {LEAVE_BALANCE[req.leaveType]?.name}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                              {req.startDate}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                              {req.endDate}
+                            </td>
+                            <td className={`px-4 py-4 whitespace-nowrap text-sm font-bold ${isDark ? "text-violet-400" : "text-violet-600"}`}>
+                              {calculateLeaveDuration(req.startDate, req.endDate)} Days
+                            </td>
+                            <td className="px-4 py-4">
+                              <p className={`text-sm line-clamp-1 max-w-[150px] ${isDark ? "text-gray-400" : "text-gray-500"}`} title={req.reason}>
+                                {req.reason}
+                              </p>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${req.status === "pending"
+                                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+                                  : req.status === "approved"
+                                    ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                                    : "bg-rose-100 text-rose-700 ring-1 ring-rose-200"
+                                  }`}
+                              >
+                                {req.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1056,98 +1115,125 @@ export default function ManagerDashboard() {
             </div>
 
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${isDark
-                ? "bg-gray-800 border-gray-700"
-                : "bg-white border-gray-100"
+              className={`rounded-3xl p-8 shadow-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-blue-50"
                 }`}
             >
               <div className="space-y-4">
-                {(leaveFilter === "pending"
-                  ? pendingLeaveRequests
-                  : leaveFilter === "approved"
-                    ? approvedLeaveRequests
-                    : deptLeaveRequests
-                ).map((req) => {
-                  const emp = allUsers.find((e) => e.id === req.employeeId);
-                  if (!emp) return null;
-                  return (
-                    <motion.div
-                      key={req.id}
-                      className={`p-4 rounded-xl border ${isDark
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
-                        }`}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">
-                            {emp.firstName?.[0]}
-                            {emp.lastName?.[0]}
-                          </div>
-                          <div>
-                            <p
-                              className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                                }`}
-                            >
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p
-                              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
-                                }`}
-                            >
-                              {emp.email}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "pending"
-                            ? "bg-amber-100 text-amber-700"
-                            : req.status === "approved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
-                            }`}
+                {(() => {
+                  const filtered = leaveFilter === "pending"
+                    ? pendingLeaveRequests
+                    : leaveFilter === "approved"
+                      ? approvedLeaveRequests
+                      : deptLeaveRequests;
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-16">
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="w-24 h-24 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl animate-pulse"
                         >
-                          {req.status.charAt(0).toUpperCase() +
-                            req.status.slice(1)}
-                        </span>
+                          <i className="fas fa-clipboard-list text-4xl text-white"></i>
+                        </motion.div>
+                        <h3 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>
+                          No {leaveFilter !== 'all' ? leaveFilter : ''} requests found
+                        </h3>
+                        <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+                          {leaveFilter === "pending"
+                            ? "Excellent! Your team has no pending leave requests to process."
+                            : `There are currently no ${leaveFilter !== 'all' ? leaveFilter : ''} leave records in this category.`}
+                        </p>
                       </div>
-                      <div
-                        className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                    );
+                  }
+
+                  return filtered.map((req) => {
+                    const emp = allUsers.find((e) => e.id === req.employeeId);
+                    if (!emp) return null;
+                    return (
+                      <motion.div
+                        key={req.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={`p-5 rounded-2xl border transition-all hover:shadow-md ${isDark
+                            ? "bg-gray-700/50 border-gray-600"
+                            : "bg-white border-violet-50 shadow-sm"
                           }`}
                       >
-                        <p
-                          className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"
-                            }`}
-                        >
-                          <strong>Reason:</strong> {req.reason}
-                        </p>
-                        <p
-                          className={`text-sm mt-2 ${isDark ? "text-gray-300" : "text-gray-600"
-                            }`}
-                        >
-                          <strong>Dates:</strong> {req.startDate} to{" "}
-                          {req.endDate}
-                        </p>
-                      </div>
-                      {req.status === "pending" && (
-                        <div className="flex gap-2 w-full mt-2 sm:mt-0">
-                          <button
-                            onClick={() => handleApproveLeave(req.id)}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-medium"
-                          >
-                            <i className="fas fa-check mr-2"></i>Approve
-                          </button>
-                          <button
-                            onClick={() => handleRejectLeave(req.id)}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg font-medium"
-                          >
-                            <i className="fas fa-times mr-2"></i>Reject
-                          </button>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg shrink-0 overflow-hidden">
+                              {emp.profileImage ? (
+                                <img src={emp.profileImage} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xl">{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
+                              )}
+                            </div>
+                            <div>
+                              <p className={`font-black text-lg ${isDark ? "text-white" : "text-gray-800"}`}>
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-md ${isDark ? "bg-gray-600 text-gray-400" : "bg-violet-50 text-violet-500"}`}>
+                                  {emp.email}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span
+                              className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${req.status === "pending"
+                                  ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                  : req.status === "approved"
+                                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                    : "bg-rose-100 text-rose-700 border border-rose-200"
+                                }`}
+                            >
+                              {req.status}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
+                        <div
+                          className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                            }`}
+                        >
+                          <p
+                            className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"
+                              }`}
+                          >
+                            <strong>Reason:</strong> {req.reason}
+                          </p>
+                          <p
+                            className={`text-sm mt-2 ${isDark ? "text-gray-300" : "text-gray-600"
+                              }`}
+                          >
+                            <strong>Dates:</strong> {req.startDate} to{" "}
+                            {req.endDate}
+                          </p>
+                        </div>
+                        {req.status === "pending" && (
+                          <div className="flex gap-2 w-full mt-2 sm:mt-0">
+                            <button
+                              onClick={() => handleApproveLeave(req.id)}
+                              className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg font-medium"
+                            >
+                              <i className="fas fa-check mr-2"></i>Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectLeave(req.id)}
+                              className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg font-medium"
+                            >
+                              <i className="fas fa-times mr-2"></i>Reject
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  });
+                })()}
               </div>
             </motion.div>
           </motion.div>
@@ -1656,54 +1742,65 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                Reports
-              </h1>
-              <div
-                className={`p-1 flex flex-wrap gap-1 sm:gap-0 rounded-xl border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-                  }`}
-              >
-                <button
-                  onClick={() => setReportFilter("daily")}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "daily"
-                    ? "bg-violet-600 text-white"
-                    : isDark
-                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1
+                  className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
                 >
-                  Daily
-                </button>
-                <button
-                  onClick={() => setReportFilter("weekly")}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "weekly"
-                    ? "bg-violet-600 text-white"
-                    : isDark
-                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                >
-                  Weekly
-                </button>
-                <button
-                  onClick={() => setReportFilter("monthly")}
-                  className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${reportFilter === "monthly"
-                    ? "bg-violet-600 text-white"
-                    : isDark
-                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                >
-                  Monthly
-                </button>
+                  Reports
+                </h1>
+                <div className={`p-1 flex rounded-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                  <button
+                    onClick={() => setReportFilter('daily')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'daily' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    onClick={() => setReportFilter('weekly')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'weekly' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Weekly
+                  </button>
+                  <button
+                    onClick={() => setReportFilter('monthly')}
+                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'monthly' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Monthly
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative group">
+                  <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
+                  <input
+                    type="text"
+                    placeholder="Search name, messages or keywords..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
+                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-violet-500/50"
+                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-violet-100 placeholder:text-gray-400"
+                      }`}
+                  />
+                </div>
+
+                <div className="relative group">
+                  <i className={`fas fa-calendar absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
+                  <input
+                    type="date"
+                    value={searchDate}
+                    onChange={(e) => setSearchDate(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
+                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-violet-500/50"
+                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-violet-100"
+                      }`}
+                  />
+                </div>
               </div>
             </div>
+
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
                 ? "bg-gray-800 border-gray-700"
@@ -1735,11 +1832,7 @@ export default function ManagerDashboard() {
                 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
                   }`}
               >
-                {reportFilter === "daily"
-                  ? "Today's Work Report"
-                  : reportFilter === "weekly"
-                    ? "Last 7 Days Work Report"
-                    : "This Month's Work Report"}
+                {searchDate ? `Work Report for ${searchDate}` : searchTerm ? `Search Results for "${searchTerm}"` : (reportFilter === 'daily' ? "Today's Work Report" : reportFilter === 'weekly' ? "Last 7 Days Work Report" : "This Month's Work Report")}
               </h2>
               {finalReports.length === 0 ? (
                 <p
@@ -1811,7 +1904,20 @@ export default function ManagerDashboard() {
 
         const IT_HOLIDAYS = publicHolidays;
 
-        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthNames = [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ];
 
         const calendarDays = Array(firstDayOfMonth).fill(null);
         for (let i = 1; i <= daysInMonth; i++) {
@@ -1825,15 +1931,18 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <div className="flex items-center justify-between mb-8">
-              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "from-violet-400 to-purple-600"}`}>
+              <h1
+                className={`text-3xl font-bold ${isDark ? "text-white" : "from-violet-400 to-purple-600"
+                  }`}
+              >
                 <i className="fas fa-umbrella-beach mr-3 text-violet-500"></i>
                 Public Holidays
               </h1>
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-6 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 mt-8 items-start">
               {/* Holidays List */}
-              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full lg:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -1844,59 +1953,171 @@ export default function ManagerDashboard() {
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20' : 'bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50')} transition-all hover:scale-[1.01] duration-300`}>
+                    <div
+                      key={idx}
+                      onClick={() =>
+                        setCurrentCalendarDate(new Date(holiday.date))
+                      }
+                      className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast
+                        ? isDark
+                          ? "bg-gray-800/80 border-gray-700 opacity-60"
+                          : "bg-gray-100 border-gray-200 opacity-70"
+                        : isDark
+                          ? "bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20"
+                          : "bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50"
+                        } transition-all hover:scale-[1.01] duration-300`}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-violet-400 to-purple-600 text-white shadow-md'}`}>
-                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
-                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        <div
+                          className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
+                            ? "bg-gray-300 text-gray-500"
+                            : "bg-gradient-to-br from-violet-400 to-purple-600 text-white shadow-md"
+                            }`}
+                        >
+                          <span className="text-[10px] uppercase">
+                            {holDate.toLocaleString("default", {
+                              month: "short",
+                            })}
+                          </span>
+                          <span className="text-lg leading-none">
+                            {holDate.getDate()}
+                          </span>
                         </div>
                         <div>
-                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
-                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                          <p
+                            className={`font-bold text-[15px] leading-tight ${isPast
+                              ? isDark
+                                ? "text-gray-400"
+                                : "text-gray-600"
+                              : isDark
+                                ? "text-white"
+                                : "text-gray-800"
+                              }`}
+                          >
+                            {holiday.name}
+                          </p>
+                          <span
+                            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
+                              } font-medium mt-1 inline-block`}
+                          >
+                            <i className="far fa-calendar mr-1.5"></i>
+                            {holDate.toLocaleDateString(undefined, {
+                              weekday: "long",
+                            })}
+                          </span>
                         </div>
                       </div>
 
                       <div>
                         {isPast ? (
-                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                            Passed
+                          </span>
                         ) : (
-                          <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 px-2.5 py-1 bg-violet-50 dark:bg-violet-900/30 rounded-md">Upcoming</span>
+                          <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 px-2.5 py-1 bg-violet-50 dark:bg-violet-900/30 rounded-md">
+                            Upcoming
+                          </span>
                         )}
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
 
               {/* Current Month Calendar */}
-              <div className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div
+                className={`w-full lg:w-2/5 lg:sticky lg:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
+                  }`}
+              >
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                    <h3
+                      className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                        }`}
+                    >
                       {monthNames[calMonth]}
                     </h3>
-                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{calYear}</p>
+                    <p
+                      className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      {calYear}
+                    </p>
                   </div>
                   <div className="flex gap-1.5 items-center">
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-left text-sm"></i></button>
-                    <button onClick={() => setCurrentCalendarDate(new Date())} className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>Today</button>
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><i className="fas fa-chevron-right text-sm"></i></button>
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth - 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-left text-sm"></i>
+                    </button>
+                    <button
+                      onClick={() => setCurrentCalendarDate(new Date())}
+                      className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-300"
+                        : "hover:bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth + 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-right text-sm"></i>
+                    </button>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-7 gap-2 text-center mb-2">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                    <div key={day} className={`text-xs font-bold py-1 ${day === 'Su' || day === 'Sa' ? 'text-rose-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{day}</div>
+                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                    <div
+                      key={day}
+                      className={`text-xs font-bold py-1 ${day === "Su" || day === "Sa"
+                        ? "text-rose-400"
+                        : isDark
+                          ? "text-gray-400"
+                          : "text-gray-500"
+                        }`}
+                    >
+                      {day}
+                    </div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-2 text-center">
                   {calendarDays.map((day, idx) => {
-                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+                    if (!day)
+                      return <div key={`empty-${idx}`} className="p-2"></div>;
 
-                    const currentDateStr = `${currentYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const isHoliday = IT_HOLIDAYS.some(h => h.date === currentDateStr);
-                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
-                    const isWeekend = new Date(currentYear, calMonth, day).getDay() === 0 || new Date(currentYear, calMonth, day).getDay() === 6;
+                    const currentDateStr = `${currentYear}-${String(
+                      calMonth + 1
+                    ).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const isHoliday = IT_HOLIDAYS.some(
+                      (h) => h.date === currentDateStr
+                    );
+                    const isToday =
+                      day === todayDate.getDate() &&
+                      calMonth === todayDate.getMonth() &&
+                      currentYear === todayDate.getFullYear();
+                    const isWeekend =
+                      new Date(currentYear, calMonth, day).getDay() === 0 ||
+                      new Date(currentYear, calMonth, day).getDay() === 6;
 
                     let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
                     if (isToday) {
@@ -1904,13 +2125,26 @@ export default function ManagerDashboard() {
                     } else if (isHoliday) {
                       dayClass += `bg-violet-500 text-white shadow-violet-500/30 scale-105`;
                     } else if (isWeekend) {
-                      dayClass += isDark ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 ` : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                      dayClass += isDark
+                        ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 `
+                        : `bg-gray-50 text-rose-500/80 border border-gray-100`;
                     } else {
-                      dayClass += isDark ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600` : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                      dayClass += isDark
+                        ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600`
+                        : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
                     }
 
                     return (
-                      <div key={day} className={dayClass} title={isHoliday ? IT_HOLIDAYS.find(h => h.date === currentDateStr)?.name : ''}>
+                      <div
+                        key={day}
+                        className={dayClass}
+                        title={
+                          isHoliday
+                            ? IT_HOLIDAYS.find((h) => h.date === currentDateStr)
+                              ?.name
+                            : ""
+                        }
+                      >
                         {day}
                       </div>
                     );
@@ -1919,16 +2153,23 @@ export default function ManagerDashboard() {
                 <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center gap-3 text-sm font-medium">
                     <span className="w-3 h-3 rounded-full bg-violet-500 shadow-sm"></span>
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                    <span
+                      className={isDark ? "text-gray-300" : "text-gray-700"}
+                    >
+                      Public Holiday
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 text-sm font-medium">
                     <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
+                    <span
+                      className={isDark ? "text-gray-300" : "text-gray-700"}
+                    >
+                      Today
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-
           </motion.div>
         );
       }
@@ -1965,7 +2206,8 @@ export default function ManagerDashboard() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsSidebarOpen(true)}
-          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}
+          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+            }`}
         >
           <i className="fas fa-bars text-xl"></i>
         </motion.button>
@@ -1991,18 +2233,28 @@ export default function ManagerDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
-            ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
-            : "bg-gradient-to-b from-white to-violet-50 border-violet-100"
+          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
+            } ${isDark
+              ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
+              : "bg-gradient-to-b from-white to-violet-50 border-violet-100"
             }`}
         >
           <div className="text-center mb-8 pt-2">
             <div
               onClick={() => user?.profileImage && setIsFullScreenImage(true)}
-              className={`w-24 h-24 ${user?.profileImage ? 'cursor-pointer hover:scale-105 transition-transform' : 'bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500'} rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white overflow-hidden`}
+              className={`w-24 h-24 ${user?.profileImage
+                ? "cursor-pointer hover:scale-105 transition-transform"
+                : "bg-gradient-to-br from-violet-400 via-purple-500 to-pink-500"
+                } rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg border-4 border-white overflow-hidden`}
             >
               {user?.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                <img
+                  src={user.profileImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <span className="text-4xl font-bold text-white">
                   {userInitial}
@@ -2123,7 +2375,6 @@ export default function ManagerDashboard() {
               <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
             </button>
 
-
             <button
               onClick={() => {
                 setCurrentSection("profile");
@@ -2150,7 +2401,8 @@ export default function ManagerDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24 lg:p-8 relative w-full transition-all duration-300 lg:ml-64`}
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
+            }`}
           style={{ height: "100vh" }}
         >
           <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>
@@ -2203,8 +2455,6 @@ export default function ManagerDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-
-
     </>
   );
 }
