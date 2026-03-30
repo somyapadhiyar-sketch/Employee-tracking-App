@@ -71,6 +71,13 @@ export default function AdminSidebar({
     },
 
     {
+      id: "activityMonitor",
+      icon: "fa-desktop",
+      label: "Activity Monitor",
+      color: "from-blue-500 to-blue-600",
+    },
+
+    {
       id: "profile",
       icon: "fa-user-circle",
       label: "My Profile",

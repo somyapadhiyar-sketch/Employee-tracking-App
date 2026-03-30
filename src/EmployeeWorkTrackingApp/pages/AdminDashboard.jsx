@@ -7,6 +7,7 @@ import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 
 import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
+import ManagerActivityReport from "../components/ManagerActivityReport";
 
 import {
   collection,
@@ -1822,6 +1823,28 @@ export default function AdminDashboard() {
           </motion.div>
         );
       }
+
+      case "activityMonitor":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h1
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
+            >
+              Company Activity Monitor
+            </h1>
+            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              Live tracking and productivity analysis of all employees across all departments.
+            </p>
+            
+            {/* Wahi Manager wala component Admin ke liye bhi perfect chalega! */}
+            <ManagerActivityReport isDark={isDark} />
+            
+          </motion.div>
+        );
 
       case "add_department":
         return (

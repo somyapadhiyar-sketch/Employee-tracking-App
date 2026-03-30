@@ -10,6 +10,7 @@ import { useTheme } from "../context/ThemeContext";
 import ProfileModal from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
 import { useOutletContext } from "react-router-dom";
+import ManagerActivityReport from "../components/ManagerActivityReport";
 
 import {
   collection,
@@ -1899,6 +1900,7 @@ export default function ManagerDashboard() {
                 </div>
               )}
             </motion.div>
+            <ManagerActivityReport isDark={isDark} />
           </motion.div>
         );
 

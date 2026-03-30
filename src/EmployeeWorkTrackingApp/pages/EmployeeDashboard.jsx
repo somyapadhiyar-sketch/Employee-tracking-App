@@ -9,7 +9,7 @@ import {
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
-
+import ActivityReport from "../components/ActivityReport";
 
 // NEW FIREBASE IMPORTS
 import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
@@ -826,7 +826,13 @@ export default function EmployeeDashboard() {
                 </div>
               )}
             </div>
+            <ActivityReport 
+                currentUserEmail={user.email} 
+                isDark={isDark} 
+            />
+
           </motion.div>
+          
         );
 
       case "leave":
