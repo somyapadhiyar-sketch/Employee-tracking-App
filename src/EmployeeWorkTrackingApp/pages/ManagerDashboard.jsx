@@ -28,6 +28,11 @@ export default function ManagerDashboard() {
   const { departmentsMap } = useDepartments();
 
   const [currentSection, setCurrentSection] = useState("pending");
+  
+  // IST Date/Time Helpers
+  const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const getISTTimeString = () => new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeProfile, setShowEmployeeProfile] = useState(false);
@@ -61,8 +66,12 @@ export default function ManagerDashboard() {
         const userSnap = await getDoc(doc(db, "users", uId));
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          const todayStr = new Date().toISOString().split("T")[0];
-          if (
+          const todayStr = getISTDate();
+          
+          // Use Firebase clockedIn field if available, otherwise fallback to date calculation
+          if (userData.clockedIn !== undefined) {
+            setClockedIn(userData.clockedIn);
+          } else if (
             userData.lastClockInDate === todayStr &&
             userData.lastClockOutDate !== todayStr
           ) {
@@ -463,9 +472,9 @@ export default function ManagerDashboard() {
         taskStartTime,
         taskEndTime,
         duration: calculatedDuration,
-        date: today,
-        clockInTime: clockInTime ? clockInTime.toISOString() : null,
-        createdAt: new Date().toISOString(),
+        date: getISTDate(),
+        clockInTime: clockInTime ? (clockInTime instanceof Date ? clockInTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : clockInTime) : null,
+        createdAt: getISTTimeString(),
       });
       e.target.reset();
       setTaskStartTime("");
@@ -492,12 +501,11 @@ export default function ManagerDashboard() {
     setClockedIn(true);
     setClockInTime(new Date());
     try {
-      const todayDate = new Date().toISOString().split("T")[0];
+      const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
+        clockedIn: true,
         lastClockInDate: todayDate,
-        lastClockInTime: new Date().toISOString(),
-        lastClockOutDate: null,
-        lastClockOutTime: null,
+        lastClockInTime: getISTTimeString(),
       });
       showToastMessage("Clocked in successfully!", "success");
     } catch (err) {
@@ -513,10 +521,11 @@ export default function ManagerDashboard() {
     setTaskEndTime("");
     setCalculatedDuration("");
     try {
-      const todayDate = new Date().toISOString().split("T")[0];
+      const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
+        clockedIn: false,
         lastClockOutDate: todayDate,
-        lastClockOutTime: new Date().toISOString(),
+        lastClockOutTime: getISTTimeString(),
       });
       showToastMessage("Clocked out successfully!", "success");
     } catch (err) {
@@ -1940,9 +1949,9 @@ export default function ManagerDashboard() {
               </h1>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 mt-8 items-start">
+            <div className="flex flex-col md:flex-row gap-6 mt-8 items-start">
               {/* Holidays List */}
-              <div className="w-full lg:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full md:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -2026,7 +2035,7 @@ export default function ManagerDashboard() {
 
               {/* Current Month Calendar */}
               <div
-                className={`w-full lg:w-2/5 lg:sticky lg:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
                   }`}
@@ -2233,7 +2242,7 @@ export default function ManagerDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen
+          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0"
             } ${isDark

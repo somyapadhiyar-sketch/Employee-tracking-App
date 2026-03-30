@@ -22,6 +22,11 @@ export default function EmployeeDashboard() {
   const { departmentsMap } = useDepartments();
 
   const [currentSection, setCurrentSection] = useState("workLog");
+
+  // IST Date/Time Helpers
+  const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const getISTTimeString = () => new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
   const [reportFilter, setReportFilter] = useState("daily");
   const [workType, setWorkType] = useState(null);
   const [clockedIn, setClockedIn] = useState(false);
@@ -69,8 +74,12 @@ export default function EmployeeDashboard() {
         const userSnap = await getDoc(doc(db, "users", uId));
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          const todayStr = new Date().toISOString().split("T")[0];
-          if (userData.lastClockInDate === todayStr && userData.lastClockOutDate !== todayStr) {
+          const todayStr = getISTDate();
+          
+          // Use Firebase clockedIn field if available, otherwise fallback to date calculation
+          if (userData.clockedIn !== undefined) {
+            setClockedIn(userData.clockedIn);
+          } else if (userData.lastClockInDate === todayStr && userData.lastClockOutDate !== todayStr) {
             setClockedIn(true);
           }
         }
@@ -243,12 +252,11 @@ export default function EmployeeDashboard() {
     setClockedIn(true);
     setClockInTime(formatTime(currentTime));
     try {
-      const todayDate = new Date().toISOString().split("T")[0];
+      const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
+        clockedIn: true,
         lastClockInDate: todayDate,
-        lastClockInTime: new Date().toISOString(),
-        lastClockOutDate: null,
-        lastClockOutTime: null
+        lastClockInTime: getISTTimeString(),
       });
       showToastMessage("Clocked in successfully!", "success");
     } catch (err) {
@@ -260,10 +268,11 @@ export default function EmployeeDashboard() {
   const handleClockOut = async () => {
     setClockedIn(false);
     try {
-      const todayDate = new Date().toISOString().split("T")[0];
+      const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
+        clockedIn: false,
         lastClockOutDate: todayDate,
-        lastClockOutTime: new Date().toISOString()
+        lastClockOutTime: getISTTimeString()
       });
       showToastMessage("Clocked out successfully!", "success");
     } catch (err) {
@@ -332,9 +341,9 @@ export default function EmployeeDashboard() {
         taskStartTime,
         taskEndTime,
         duration: calculatedDuration,
-        date: today,
-        clockInTime: clockInTime ? new Date().toISOString() : null,
-        createdAt: new Date().toISOString(),
+        date: getISTDate(),
+        clockInTime, 
+        createdAt: getISTTimeString(),
       });
       e.target.reset();
       setTaskStartTime("");
@@ -1200,9 +1209,9 @@ export default function EmployeeDashboard() {
               </h1>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 mt-8 items-start">
+            <div className="flex flex-col md:flex-row gap-6 mt-8 items-start">
               {/* Holidays List */}
-              <div className="w-full lg:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full md:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -1238,7 +1247,7 @@ export default function EmployeeDashboard() {
               </div>
 
               {/* Current Month Calendar */}
-              <div className={`w-full lg:w-2/5 lg:sticky lg:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -1362,7 +1371,7 @@ export default function EmployeeDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-64 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
             ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
             : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
             }`}
@@ -1471,7 +1480,7 @@ export default function EmployeeDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-64" : "lg:ml-0"
+          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
             }`}
           style={{ height: "100vh" }}
         >

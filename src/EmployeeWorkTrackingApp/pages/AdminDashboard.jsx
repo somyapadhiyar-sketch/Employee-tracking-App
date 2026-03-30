@@ -1589,9 +1589,9 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-6 items-start">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* Holidays List */}
-              <div className="w-full xl:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full md:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -1675,7 +1675,7 @@ export default function AdminDashboard() {
 
               {/* Current Month Calendar */}
               <div
-                className={`w-full xl:w-2/5 xl:sticky xl:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-100"
                   }`}
