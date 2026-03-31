@@ -3,7 +3,7 @@ import pygetwindow as gw
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.cloud.firestore_v1.base_query import FieldFilter # NEW: Warning hatane ke liye
+from google.cloud.firestore_v1.base_query import FieldFilter
 import ctypes
 import uiautomation as auto
 from urllib.parse import urlparse
@@ -48,29 +48,20 @@ def start_tracking():
     
     while True:
         try:
-            # ---------------------------------------------------------
-            # 1. AUTO-DETECT WHO IS CLOCKED IN (Fixed Warning & Logic)
-            # Ab hum check kar rahe hain ki kiska 'clockedIn' True hai
-            # ---------------------------------------------------------
+            # 1. AUTO-DETECT WHO IS CLOCKED IN
             active_users_query = db.collection(u'users').where(filter=FieldFilter(u'clockedIn', u'==', True)).get()
             
             if not active_users_query:
-                # Agar koi bhi Clocked In nahi hai, toh shanti se wait karo
                 print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ⏸️  No one is Clocked In. Waiting...")
-                time.sleep(60)
+                time.sleep(10)
                 continue
                 
-            # Agar koi ON mila, toh uska data nikal lo
             active_user = active_users_query[0].to_dict()
             
-            # Database se dynamically Name aur Email nikal liya
             EMPLOYEE_EMAIL = active_user.get('email', 'unknown@gmail.com')
             USER_NAME = f"{active_user.get('firstName', '')} {active_user.get('lastName', '')}".strip()
-            # ---------------------------------------------------------
 
-            # ---------------------------------------------------------
-            # 2. TRACKING LOGIC
-            # ---------------------------------------------------------
+            # 2. GET CURRENT APP/WEBSITE INFO
             now = datetime.now()
             current_date = now.strftime("%Y-%m-%d")
             current_timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -91,18 +82,20 @@ def start_tracking():
                 else:
                     activity_name = window_title.split('-')[0].strip().title()
 
-            status = "Active"
+            # 3. CHUNK STATUS DETECTION (Is 10 second mein kya hua?)
+            chunk_status = "Active"
             idle_seconds = get_idle_time()
 
-            if idle_seconds > 60:
-                status = "Idle"
+            if idle_seconds > 10: 
+                chunk_status = "Idle"
             elif any(sm in window_title for sm in SOCIAL_MEDIA):
-                status = "Idle"
+                chunk_status = "Idle"
             elif "youtube" in window_title:
                 is_productive = any(word in window_title for word in PRODUCTIVE_KEYWORDS)
                 if not is_productive:
-                    status = "Idle"
+                    chunk_status = "Idle"
             
+            # 4. SAVE DATA TO FIREBASE
             safe_activity_name = activity_name.replace("/", "_").replace(".", "_").replace(" ", "_")
             doc_id = f"{EMPLOYEE_EMAIL}_{current_date}_{safe_activity_name}"
             
@@ -119,24 +112,27 @@ def start_tracking():
                 "last_updated": current_timestamp,
             }
 
-            if status == "Active":
-                update_data["active_time_seconds"] = firestore.Increment(60)
+            # +10 seconds increment logic
+            if chunk_status == "Active":
+                update_data["active_time_seconds"] = firestore.Increment(10)
                 update_data["idle_time_seconds"] = firestore.Increment(0) 
             else:
-                update_data["idle_time_seconds"] = firestore.Increment(60)
+                update_data["idle_time_seconds"] = firestore.Increment(10)
                 update_data["active_time_seconds"] = firestore.Increment(0)
 
-            update_data["total_time_seconds"] = firestore.Increment(60)
+            update_data["total_time_seconds"] = firestore.Increment(10)
 
             doc_ref.set(update_data, merge=True)
             
-            print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ✅ [Tracking: {USER_NAME}] -> {activity_name} | Status: {status}")
+            # Terminal mein status print hoga
+            print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ✅ [Tracking: {USER_NAME}] -> {activity_name} | +10s {chunk_status}")
 
-            time.sleep(60) 
+            # Wait for 10 seconds before next track
+            time.sleep(10) 
 
         except Exception as e:
             print(f"Error occurred during tracking: {e}")
-            time.sleep(60)
+            time.sleep(10)
 
 # --- MAIN EXECUTION BLOCK ---
 if __name__ == "__main__":

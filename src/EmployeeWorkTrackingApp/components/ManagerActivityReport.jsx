@@ -9,8 +9,8 @@ export default function ManagerActivityReport({ isDark }) {
   // 4 Filters ki States
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("all");
-  const [selectedDate, setSelectedDate] = useState(""); // NAYA: Date Filter
-  const [selectedStatus, setSelectedStatus] = useState("all"); // NAYA: Status Filter
+  const [selectedDate, setSelectedDate] = useState(""); 
+  const [selectedStatus, setSelectedStatus] = useState("all"); 
 
   const formatDuration = (totalSeconds) => {
     if (!totalSeconds) return "0s";
@@ -65,8 +65,16 @@ export default function ManagerActivityReport({ isDark }) {
     const matchesDate = selectedDate === "" || row.date === selectedDate;
 
     // 3. Status Filter (Calculate status first)
-    const isLowActivity = (row.idle_time_seconds || 0) > (row.active_time_seconds || 0);
-    const rowStatus = isLowActivity ? "low_activity" : "productive";
+    const idleTime = row.idle_time_seconds || 0;
+    const activeTime = row.active_time_seconds || 0;
+    
+    let rowStatus = "productive";
+    if (idleTime > activeTime) {
+        rowStatus = "low_activity";
+    } else if (idleTime === activeTime) {
+        rowStatus = "moderate";
+    }
+
     const matchesStatus = selectedStatus === "all" || rowStatus === selectedStatus;
 
     // 4. Search Keyword Filter
@@ -118,7 +126,7 @@ export default function ManagerActivityReport({ isDark }) {
             />
           </div>
 
-          {/* 3. Status Dropdown */}
+          {/* 3. Status Dropdown (Moderate Added) */}
           <div className="flex flex-col gap-1.5">
             <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status</label>
             <select
@@ -128,6 +136,7 @@ export default function ManagerActivityReport({ isDark }) {
             >
               <option value="all">All Status</option>
               <option value="productive">Productive</option>
+              <option value="moderate">Moderate</option>
               <option value="low_activity">Low Activity</option>
             </select>
           </div>
@@ -193,7 +202,9 @@ export default function ManagerActivityReport({ isDark }) {
               filteredData.map((row) => {
                 const appName = row.app_or_website || row.app_used || "Unknown App";
                 const isWebsite = appName.includes('.com') || appName.includes('.in') || appName.includes('.org');
-                const isLowActivity = (row.idle_time_seconds || 0) > (row.active_time_seconds || 0);
+                
+                const idleTime = row.idle_time_seconds || 0;
+                const activeTime = row.active_time_seconds || 0;
 
                 return (
                   <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -239,9 +250,13 @@ export default function ManagerActivityReport({ isDark }) {
                     </td>
                     
                     <td className="px-4 py-4 whitespace-nowrap">
-                      {isLowActivity ? (
+                      {idleTime > activeTime ? (
                         <span className="px-3 py-1 bg-amber-100 text-amber-700 ring-1 ring-amber-200 rounded-full text-xs font-bold uppercase tracking-wider">
                           Low Activity
+                        </span>
+                      ) : idleTime === activeTime ? (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-700 ring-1 ring-blue-200 rounded-full text-xs font-bold uppercase tracking-wider">
+                          Moderate
                         </span>
                       ) : (
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 rounded-full text-xs font-bold uppercase tracking-wider">
