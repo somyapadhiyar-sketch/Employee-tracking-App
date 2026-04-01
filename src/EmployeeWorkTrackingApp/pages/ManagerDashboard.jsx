@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   WORK_TYPES,
@@ -11,6 +11,9 @@ import ProfileModal from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
 import { useOutletContext } from "react-router-dom";
 import ManagerActivityReport from "../components/ManagerActivityReport";
+import TeamDynamics from "../components/TeamDynamics";
+import MyPerformance from "./MyPerformance";
+
 
 import {
   collection,
@@ -28,8 +31,8 @@ export default function ManagerDashboard() {
   const { isDark, toggleTheme } = useTheme();
   const { departmentsMap } = useDepartments();
 
-  const [currentSection, setCurrentSection] = useState("pending");
-  
+  const [currentSection, setCurrentSection] = useState("dashboard");
+
   // IST Date/Time Helpers
   const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const getISTTimeString = () => new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
@@ -37,9 +40,11 @@ export default function ManagerDashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeProfile, setShowEmployeeProfile] = useState(false);
+  const [selectedAnalysisEmail, setSelectedAnalysisEmail] = useState("");
   const [reportFilter, setReportFilter] = useState("daily");
   const [reportRoleFilter, setReportRoleFilter] = useState("employee");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isOnBreak, setIsOnBreak] = useState(false);
   const [toast, setToast] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState("");
@@ -59,6 +64,12 @@ export default function ManagerDashboard() {
   const [allLeaveRequests, setAllLeaveRequests] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  // Edit Log State
+  const [editingLogId, setEditingLogId] = useState(null);
+  const [description, setDescription] = useState("");
+  const [editingLogOwner, setEditingLogOwner] = useState(null);
+  const [editingLogName, setEditingLogName] = useState(null);
+
   const fetchDashboardData = async () => {
     setLoadingData(true);
     try {
@@ -68,7 +79,7 @@ export default function ManagerDashboard() {
         if (userSnap.exists()) {
           const userData = userSnap.data();
           const todayStr = getISTDate();
-          
+
           // Use Firebase clockedIn field if available, otherwise fallback to date calculation
           if (userData.clockedIn !== undefined) {
             setClockedIn(userData.clockedIn);
@@ -77,6 +88,9 @@ export default function ManagerDashboard() {
             userData.lastClockOutDate !== todayStr
           ) {
             setClockedIn(true);
+          }
+          if (userData.isOnBreak !== undefined) {
+            setIsOnBreak(userData.isOnBreak);
           }
         }
       }
@@ -122,6 +136,21 @@ export default function ManagerDashboard() {
     fetchDashboardData();
   }, []);
 
+  // --- DERIVED DATA ---
+  const user = auth?.currentUser || {};
+  const currentUserId = user?.uid || user?.id;
+  const today = new Date().toISOString().split("T")[0];
+
+  // Set browser title with identity for Smart Tracking Agent
+  useEffect(() => {
+    if (user?.firstName) {
+      document.title = `[${user.firstName} ${user.lastName}] Manager Dashboard`;
+    }
+    return () => {
+      document.title = "Employee Work Tracking App";
+    };
+  }, [user]);
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       const { clientX, clientY } = e;
@@ -166,6 +195,7 @@ export default function ManagerDashboard() {
   const [myLeaveFilter, setMyLeaveFilter] = useState("all");
   const [myLeaveSearchTerm, setMyLeaveSearchTerm] = useState("");
   const [myLeaveStatusFilter, setMyLeaveStatusFilter] = useState("all");
+  const [leaveDuration, setLeaveDuration] = useState("full");
 
   const LEAVE_BALANCE = {
     sick: { total: 6, name: "Sick Leave", icon: "fa-user-nurse" },
@@ -210,7 +240,6 @@ export default function ManagerDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const user = auth?.currentUser || {};
   const userName = user?.firstName
     ? `${user.firstName} ${user.lastName}`
     : "Manager";
@@ -218,23 +247,28 @@ export default function ManagerDashboard() {
     ? user.firstName.charAt(0).toUpperCase()
     : "M";
   const dept = user?.department;
-  const currentUserId = user?.uid || user?.id;
 
-  const deptEmployees = allUsers.filter(
-    (emp) =>
-      emp.department === dept &&
-      emp.status === "approved" &&
-      emp.id !== currentUserId &&
-      emp.role !== "admin"
-  );
-  const deptPending = allUsers.filter(
-    (emp) =>
-      emp.department === dept &&
-      emp.status === "pending" &&
-      emp.role !== "admin"
-  );
+  const deptEmployees = useMemo(() =>
+    allUsers.filter(
+      (emp) =>
+        emp.department === dept &&
+        emp.status === "approved" &&
+        emp.id !== currentUserId &&
+        emp.role !== "admin"
+    ), [allUsers, dept, currentUserId]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const deptPending = useMemo(() =>
+    allUsers.filter(
+      (emp) =>
+        emp.department === dept &&
+        emp.status === "pending" &&
+        emp.role !== "admin"
+    ), [allUsers, dept]);
+
+  const teamEmails = useMemo(() =>
+    [user?.email, ...deptEmployees.map(emp => emp.email)].filter(Boolean)
+    , [user?.email, deptEmployees]);
+
   const todayLogs = allWorkLogs.filter(
     (log) => log.department === dept && log.date === today
   );
@@ -335,8 +369,9 @@ export default function ManagerDashboard() {
         new Date(a.appliedAt || a.startDate)
     );
 
-  const calculateLeaveDuration = (start, end) => {
+  const calculateLeaveDuration = (start, end, durationType = "full") => {
     if (!start || !end) return 0;
+    if (durationType === "half") return 0.5;
     const s = new Date(start);
     const e = new Date(end);
     const diffTime = Math.abs(e - s);
@@ -348,9 +383,14 @@ export default function ManagerDashboard() {
   );
 
   const getUsedLeaves = (type) =>
-    myLeaveRequests.filter(
-      (req) => req.leaveType === type && req.status === "approved"
-    ).length;
+    myLeaveRequests
+      .filter((req) => req.leaveType === type && req.status === "approved")
+      .reduce(
+        (acc, req) =>
+          acc +
+          calculateLeaveDuration(req.startDate, req.endDate, req.leaveDuration),
+        0
+      );
 
   const handleApproveUser = async (employeeId) => {
     try {
@@ -405,15 +445,20 @@ export default function ManagerDashboard() {
         "error"
       );
 
+    const lType = leaveType;
+    const lDuration = lType === "sick" ? "full" : leaveDuration;
+    const lEndDate = lDuration === "half" ? leaveStartDate : leaveEndDate;
+
     try {
       await addDoc(collection(db, "leaveRequests"), {
-        employeeId: currentUserId,
+        employeeId: user.id,
         employeeName: userName,
         department: dept,
         startDate: leaveStartDate,
-        endDate: leaveEndDate,
+        endDate: lEndDate,
         reason: leaveReason,
-        leaveType: leaveType,
+        leaveType: lType,
+        leaveDuration: lDuration,
         status: "pending",
         isManager: true,
         role: user.role,
@@ -462,12 +507,12 @@ export default function ManagerDashboard() {
     const totalHours = hours + mins / 60;
 
     try {
-      await addDoc(collection(db, "workLogs"), {
-        employeeId: currentUserId,
-        employeeName: userName,
+      const dataToSave = {
+        employeeId: editingLogOwner || currentUserId,
+        employeeName: editingLogName || userName,
         department: dept,
         workType: workType,
-        description: e.target.description.value,
+        description: description,
         hours: totalHours,
         minutes: hours * 60 + mins,
         taskStartTime,
@@ -476,15 +521,52 @@ export default function ManagerDashboard() {
         date: getISTDate(),
         clockInTime: clockInTime ? (clockInTime instanceof Date ? clockInTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : clockInTime) : null,
         createdAt: getISTTimeString(),
-      });
-      e.target.reset();
+      };
+
+      if (editingLogId) {
+        const { createdAt, ...updateData } = dataToSave;
+        await updateDoc(doc(db, "workLogs", editingLogId), { ...updateData, isEdited: true });
+        showToastMessage("Work entry updated!", "success");
+        setEditingLogId(null);
+        setEditingLogOwner(null);
+        setEditingLogName(null);
+      } else {
+        await addDoc(collection(db, "workLogs"), dataToSave);
+        showToastMessage("Work entry saved!", "success");
+      }
+
+      setDescription("");
       setTaskStartTime("");
       setTaskEndTime("");
       setCalculatedDuration("");
-      showToastMessage("Work entry saved!", "success");
       fetchDashboardData();
     } catch (err) {
-      showToastMessage("Failed to log work.", "error");
+      showToastMessage("Failed to save work.", "error");
+    }
+  };
+
+  const handleEditLog = (log) => {
+    setEditingLogId(log.id);
+    setWorkType(log.workType || "office");
+    setTaskStartTime(log.taskStartTime || "");
+    setTaskEndTime(log.taskEndTime || "");
+    setCalculatedDuration(log.duration || "");
+    setDescription(log.description || "");
+    setEditingLogOwner(log.employeeId || currentUserId);
+    setEditingLogName(log.employeeName || userName);
+    setCurrentSection("myWork");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDeleteLog = async (logId) => {
+    if (window.confirm("Are you sure you want to delete this work entry?")) {
+      try {
+        await deleteDoc(doc(db, "workLogs", logId));
+        showToastMessage("Work entry deleted!", "success");
+        fetchDashboardData();
+      } catch (err) {
+        showToastMessage("Failed to delete entry.", "error");
+      }
     }
   };
 
@@ -521,10 +603,12 @@ export default function ManagerDashboard() {
     setTaskStartTime("");
     setTaskEndTime("");
     setCalculatedDuration("");
+    setIsOnBreak(false); // Auto-reset break
     try {
       const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
         clockedIn: false,
+        isOnBreak: false,
         lastClockOutDate: todayDate,
         lastClockOutTime: getISTTimeString(),
       });
@@ -532,6 +616,21 @@ export default function ManagerDashboard() {
     } catch (err) {
       console.error(err);
       showToastMessage("Failed to clock out to database.", "error");
+    }
+  };
+
+  const handleToggleBreak = async () => {
+    const newBreakStatus = !isOnBreak;
+    setIsOnBreak(newBreakStatus);
+    try {
+      await updateDoc(doc(db, "users", currentUserId), {
+        isOnBreak: newBreakStatus
+      });
+      showToastMessage(newBreakStatus ? "Break started. Tracking paused." : "Resumed work. Tracking active.", "info");
+    } catch (err) {
+      console.error(err);
+      setIsOnBreak(!newBreakStatus); // Fallback
+      showToastMessage("Failed to update break status.", "error");
     }
   };
 
@@ -592,6 +691,210 @@ export default function ManagerDashboard() {
 
   const renderSection = () => {
     switch (currentSection) {
+      case "dashboard":
+        const topStats = [
+          {
+            title: "Team Members",
+            value: deptEmployees.length,
+            icon: "fa-users",
+            color: "from-cyan-400 to-blue-500",
+            action: () => setCurrentSection("team"),
+          },
+          {
+            title: "Present Today",
+            value: presentIds.length,
+            icon: "fa-user-check",
+            color: "from-emerald-400 to-green-500",
+            action: () => {
+              setCurrentSection("attendance");
+              setAttendanceFilter("present");
+            },
+          },
+          {
+            title: "On Leave",
+            value: employeesOnLeave.length,
+            icon: "fa-user-nurse",
+            color: "from-amber-400 to-orange-500",
+            action: () => {
+              setCurrentSection("attendance");
+              setAttendanceFilter("onLeave");
+            },
+          },
+          {
+            title: "Pending Approvals",
+            value: deptPending.length,
+            icon: "fa-user-clock",
+            color: "from-rose-400 to-pink-500",
+            action: () => setCurrentSection("pending"),
+          },
+        ];
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-2xl p-6 shadow-lg border ${isDark
+                ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
+                : "bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-purple-100"
+                }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div>
+                  <h1
+                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
+                      }`}
+                  >
+                    Welcome back, <span className="text-violet-500 font-extrabold">{userName}</span>
+                  </h1>
+                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Here's a quick overview of your team today.
+                  </p>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col items-center sm:items-end"
+                >
+                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-violet-600"
+                    }`}>
+                    {formatTime(currentTime)}
+                  </p>
+                  <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    {formatDate(currentTime)}
+                  </p>
+                  
+                  {/* Clock In Section Inside Welcome */}
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
+                    <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
+                    </p>
+                    {!clockedIn ? (
+                      <motion.button
+                        onClick={handleClockIn}
+                        animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        className="relative px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-lg font-bold shadow-lg shadow-violet-900/40 hover:shadow-violet-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                      >
+                        <i className="fas fa-sign-in-alt mr-1"></i> Clock In
+                      </motion.button>
+                    ) : (
+                      <motion.button
+                        onClick={handleClockOut}
+                        animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        className="relative px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                      >
+                        <i className="fas fa-sign-out-alt mr-1"></i> Clock Out
+                      </motion.button>
+                    )}
+
+                    {clockedIn && (
+                      <motion.button
+                        onClick={handleToggleBreak}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${
+                          isOnBreak 
+                            ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40" 
+                            : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
+                        }`}
+                      >
+                        <i className={`fas ${isOnBreak ? "fa-play" : "fa-coffee"}`}></i>
+                        {isOnBreak ? "Resume Work" : "Start Break"}
+                      </motion.button>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+
+
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {topStats.map((stat, index) => (
+                <motion.div
+                  key={stat.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border cursor-pointer ${isDark
+                    ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                    : "bg-white border-gray-100"
+                    }`}
+                  onClick={stat.action}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p
+                        className={
+                          isDark
+                            ? "text-gray-400 text-sm font-medium"
+                            : "text-gray-500 text-sm font-medium"
+                        }
+                      >
+                        {stat.title}
+                      </p>
+                      <p
+                        className={`text-4xl font-bold mt-1 ${isDark ? "text-white" : "text-gray-800"
+                          }`}
+                      >
+                        {stat.value}
+                      </p>
+                    </div>
+                    <div
+                      className={`w-14 mt-5 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg`}
+                    >
+                      <i className={`fas ${stat.icon} text-white text-xl`}></i>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => setCurrentSection("pending")}
+                className="cursor-pointer bg-gradient-to-br from-violet-400 to-purple-500 rounded-2xl p-6 text-white shadow-lg"
+              >
+                <h3 className="text-xl font-bold mb-2">Pending Approvals</h3>
+                <p className="text-violet-100 mb-4">
+                  {deptPending.length} team members waiting for approval
+                </p>
+                <div className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all inline-block">
+                  Review Approvals <i className="fas fa-arrow-right ml-2"></i>
+                </div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => setCurrentSection("leave")}
+                className="cursor-pointer bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl p-6 text-white shadow-lg"
+              >
+                <h3 className="text-xl font-bold mb-2">Leave Requests</h3>
+                <p className="text-emerald-100 mb-4">
+                  {pendingLeaveRequests.length} pending leave requests
+                </p>
+                <div className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all inline-block">
+                  View Requests <i className="fas fa-arrow-right ml-2"></i>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        );
+
       case "pending":
         return (
           <motion.div
@@ -890,43 +1193,96 @@ export default function ManagerDashboard() {
                     })}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Casual Leave Specific: Duration Dropdown */}
+                <AnimatePresence>
+                  {leaveType === "casual" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-3 overflow-hidden"
+                    >
+                      <label
+                        className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        Casual Leave Type
+                      </label>
+                      <div className="relative group">
+                        <i className={`fas fa-clock absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
+                        <select
+                          value={leaveDuration}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLeaveDuration(val);
+                            if (val === "half") setLeaveEndDate(leaveStartDate);
+                          }}
+                          className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
+                            ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                            : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
+                            }`}
+                        >
+                          <option value="full">Full Day Leave</option>
+                          <option value="half">Half Day Leave</option>
+                        </select>
+                        <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                      </div>
+                      <p className={`text-[11px] font-medium px-1 flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                        <i className="fas fa-info-circle text-violet-400"></i>
+                        {leaveDuration === "full" 
+                          ? "This will count as 1 full day from your balance." 
+                          : "This will count as 0.5 days from your balance."}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div>
                     <label
                       className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
                         }`}
                     >
-                      Start Date
+                      {leaveDuration === "half" && leaveType === "casual" ? "Leave Date" : "Start Date"}
                     </label>
                     <input
                       type="date"
                       value={leaveStartDate}
-                      onChange={(e) => setLeaveStartDate(e.target.value)}
+                      onChange={(e) => {
+                        setLeaveStartDate(e.target.value);
+                        if (leaveDuration === "half") setLeaveEndDate(e.target.value);
+                      }}
                       required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
+                      className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                        : "border-gray-200 focus:border-violet-500 focus:bg-white"
                         }`}
                     />
                   </div>
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
-                        }`}
+                  {!(leaveDuration === "half" && leaveType === "casual") && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
                     >
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={leaveEndDate}
-                      onChange={(e) => setLeaveEndDate(e.target.value)}
-                      required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
-                        }`}
-                    />
-                  </div>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={leaveEndDate}
+                        onChange={(e) => setLeaveEndDate(e.target.value)}
+                        required
+                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                          : "border-gray-200 focus:border-violet-500 focus:bg-white"
+                          }`}
+                      />
+                    </motion.div>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1032,6 +1388,11 @@ export default function ManagerDashboard() {
                               <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
                                 {LEAVE_BALANCE[req.leaveType]?.name}
                               </span>
+                              {req.leaveDuration === "half" && (
+                                <span className="ml-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700">
+                                  Half
+                                </span>
+                              )}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
                               {req.startDate}
@@ -1040,7 +1401,7 @@ export default function ManagerDashboard() {
                               {req.endDate}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm font-bold ${isDark ? "text-violet-400" : "text-violet-600"}`}>
-                              {calculateLeaveDuration(req.startDate, req.endDate)} Days
+                              {calculateLeaveDuration(req.startDate, req.endDate, req.leaveDuration)} Days
                             </td>
                             <td className="px-4 py-4">
                               <p className={`text-sm line-clamp-1 max-w-[150px] ${isDark ? "text-gray-400" : "text-gray-500"}`} title={req.reason}>
@@ -1126,8 +1487,8 @@ export default function ManagerDashboard() {
 
             <motion.div
               className={`rounded-3xl p-8 shadow-xl border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-blue-50"
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-blue-50"
                 }`}
             >
               <div className="space-y-4">
@@ -1169,8 +1530,8 @@ export default function ManagerDashboard() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         className={`p-5 rounded-2xl border transition-all hover:shadow-md ${isDark
-                            ? "bg-gray-700/50 border-gray-600"
-                            : "bg-white border-violet-50 shadow-sm"
+                          ? "bg-gray-700/50 border-gray-600"
+                          : "bg-white border-violet-50 shadow-sm"
                           }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
@@ -1184,7 +1545,12 @@ export default function ManagerDashboard() {
                             </div>
                             <div>
                               <p className={`font-black text-lg ${isDark ? "text-white" : "text-gray-800"}`}>
-                                {emp.firstName} {emp.lastName}
+                                {emp.firstName} {emp.lastName}{" "}
+                                {req.leaveDuration === "half" && (
+                                  <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
+                                    Half Leave
+                                  </span>
+                                )}
                               </p>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className={`text-xs px-2 py-0.5 rounded-md ${isDark ? "bg-gray-600 text-gray-400" : "bg-violet-50 text-violet-500"}`}>
@@ -1196,10 +1562,10 @@ export default function ManagerDashboard() {
                           <div className="flex flex-col items-end gap-2">
                             <span
                               className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${req.status === "pending"
-                                  ? "bg-amber-100 text-amber-700 border border-amber-200"
-                                  : req.status === "approved"
-                                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                    : "bg-rose-100 text-rose-700 border border-rose-200"
+                                ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                : req.status === "approved"
+                                  ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  : "bg-rose-100 text-rose-700 border border-rose-200"
                                 }`}
                             >
                               {req.status}
@@ -1262,33 +1628,6 @@ export default function ManagerDashboard() {
             >
               Log Your Work
             </h1>
-
-            <motion.div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl p-6 shadow-lg text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-violet-100 text-sm">Current Status</p>
-                  <p className="text-2xl font-bold">
-                    {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
-                  </p>
-                  <p className="text-violet-100">{formatTime(currentTime)}</p>
-                </div>
-                {!clockedIn ? (
-                  <button
-                    onClick={handleClockIn}
-                    className="px-6 py-3 bg-white text-purple-600 rounded-lg font-bold hover:bg-purple-50 shadow-lg transition-all"
-                  >
-                    <i className="fas fa-sign-in-alt mr-2"></i> Clock In
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleClockOut}
-                    className="px-6 py-3 bg-white text-rose-500 rounded-lg font-bold hover:bg-rose-50 shadow-lg transition-all"
-                  >
-                    <i className="fas fa-sign-out-alt mr-2"></i> Clock Out
-                  </button>
-                )}
-              </div>
-            </motion.div>
 
             {/* Work Type Selection */}
             <motion.div
@@ -1420,6 +1759,8 @@ export default function ManagerDashboard() {
                     name="description"
                     rows="3"
                     required
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-all resize-none ${isDark
                       ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
                       : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
@@ -1522,7 +1863,7 @@ export default function ManagerDashboard() {
                   type="submit"
                   className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-md hover:shadow-lg mt-2"
                 >
-                  Save Work Entry
+                  {editingLogId ? "Update Work Entry" : "Save Work Entry"}
                 </button>
               </form>
             </motion.div>
@@ -1589,13 +1930,22 @@ export default function ManagerDashboard() {
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                       <button
+                        onClick={() => {
+                          setSelectedAnalysisEmail(emp.email);
+                          setCurrentSection("individualAnalytics");
+                        }}
+                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 text-white rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all"
+                      >
+                        <i className="fas fa-chart-line mr-1.5"></i> View Analytics
+                      </button>
+                      <button
                         onClick={() =>
                           handleDeleteEmployee(
                             emp.id,
                             `${emp.firstName} ${emp.lastName}`
                           )
                         }
-                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-medium"
+                        className="flex-1 sm:flex-none px-4 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-bold"
                       >
                         Remove
                       </button>
@@ -1871,9 +2221,17 @@ export default function ManagerDashboard() {
                             ({log.date})
                           </span>
                         </span>
-                        <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
-                          {log.duration}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                            {log.duration}
+                          </span>
+                          <button onClick={() => handleEditLog(log)} className="text-violet-500 hover:text-violet-600 transition-colors p-1" title="Edit">
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button onClick={() => handleDeleteLog(log.id)} className="text-rose-500 hover:text-rose-600 transition-colors p-1" title="Delete">
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
                       <p
                         className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
@@ -1894,13 +2252,33 @@ export default function ManagerDashboard() {
                       </p>
                       <p className={isDark ? "text-gray-300" : "text-gray-600"}>
                         {log.description}
+                        {log.isEdited && <span className={`ml-2 text-xs italic ${isDark ? "text-gray-500" : "text-gray-400"}`}>(edited)</span>}
                       </p>
                     </div>
                   ))}
                 </div>
               )}
             </motion.div>
-            <ManagerActivityReport isDark={isDark} />
+          </motion.div>
+        );
+
+      case "activity":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h1
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
+            >
+              <i className="fas fa-desktop mr-3 text-violet-500"></i>Activity Monitor
+            </h1>
+            <ManagerActivityReport
+              isDark={isDark}
+              teamEmails={teamEmails}
+              allUsers={allUsers}
+            />
           </motion.div>
         );
 
@@ -2185,6 +2563,25 @@ export default function ManagerDashboard() {
         );
       }
 
+      case "teamDynamics":
+        return <TeamDynamics isDark={isDark} dept={departmentsMap[dept]?.name || dept} deptEmployees={deptEmployees} />;
+
+      case "individualAnalytics":
+        return (
+          <div className="space-y-6">
+            <button
+              onClick={() => setCurrentSection("team")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold ${isDark
+                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm border border-gray-100"
+                }`}
+            >
+              <i className="fas fa-arrow-left"></i> Back to Team
+            </button>
+            <MyPerformance userEmail={selectedAnalysisEmail} isDark={isDark} />
+          </div>
+        );
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
 
@@ -2244,7 +2641,7 @@ export default function ManagerDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen
+          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0"
             } ${isDark
@@ -2286,13 +2683,27 @@ export default function ManagerDashboard() {
             </p>
           </div>
 
-          <nav className="flex-1 space-y-2 px-2 overflow-y-auto">
+          <nav className="flex-1 space-y-2 px-2 overflow-y-auto scrollbar-hide">
+            <button
+              onClick={() => {
+                setCurrentSection("dashboard");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "dashboard"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <span>
+                <i className="fas fa-chart-pie w-5"></i> Dashboard
+              </span>
+            </button>
             <button
               onClick={() => {
                 setCurrentSection("pending");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between ${currentSection === "pending"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "pending"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2306,7 +2717,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("myLeave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myLeave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myLeave"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2318,7 +2729,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "leave"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2330,7 +2741,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("myWork");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myWork"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myWork"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2342,7 +2753,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("team");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "team"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "team"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2354,7 +2765,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("attendance");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "attendance"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "attendance"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2363,22 +2774,47 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("reports");
+                setCurrentSection("teamDynamics");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "reports"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "teamDynamics"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-file-pdf w-5"></i> Reports
+              <i className="fas fa-project-diagram w-5"></i> Team Dynamics
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSection("activity");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "activity"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-desktop w-5"></i> Activity Tracking
+            </button>
+            <button
+              onClick={() => {
+                setCurrentSection("reports");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "reports"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-file-invoice w-5"></i> Reports
             </button>
             <button
               onClick={() => {
                 setCurrentSection("holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "holidays"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "holidays"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2391,7 +2827,7 @@ export default function ManagerDashboard() {
                 setCurrentSection("profile");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "profile"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "profile"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
@@ -2405,7 +2841,7 @@ export default function ManagerDashboard() {
               auth.logout();
               window.location.href = "/login";
             }}
-            className="w-full text-left px-4 py-3.5 rounded-xl transition-all mt-4 hover:bg-red-50 text-gray-700 hover:text-red-600"
+            className="w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold mt-4 hover:bg-red-50 text-gray-700 hover:text-red-600"
           >
             <i className="fas fa-sign-out-alt w-5"></i> Logout
           </button>

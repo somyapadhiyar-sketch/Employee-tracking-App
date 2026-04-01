@@ -69,14 +69,18 @@ export default function AdminSidebar({
       label: "Public Holidays",
       color: "from-blue-500 to-blue-600",
     },
-
+    {
+      id: "org_overview",
+      icon: "fa-chess-king",
+      label: "Productivity Analysis",
+      color: "from-blue-500 to-blue-600",
+    },
     {
       id: "activityMonitor",
       icon: "fa-desktop",
       label: "Activity Monitor",
       color: "from-blue-500 to-blue-600",
     },
-
     {
       id: "profile",
       icon: "fa-user-circle",
@@ -142,7 +146,7 @@ export default function AdminSidebar({
           opacity: isSidebarOpen ? 1 : 0,
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto ${isDark
+        className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${isDark
           ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
           : "bg-gradient-to-b from-white to-cyan-50 border-cyan-100"
           }`}
@@ -197,8 +201,7 @@ export default function AdminSidebar({
 
         {/* Navigation */}
         <nav
-          className="flex-1 space-y-2 px-2 overflow-y-auto"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex-1 space-y-2 px-2 overflow-y-auto scrollbar-hide"
         >
           {menuItems.map((item, index) => (
             <div key={item.id} className="w-full relative flex flex-col">
@@ -281,7 +284,7 @@ export default function AdminSidebar({
             : "bg-white hover:bg-red-50 text-gray-700 hover:text-red-600"
             }`}
         >
-          <span className="flex items-center gap-3 font-medium">
+          <span className="flex items-center gap-3 font-bold">
             <i className="fas fa-sign-out-alt w-5 text-lg group-hover:translate-x-1 transition-transform"></i>
             Logout
           </span>

@@ -8,6 +8,7 @@ import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
 import ManagerActivityReport from "../components/ManagerActivityReport";
+import OrgOverview from "../components/OrgOverview";
 
 import {
   collection,
@@ -83,6 +84,7 @@ export default function AdminDashboard() {
   const [allUsers, setAllUsers] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
 
   const [attendanceFilter, setAttendanceFilter] = useState(null);
@@ -109,6 +111,9 @@ export default function AdminDashboard() {
       setLeaveRequests(
         leaveSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       );
+
+      const analyticsSnap = await getDocs(collection(db, "employee_analytics"));
+      setAnalyticsData(analyticsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
       const holidaysSnap = await getDocs(collection(db, "publicHolidays"));
       if (holidaysSnap.empty) {
@@ -153,9 +158,36 @@ export default function AdminDashboard() {
       console.error("Error fetching dashboard data:", error);
       showToast("Failed to load some database records.", "error");
     } finally {
-      setLoadingData(false);
+      // Small delay for better UX
+      setTimeout(() => setLoadingData(false), 200);
     }
   };
+
+  const user = auth?.currentUser || {};
+  const userName = user
+    ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Admin"
+    : "Admin";
+
+  const approvedEmployees = allUsers.filter(
+    (emp) => emp.status === "approved" && emp.role !== "admin"
+  );
+  const pendingRegistrations = allUsers.filter(
+    (emp) => emp.status === "pending"
+  );
+
+  const approvedManagers = approvedEmployees.filter(
+    (emp) => emp.role === "dept_manager" || emp.role === "manager"
+  );
+  const regularEmployees = approvedEmployees.filter(
+    (emp) => emp.role !== "dept_manager" && emp.role !== "manager"
+  );
+
+  // Update document title for identity detection by tracking agent
+  useEffect(() => {
+    if (userName) {
+      document.title = `Admin Dashboard [${userName}]`;
+    }
+  }, [userName]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -183,28 +215,10 @@ export default function AdminDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const user = auth?.currentUser || {};
-  const userName = user
-    ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Admin"
-    : "Admin";
-
-  const approvedEmployees = allUsers.filter(
-    (emp) => emp.status === "approved" && emp.role !== "admin"
-  );
-  const pendingRegistrations = allUsers.filter(
-    (emp) => emp.status === "pending"
-  );
-
-  const approvedManagers = approvedEmployees.filter(
-    (emp) => emp.role === "dept_manager" || emp.role === "manager"
-  );
-  const regularEmployees = approvedEmployees.filter(
-    (emp) => emp.role !== "dept_manager" && emp.role !== "manager"
-  );
-
   const pendingManagers = pendingRegistrations.filter(
     (emp) => emp.role === "dept_manager" || emp.role === "manager"
   );
+
   const pendingEmployeesList = pendingRegistrations.filter(
     (emp) => emp.role !== "dept_manager" && emp.role !== "manager"
   );
@@ -487,6 +501,18 @@ export default function AdminDashboard() {
 
   const renderSection = () => {
     switch (currentSection) {
+      case "org_overview":
+        return (
+          <OrgOverview 
+            allUsers={allUsers}
+            workLogs={workLogs}
+            analyticsData={analyticsData}
+            leaveRequests={leaveRequests}
+            departmentsMap={departmentsMap}
+            isDark={isDark}
+            onRefresh={fetchDashboardData}
+          />
+        );
       case "dashboard":
         return (
           <motion.div
@@ -1472,6 +1498,11 @@ export default function AdminDashboard() {
                                   }`}
                               >
                                 {emp.firstName} {emp.lastName}
+                                {req.leaveDuration === "half" && (
+                                  <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
+                                    Half Leave
+                                  </span>
+                                )}
                               </p>
                               <p
                                 className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
@@ -1509,6 +1540,13 @@ export default function AdminDashboard() {
                           >
                             <strong>Dates:</strong> {req.startDate} to{" "}
                             {req.endDate}
+                            {req.leaveDuration === "half" ? (
+                              <span className="ml-2 font-bold text-orange-500">(0.5 Day)</span>
+                            ) : (
+                              <span className="ml-2 font-bold text-blue-500">
+                                ({Math.ceil(Math.abs(new Date(req.endDate) - new Date(req.startDate)) / (1000 * 60 * 60 * 24)) + 1} Days)
+                              </span>
+                            )}
                           </p>
                         </div>
                         {req.status === "pending" && (
@@ -1841,7 +1879,7 @@ export default function AdminDashboard() {
             </p>
             
             {/* Wahi Manager wala component Admin ke liye bhi perfect chalega! */}
-            <ManagerActivityReport isDark={isDark} />
+            <ManagerActivityReport isDark={isDark} adminView={true} allUsers={allUsers} />
             
           </motion.div>
         );
@@ -2160,7 +2198,16 @@ export default function AdminDashboard() {
             }`}
           style={{ height: "100vh" }}
         >
-          <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>
+          {loadingData ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-4">
+              <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
+              <p className={`text-lg font-bold animate-pulse ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                Syncing organizational data...
+              </p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">{renderSection()}</AnimatePresence>
+          )}
         </div>
       </div>
 

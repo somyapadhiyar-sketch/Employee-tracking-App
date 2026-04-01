@@ -10,6 +10,7 @@ import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
 import ActivityReport from "../components/ActivityReport";
+import MyPerformance from "./MyPerformance";
 
 // NEW FIREBASE IMPORTS
 import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
@@ -21,7 +22,7 @@ export default function EmployeeDashboard() {
   const { isDark, toggleTheme } = useTheme();
   const { departmentsMap } = useDepartments();
 
-  const [currentSection, setCurrentSection] = useState("workLog");
+  const [currentSection, setCurrentSection] = useState("dashboard");
 
   // IST Date/Time Helpers
   const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -32,6 +33,7 @@ export default function EmployeeDashboard() {
   const [clockedIn, setClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isOnBreak, setIsOnBreak] = useState(false);
 
   // Time tracking states
   const [taskStartTime, setTaskStartTime] = useState("");
@@ -43,6 +45,7 @@ export default function EmployeeDashboard() {
   const [leaveEndDate, setLeaveEndDate] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveType, setLeaveType] = useState("sick");
+  const [leaveDuration, setLeaveDuration] = useState("full");
   const [leaveFilter, setLeaveFilter] = useState("all");
   const [leaveSearchTerm, setLeaveSearchTerm] = useState("");
   const [leaveStatusFilter, setLeaveStatusFilter] = useState("all");
@@ -65,6 +68,10 @@ export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState("");
 
+  // Edit Log State
+  const [editingLogId, setEditingLogId] = useState(null);
+  const [description, setDescription] = useState("");
+
   // 1. Fetch data from Firestore
   const fetchDashboardData = async () => {
     setLoadingData(true);
@@ -75,12 +82,15 @@ export default function EmployeeDashboard() {
         if (userSnap.exists()) {
           const userData = userSnap.data();
           const todayStr = getISTDate();
-          
+
           // Use Firebase clockedIn field if available, otherwise fallback to date calculation
           if (userData.clockedIn !== undefined) {
             setClockedIn(userData.clockedIn);
           } else if (userData.lastClockInDate === todayStr && userData.lastClockOutDate !== todayStr) {
             setClockedIn(true);
+          }
+          if (userData.isOnBreak !== undefined) {
+            setIsOnBreak(userData.isOnBreak);
           }
         }
       }
@@ -123,7 +133,20 @@ export default function EmployeeDashboard() {
     fetchDashboardData();
   }, []);
 
-  // Mobile menu visibility simplified
+  // --- DERIVED DATA ---
+  const user = auth?.currentUser || {};
+  const currentUserId = user?.uid || user?.id;
+  const today = new Date().toISOString().split("T")[0];
+
+  // Set browser title with identity for Smart Tracking Agent
+  useEffect(() => {
+    if (user?.firstName) {
+      document.title = `[${user.firstName} ${user.lastName}] Employee Dashboard`;
+    }
+    return () => {
+      document.title = "Employee Work Tracking App";
+    };
+  }, [user]);
 
   const LEAVE_BALANCE = {
     sick: { total: 6, name: "Sick Leave", icon: "fa-user-nurse" },
@@ -164,10 +187,17 @@ export default function EmployeeDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // --- DERIVED DATA ---
-  const user = auth?.currentUser || {};
-  const currentUserId = user?.uid || user?.id;
-  const today = new Date().toISOString().split("T")[0];
+  // Set browser title with identity for Smart Tracking Agent
+  useEffect(() => {
+    if (user?.firstName) {
+      document.title = `[${user.firstName} ${user.lastName}] Employee Tracking`;
+    }
+    return () => {
+      document.title = "Employee Work Tracking App";
+    };
+  }, [user]);
+
+  // Mobile menu visibility simplified
 
 
 
@@ -237,8 +267,9 @@ export default function EmployeeDashboard() {
     (req) => req.status === "approved"
   );
 
-  const calculateLeaveDuration = (start, end) => {
+  const calculateLeaveDuration = (start, end, durationType = "full") => {
     if (!start || !end) return 0;
+    if (durationType === "half") return 0.5;
     const s = new Date(start);
     const e = new Date(end);
     const diffTime = Math.abs(e - s);
@@ -246,7 +277,14 @@ export default function EmployeeDashboard() {
   };
 
   const getUsedLeaves = (type) =>
-    myApprovedLeaveRequests.filter((req) => req.leaveType === type).length;
+    myApprovedLeaveRequests
+      .filter((req) => req.leaveType === type)
+      .reduce(
+        (acc, req) =>
+          acc +
+          calculateLeaveDuration(req.startDate, req.endDate, req.leaveDuration),
+        0
+      );
 
   const handleClockIn = async () => {
     setClockedIn(true);
@@ -267,10 +305,12 @@ export default function EmployeeDashboard() {
 
   const handleClockOut = async () => {
     setClockedIn(false);
+    setIsOnBreak(false); // Auto-reset break on clock out
     try {
       const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
         clockedIn: false,
+        isOnBreak: false,
         lastClockOutDate: todayDate,
         lastClockOutTime: getISTTimeString()
       });
@@ -278,6 +318,21 @@ export default function EmployeeDashboard() {
     } catch (err) {
       console.error(err);
       showToastMessage("Failed to clock out to database.", "error");
+    }
+  };
+
+  const handleToggleBreak = async () => {
+    const newBreakStatus = !isOnBreak;
+    setIsOnBreak(newBreakStatus);
+    try {
+      await updateDoc(doc(db, "users", currentUserId), {
+        isOnBreak: newBreakStatus
+      });
+      showToastMessage(newBreakStatus ? "Break started. Tracking paused." : "Resumed work. Tracking active.", "info");
+    } catch (err) {
+      console.error(err);
+      setIsOnBreak(!newBreakStatus); // Fallback
+      showToastMessage("Failed to update break status.", "error");
     }
   };
 
@@ -303,9 +358,10 @@ export default function EmployeeDashboard() {
         employeeName: `${user.firstName} ${user.lastName}`,
         department: user.department,
         startDate: leaveStartDate,
-        endDate: leaveEndDate,
+        endDate: leaveDuration === "half" ? leaveStartDate : leaveEndDate,
         reason: leaveReason,
         leaveType: leaveType,
+        leaveDuration: leaveDuration,
         status: "pending",
         isManager: false,
         role: user.role,
@@ -330,29 +386,62 @@ export default function EmployeeDashboard() {
     const totalHours = hours + mins / 60;
 
     try {
-      await addDoc(collection(db, "workLogs"), {
+      const dataToSave = {
         employeeId: currentUserId,
         employeeName: `${user.firstName} ${user.lastName}`,
         department: user.department,
         workType: workType,
-        description: e.target.description.value,
+        description: description,
         hours: totalHours,
         minutes: hours * 60 + mins,
         taskStartTime,
         taskEndTime,
         duration: calculatedDuration,
         date: getISTDate(),
-        clockInTime, 
+        clockInTime,
         createdAt: getISTTimeString(),
-      });
-      e.target.reset();
+      };
+
+      if (editingLogId) {
+        const { createdAt, ...updateData } = dataToSave;
+        await updateDoc(doc(db, "workLogs", editingLogId), { ...updateData, isEdited: true });
+        showToastMessage("Work entry updated!", "success");
+        setEditingLogId(null);
+      } else {
+        await addDoc(collection(db, "workLogs"), dataToSave);
+        showToastMessage("Work entry saved!", "success");
+      }
+
+      setDescription("");
       setTaskStartTime("");
       setTaskEndTime("");
       setCalculatedDuration("");
-      showToastMessage("Work entry saved!", "success");
       fetchDashboardData();
     } catch (err) {
-      showToastMessage("Failed to log work.", "error");
+      showToastMessage("Failed to save work.", "error");
+    }
+  };
+
+  const handleEditLog = (log) => {
+    setEditingLogId(log.id);
+    setWorkType(log.workType || "office");
+    setTaskStartTime(log.taskStartTime || "");
+    setTaskEndTime(log.taskEndTime || "");
+    setCalculatedDuration(log.duration || "");
+    setDescription(log.description || "");
+    setCurrentSection("workLog");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDeleteLog = async (logId) => {
+    if (window.confirm("Are you sure you want to delete this work entry?")) {
+      try {
+        await deleteDoc(doc(db, "workLogs", logId));
+        showToastMessage("Work entry deleted!", "success");
+        fetchDashboardData();
+      } catch (err) {
+        showToastMessage("Failed to delete entry.", "error");
+      }
     }
   };
 
@@ -408,7 +497,42 @@ export default function EmployeeDashboard() {
 
   const renderSection = () => {
     switch (currentSection) {
-      case "workLog":
+      case "dashboard": {
+        const myLogsCount = allWorkLogs.filter(log => log.employeeId === currentUserId).length;
+        const pendingLeaves = myPendingLeaveRequests.length;
+        const approvedLeaves = myApprovedLeaveRequests.length;
+
+        const employeeStats = [
+          {
+            title: "Total Work Logs",
+            value: myLogsCount,
+            icon: "fa-clipboard-check",
+            color: "from-blue-400 to-indigo-500",
+            action: () => setCurrentSection("myReports"),
+          },
+          {
+            title: "Pending Leaves",
+            value: pendingLeaves,
+            icon: "fa-hourglass-half",
+            color: "from-orange-400 to-pink-500",
+            action: () => setCurrentSection("leave"),
+          },
+          {
+            title: "Approved Leaves",
+            value: approvedLeaves,
+            icon: "fa-check-circle",
+            color: "from-emerald-400 to-teal-500",
+            action: () => setCurrentSection("leave"),
+          },
+          {
+            title: "Public Holidays",
+            value: publicHolidays.length,
+            icon: "fa-umbrella-beach",
+            color: "from-purple-400 to-pink-500",
+            action: () => setCurrentSection("holidays"),
+          },
+        ];
+
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -422,16 +546,16 @@ export default function EmployeeDashboard() {
                 : "bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 border-blue-100"
                 }`}
             >
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
                   <h1
                     className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
-                    Log Your Work
+                    Welcome back, <span className="text-blue-500 font-extrabold">{user?.firstName || "Employee"}</span>
                   </h1>
                   <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                    Keep track of your daily tasks
+                    Here's a quick overview of your profile and attendance.
                   </p>
                 </div>
                 <motion.div
@@ -446,52 +570,133 @@ export default function EmployeeDashboard() {
                   <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                     {formatDate(currentTime)}
                   </p>
+
+                  {/* Clock In Section Inside Welcome */}
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
+                    <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
+                    </p>
+                    {!clockedIn ? (
+                      <motion.button
+                        onClick={handleClockIn}
+                        animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        className="relative px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg font-bold shadow-lg shadow-blue-900/40 hover:shadow-blue-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                      >
+                        <i className="fas fa-sign-in-alt mr-1"></i> Clock In
+                      </motion.button>
+                    ) : (
+                      <motion.button
+                        onClick={handleClockOut}
+                        animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        className="relative px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                      >
+                        <i className="fas fa-sign-out-alt mr-1"></i> Clock Out
+                      </motion.button>
+                    )}
+
+                    {clockedIn && (
+                      <motion.button
+                        onClick={handleToggleBreak}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${isOnBreak
+                            ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
+                            : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
+                          }`}
+                      >
+                        <i className={`fas ${isOnBreak ? "fa-play" : "fa-coffee"}`}></i>
+                        {isOnBreak ? "Resume Work" : "Start Break"}
+                      </motion.button>
+                    )}
+                  </div>
                 </motion.div>
               </div>
             </motion.div>
 
-            {/* Clock In/Out Card */}
-            <motion.div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl p-6 shadow-lg text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Current Status</p>
-                  <p className="text-2xl font-bold">
-                    {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
-                  </p>
-                  <p className="text-blue-100">{formatTime(currentTime)}</p>
-                </div>
-                {!clockedIn ? (
-                  <button
-                    onClick={handleClockIn}
-                    className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 shadow-lg"
-                  >
-                    <i className="fas fa-sign-in-alt mr-2"></i> Clock In
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleClockOut}
-                    className="px-6 py-3 bg-white text-rose-500 rounded-lg font-bold hover:bg-rose-50 shadow-lg"
-                  >
-                    <i className="fas fa-sign-out-alt mr-2"></i> Clock Out
-                  </button>
-                )}
-              </div>
-            </motion.div>
+            {/* Dashboard Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {employeeStats.map((stat, index) => (
+                <motion.div
+                  key={stat.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  className={`rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all border cursor-pointer ${isDark
+                    ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                    : "bg-white border-gray-100"
+                    }`}
+                  onClick={stat.action}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={isDark ? "text-gray-400 text-sm font-medium" : "text-gray-500 text-sm font-medium"}>
+                        {stat.title}
+                      </p>
+                      <p className={`text-4xl font-bold mt-1 ${isDark ? "text-white" : "text-gray-800"}`}>
+                        {stat.value}
+                      </p>
+                    </div>
+                    <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg mt-5`}>
+                      <i className={`fas ${stat.icon} text-white text-xl`}></i>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
 
-            {/* Work Type Selection
-            <motion.div className={`rounded-2xl p-6 shadow-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
-              <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"}`}>Select Work Type</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => selectWorkType("office")} className={`p-6 border-2 rounded-xl text-center ${workType === "office" ? "border-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50" : isDark ? "border-gray-600" : "border-gray-200"}`}>
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3"><i className="fas fa-briefcase text-white text-2xl"></i></div>
-                  <p className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Office Work</p>
-                </button>
-                <button onClick={() => selectWorkType("non_office")} className={`p-6 border-2 rounded-xl text-center ${workType === "non_office" ? "border-violet-500 bg-gradient-to-br from-violet-50 to-purple-50" : isDark ? "border-gray-600" : "border-gray-200"}`}>
-                  <div className="w-14 h-14 bg-gradient-to-br from-violet-400 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-3"><i className="fas fa-laptop text-white text-2xl"></i></div>
-                  <p className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Non-Office Work</p>
-                </button>
-              </div>
-            </motion.div> */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => setCurrentSection("workLog")}
+                className="cursor-pointer bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl p-6 text-white shadow-lg"
+              >
+                <h3 className="text-xl font-bold mb-2">Log Your Work</h3>
+                <p className="text-blue-100 mb-4">
+                  Ready to submit your daily activities?
+                </p>
+                <div className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all inline-block">
+                  Go to Activity Log <i className="fas fa-arrow-right ml-2"></i>
+                </div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => setCurrentSection("myReports")}
+                className="cursor-pointer bg-gradient-to-br from-teal-400 to-emerald-500 rounded-2xl p-6 text-white shadow-lg"
+              >
+                <h3 className="text-xl font-bold mb-2">My Reports</h3>
+                <p className="text-teal-100 mb-4">
+                  View your past submitted work logs.
+                </p>
+                <div className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all inline-block">
+                  View Reports <i className="fas fa-arrow-right ml-2"></i>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        );
+      }
+
+      case "workLog":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Header */}
+            <h2 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              Log Your Work
+            </h2>
+
             {/* Work Type Selection */}
             <motion.div
               className={`rounded-2xl p-6 sm:p-8 shadow-sm border ${isDark
@@ -620,6 +825,8 @@ export default function EmployeeDashboard() {
                     name="description"
                     rows="4"
                     required
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
                       ? "bg-gray-700 border-gray-600 text-white"
                       : "border-gray-200"
@@ -698,7 +905,7 @@ export default function EmployeeDashboard() {
                   type="submit"
                   className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-4 rounded-xl font-bold"
                 >
-                  Save Entry
+                  {editingLogId ? "Update Work Entry" : "Save Entry"}
                 </button>
               </form>
             </motion.div>
@@ -807,9 +1014,17 @@ export default function EmployeeDashboard() {
                         >
                           {WORK_TYPES?.[log.workType]?.name || log.workType} <span className="text-sm font-normal text-gray-400 ml-2">({log.date})</span>
                         </span>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                          {log.duration}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                            {log.duration}
+                          </span>
+                          <button onClick={() => handleEditLog(log)} className="text-blue-500 hover:text-blue-600 transition-colors p-1" title="Edit">
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button onClick={() => handleDeleteLog(log.id)} className="text-rose-500 hover:text-rose-600 transition-colors p-1" title="Delete">
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
                       <p
                         className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
@@ -820,19 +1035,31 @@ export default function EmployeeDashboard() {
                       </p>
                       <p className={isDark ? "text-gray-300" : "text-gray-600"}>
                         {log.description}
+                        {log.isEdited && <span className={`ml-2 text-xs italic ${isDark ? "text-gray-500" : "text-gray-400"}`}>(edited)</span>}
                       </p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <ActivityReport 
-                currentUserEmail={user.email} 
-                isDark={isDark} 
-            />
-
           </motion.div>
-          
+        );
+
+      case "activityTracking":
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              <i className="fas fa-desktop mr-3 text-blue-500"></i> My Application Usage
+            </h1>
+            <ActivityReport
+              currentUserEmail={user.email}
+              isDark={isDark}
+            />
+          </motion.div>
         );
 
       case "leave":
@@ -1004,43 +1231,96 @@ export default function EmployeeDashboard() {
                     })}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Casual Leave Specific: Duration Dropdown */}
+                <AnimatePresence>
+                  {leaveType === "casual" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-3 overflow-hidden"
+                    >
+                      <label
+                        className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        Casual Leave Type
+                      </label>
+                      <div className="relative group">
+                        <i className={`fas fa-clock absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-blue-500 transition-colors`}></i>
+                        <select
+                          value={leaveDuration}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLeaveDuration(val);
+                            if (val === "half") setLeaveEndDate(leaveStartDate);
+                          }}
+                          className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
+                            ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                            : "bg-gray-50 border-gray-100 focus:border-blue-500 focus:bg-white text-gray-800 shadow-sm"
+                            }`}
+                        >
+                          <option value="full">Full Day Leave</option>
+                          <option value="half">Half Day Leave</option>
+                        </select>
+                        <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                      </div>
+                      <p className={`text-[11px] font-medium px-1 flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                        <i className="fas fa-info-circle text-blue-400"></i>
+                        {leaveDuration === "full"
+                          ? "This will count as 1 full day from your balance."
+                          : "This will count as 0.5 days from your balance."}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div>
                     <label
                       className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
                         }`}
                     >
-                      Start Date
+                      {leaveDuration === "half" && leaveType === "casual" ? "Leave Date" : "Start Date"}
                     </label>
                     <input
                       type="date"
                       value={leaveStartDate}
-                      onChange={(e) => setLeaveStartDate(e.target.value)}
+                      onChange={(e) => {
+                        setLeaveStartDate(e.target.value);
+                        if (leaveDuration === "half") setLeaveEndDate(e.target.value);
+                      }}
                       required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
+                      className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "border-gray-200 focus:border-blue-500 focus:bg-white"
                         }`}
                     />
                   </div>
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
-                        }`}
+                  {!(leaveDuration === "half" && leaveType === "casual") && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
                     >
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={leaveEndDate}
-                      onChange={(e) => setLeaveEndDate(e.target.value)}
-                      required
-                      className={`w-full px-4 py-3 border-2 rounded-xl ${isDark
-                        ? "bg-gray-700 border-gray-600 text-white"
-                        : "border-gray-200"
-                        }`}
-                    />
-                  </div>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={leaveEndDate}
+                        onChange={(e) => setLeaveEndDate(e.target.value)}
+                        required
+                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                          : "border-gray-200 focus:border-blue-500 focus:bg-white"
+                          }`}
+                      />
+                    </motion.div>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1146,6 +1426,11 @@ export default function EmployeeDashboard() {
                               <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
                                 {LEAVE_BALANCE[req.leaveType]?.name}
                               </span>
+                              {req.leaveDuration === "half" && (
+                                <span className="ml-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700">
+                                  Half
+                                </span>
+                              )}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
                               {req.startDate}
@@ -1154,7 +1439,7 @@ export default function EmployeeDashboard() {
                               {req.endDate}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
-                              {calculateLeaveDuration(req.startDate, req.endDate)} Days
+                              {calculateLeaveDuration(req.startDate, req.endDate, req.leaveDuration)} Days
                             </td>
                             <td className="px-4 py-4">
                               <p className={`text-sm line-clamp-1 max-w-[150px] ${isDark ? "text-gray-400" : "text-gray-500"}`} title={req.reason}>
@@ -1317,6 +1602,9 @@ export default function EmployeeDashboard() {
         );
       }
 
+      case "performance":
+        return <MyPerformance userEmail={auth?.currentUser?.email} isDark={isDark} />;
+
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
 
@@ -1377,7 +1665,7 @@ export default function EmployeeDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
             ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
             : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
             }`}
@@ -1409,13 +1697,25 @@ export default function EmployeeDashboard() {
             </p>
           </div>
 
-          <nav className="flex-1 space-y-2 px-2 overflow-y-auto">
+          <nav className="flex-1 space-y-2 px-2 overflow-y-auto scrollbar-hide">
+            <button
+              onClick={() => {
+                setCurrentSection("dashboard");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "dashboard"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-home w-5"></i> Dashboard
+            </button>
             <button
               onClick={() => {
                 setCurrentSection("workLog");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "workLog"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "workLog"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
@@ -1427,7 +1727,7 @@ export default function EmployeeDashboard() {
                 setCurrentSection("myReports");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "myReports"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myReports"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
@@ -1436,10 +1736,34 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
+                setCurrentSection("activityTracking");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "activityTracking"
+                ? "bg-blue-500 text-white"
+                : "hover:bg-blue-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-desktop w-5"></i> Activity Tracking
+            </button>
+            <button
+              onClick={() => {
+                setCurrentSection("performance");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "performance"
+                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+                : "hover:bg-blue-50/50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300"
+                }`}
+            >
+              <i className="fas fa-tachometer-alt w-5 opacity-80"></i> My Performance
+            </button>
+            <button
+              onClick={() => {
                 setCurrentSection("leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "leave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "leave"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
@@ -1451,7 +1775,7 @@ export default function EmployeeDashboard() {
                 setCurrentSection("holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "holidays"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "holidays"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
@@ -1465,7 +1789,7 @@ export default function EmployeeDashboard() {
                 setCurrentSection("profile");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all ${currentSection === "profile"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "profile"
                 ? "bg-blue-500 text-white"
                 : "hover:bg-blue-50 text-gray-700"
                 }`}
@@ -1479,7 +1803,7 @@ export default function EmployeeDashboard() {
               auth?.logout();
               window.location.href = "/login";
             }}
-            className="w-full text-left px-4 py-3.5 rounded-xl transition-all mt-4 hover:bg-red-50 text-gray-700 hover:text-red-600"
+            className="w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold mt-4 hover:bg-red-50 text-gray-700 hover:text-red-600"
           >
             <i className="fas fa-sign-out-alt w-5"></i> Logout
           </button>
