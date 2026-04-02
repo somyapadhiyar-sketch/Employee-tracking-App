@@ -22,7 +22,7 @@ import {
 } from 'recharts';
 
 
-export default function MyPerformance({ userEmail, isDark }) {
+export default function MyPerformance({ userEmail, userName, isDark, isManagerView, onBack }) {
   const [loading, setLoading] = useState(true);
   const [focusScore, setFocusScore] = useState(0);
   const [heatmapData, setHeatmapData] = useState([]);
@@ -166,15 +166,23 @@ export default function MyPerformance({ userEmail, isDark }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 pb-10"
     >
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+      <div className="flex items-start justify-between gap-8">
         <div>
           <h1 className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-            Personal Growth Analytics
+            {isManagerView && userName ? `${userName}'s Analytics` : "Personal Growth Analytics"}
           </h1>
           <p className={`mt-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-            Track your performance and motivation trends
+            {isManagerView ? "Review the employee's performance and motivation trends" : "Track your performance and motivation trends"}
           </p>
         </div>
+        {onBack && (
+          <button 
+            onClick={onBack}
+            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center border transition-all shadow-lg active:scale-95 shrink-0 ${isDark ? "bg-gray-800 border-gray-700 text-white hover:bg-gray-700" : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"}`}
+          >
+            <i className="fas fa-arrow-left"></i>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
@@ -306,8 +314,10 @@ export default function MyPerformance({ userEmail, isDark }) {
               <motion.g
                 animate={{ rotate: (focusScore / 100) * 180 - 90 }}
                 transition={{ duration: 1.5, type: "spring" }}
-                style={{ originX: "50px", originY: "50px" }}
+                style={{ transformOrigin: "50px 50px" }}
               >
+                {/* Invisible bounding circle to force stable rotation center across browsers */}
+                <circle cx="50" cy="50" r="50" fill="transparent" />
                 <line x1="50" y1="50" x2="50" y2="15" stroke={isDark ? "white" : "#1f2937"} strokeWidth="2.5" strokeLinecap="round" />
                 <circle cx="50" cy="50" r="4" fill={isDark ? "white" : "#1f2937"} />
               </motion.g>

@@ -9,6 +9,8 @@ import ProfilePage from "./ProfilePage";
 import SelectHolidaysModal from "../components/SelectHolidaysModal";
 import ManagerActivityReport from "../components/ManagerActivityReport";
 import OrgOverview from "../components/OrgOverview";
+import MyPerformance from "./MyPerformance";
+import DepartmentPerformance from "../components/DepartmentPerformance";
 
 import {
   collection,
@@ -97,6 +99,11 @@ export default function AdminDashboard() {
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [publicHolidays, setPublicHolidays] = useState([]);
   const [showSelectHolidaysModal, setShowSelectHolidaysModal] = useState(false);
+  const [selectedAnalysisEmail, setSelectedAnalysisEmail] = useState(null);
+  const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
+  const [selectedDeptAnalysisId, setSelectedDeptAnalysisId] = useState(null);
+  const [selectedDeptAnalysisName, setSelectedDeptAnalysisName] = useState("");
+  const [analysisReturnTo, setAnalysisReturnTo] = useState(null);
 
   const fetchDashboardData = async () => {
     setLoadingData(true);
@@ -510,7 +517,18 @@ export default function AdminDashboard() {
             leaveRequests={leaveRequests}
             departmentsMap={departmentsMap}
             isDark={isDark}
-            onRefresh={fetchDashboardData}
+            onViewDepartment={(id, name) => {
+              setSelectedDeptAnalysisId(id);
+              setSelectedDeptAnalysisName(name);
+              setAnalysisReturnTo("org_overview");
+              setCurrentSection("departmentAnalytics");
+            }}
+            onViewEmployee={(email, name) => {
+              setSelectedAnalysisEmail(email);
+              setSelectedAnalysisName(name);
+              setAnalysisReturnTo("org_overview");
+              setCurrentSection("individualAnalytics");
+            }}
           />
         );
       case "dashboard":
@@ -828,13 +846,13 @@ export default function AdminDashboard() {
                   ? departmentsMap[selectedDepartment]?.name
                   : "Departments"}
               </h1>
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 {selectedDepartment && (
                   <button
                     onClick={() => setSelectedDepartment(null)}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold shadow-md flex items-center gap-2 active:scale-95"
                   >
-                    <i className="fas fa-arrow-left mr-2"></i> Back
+                    <i className="fas fa-arrow-left"></i> Back
                   </button>
                 )}
               </div>
@@ -1576,7 +1594,6 @@ export default function AdminDashboard() {
 
       case "holidays": {
         const currentYear = new Date().getFullYear();
-        // Generate current month info
         const todayDate = new Date();
         const calYear = currentCalendarDate.getFullYear();
         const calMonth = currentCalendarDate.getMonth();
@@ -1586,18 +1603,8 @@ export default function AdminDashboard() {
         const IT_HOLIDAYS = publicHolidays;
 
         const monthNames = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
         ];
 
         const calendarDays = Array(firstDayOfMonth).fill(null);
@@ -1611,256 +1618,146 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex items-center justify-between mb-8">
-              <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
-                Public Holidays
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                Company Holidays
               </h1>
               <button
                 onClick={() => setShowSelectHolidaysModal(true)}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-500/30 flex items-center gap-2"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl flex items-center gap-2 active:scale-95"
               >
-                <i className="fas fa-plus"></i>
-                <span className="hidden sm:inline">Select Holidays</span>
+                <i className="fas fa-calendar-plus"></i>
+                <span>Manage Holidays</span>
               </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-6 items-start">
+            <div className="flex flex-col md:flex-row gap-8 items-start">
               {/* Holidays List */}
-              <div className="w-full md:w-3/5 grid grid-cols-1 gap-4">
+              <div className="w-full md:w-3/5 space-y-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
                   todayZero.setHours(0, 0, 0, 0);
                   const holZero = new Date(holDate);
                   holZero.setHours(0, 0, 0, 0);
-
                   const isPast = holZero < todayZero;
 
                   return (
                     <div
                       key={idx}
-                      onClick={() =>
-                        setCurrentCalendarDate(new Date(holiday.date))
-                      }
-                      className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast
-                        ? isDark
-                          ? "bg-gray-800/80 border-gray-700 opacity-60"
-                          : "bg-gray-100 border-gray-200 opacity-70"
-                        : isDark
-                          ? "bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20"
-                          : "bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50"
-                        } transition-all hover:scale-[1.01] duration-300`}
+                      onClick={() => setCurrentCalendarDate(new Date(holiday.date))}
+                      className={`cursor-pointer flex items-center justify-between p-5 rounded-[1.5rem] shadow-sm border transition-all hover:scale-[1.02] duration-300 ${
+                        isPast
+                          ? isDark ? "bg-gray-800/80 border-gray-700 opacity-60" : "bg-gray-50 border-gray-100 opacity-70"
+                          : isDark ? "bg-gray-800 border-gray-700 hover:border-blue-500/50" : "bg-white border-blue-50 hover:border-blue-200"
+                      }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
-                            ? "bg-gray-300 text-gray-500"
-                            : "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md"
-                            }`}
-                        >
-                          <span className="text-[10px] uppercase">
-                            {holDate.toLocaleString("default", {
-                              month: "short",
-                            })}
-                          </span>
-                          <span className="text-lg leading-none">
-                            {holDate.getDate()}
-                          </span>
+                      <div className="flex items-center gap-5">
+                        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-bold ${
+                          isPast ? "bg-gray-300 text-gray-500" : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg"
+                        }`}>
+                          <span className="text-[10px] uppercase font-black">{holDate.toLocaleString('default', { month: 'short' })}</span>
+                          <span className="text-xl leading-none">{holDate.getDate()}</span>
                         </div>
                         <div>
-                          <p
-                            className={`font-bold text-[15px] leading-tight ${isPast
-                              ? isDark
-                                ? "text-gray-400"
-                                : "text-gray-600"
-                              : isDark
-                                ? "text-white"
-                                : "text-gray-800"
-                              }`}
-                          >
+                          <p className={`font-black text-lg ${isPast ? (isDark ? "text-gray-400" : "text-gray-500") : (isDark ? "text-white" : "text-slate-800")}`}>
                             {holiday.name}
                           </p>
-                          <span
-                            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
-                              } font-medium mt-1 inline-block`}
-                          >
-                            <i className="far fa-calendar mr-1.5"></i>
-                            {holDate.toLocaleDateString(undefined, {
-                              weekday: "long",
-                            })}
+                          <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"} mt-1 inline-block`}>
+                            <i className="far fa-calendar mr-2"></i>
+                            {holDate.toLocaleDateString(undefined, { weekday: 'long' })}
                           </span>
                         </div>
                       </div>
-
-                      <div>
-                        {isPast ? (
-                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
-                            Passed
-                          </span>
-                        ) : (
-                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">
-                            Upcoming
-                          </span>
-                        )}
-                      </div>
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                        isPast ? "bg-gray-100 text-gray-400" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      }`}>
+                        {isPast ? "Passed" : "Upcoming"}
+                      </span>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Current Month Calendar */}
-              <div
-                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-100"
-                  }`}
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3
-                      className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                        }`}
-                    >
-                      {monthNames[calMonth]}
-                    </h3>
-                    <p
-                      className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
-                        }`}
-                    >
-                      {calYear}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 items-center">
-                    <button
-                      onClick={() =>
-                        setCurrentCalendarDate(
-                          new Date(calYear, calMonth - 1, 1)
-                        )
-                      }
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
-                        ? "hover:bg-gray-700 text-gray-400"
-                        : "hover:bg-gray-100 text-gray-500"
-                        }`}
-                    >
-                      <i className="fas fa-chevron-left text-sm"></i>
+              {/* Mini Calendar View */}
+              <div className={`w-full md:w-2/5 md:sticky md:top-6 rounded-[2rem] p-8 shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-slate-800"}`}>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-black">{monthNames[calMonth]} {calYear}</h2>
+                  <div className="flex gap-2">
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}>
+                      <i className="fas fa-chevron-left"></i>
                     </button>
-                    <button
-                      onClick={() => setCurrentCalendarDate(new Date())}
-                      className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark
-                        ? "hover:bg-gray-700 text-gray-300"
-                        : "hover:bg-gray-100 text-gray-600"
-                        }`}
-                    >
-                      Today
-                    </button>
-                    <button
-                      onClick={() =>
-                        setCurrentCalendarDate(
-                          new Date(calYear, calMonth + 1, 1)
-                        )
-                      }
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
-                        ? "hover:bg-gray-700 text-gray-400"
-                        : "hover:bg-gray-100 text-gray-500"
-                        }`}
-                    >
-                      <i className="fas fa-chevron-right text-sm"></i>
+                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}>
+                      <i className="fas fa-chevron-right"></i>
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 text-center mb-2">
-                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                    <div
-                      key={day}
-                      className={`text-xs font-bold py-1 ${day === "Su" || day === "Sa"
-                        ? "text-rose-400"
-                        : isDark
-                          ? "text-gray-400"
-                          : "text-gray-500"
-                        }`}
-                    >
-                      {day}
-                    </div>
+                <div className="grid grid-cols-7 gap-2 mb-4 text-center">
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                    <div key={day} className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{day}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2 text-center">
+
+                <div className="grid grid-cols-7 gap-2">
                   {calendarDays.map((day, idx) => {
-                    if (!day)
-                      return <div key={`empty-${idx}`} className="p-2"></div>;
-
-                    const currentDateStr = `${currentYear}-${String(
-                      calMonth + 1
-                    ).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                    const isHoliday = IT_HOLIDAYS.some(
-                      (h) => h.date === currentDateStr
-                    );
-                    const isToday =
-                      day === todayDate.getDate() &&
-                      calMonth === todayDate.getMonth() &&
-                      currentYear === todayDate.getFullYear();
-                    const isWeekend =
-                      new Date(currentYear, calMonth, day).getDay() === 0 ||
-                      new Date(currentYear, calMonth, day).getDay() === 6;
-
-                    let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
-                    if (isToday) {
-                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
-                    } else if (isHoliday) {
-                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 scale-105`;
-                    } else if (isWeekend) {
-                      dayClass += isDark
-                        ? `bg-gray-700/50 text-rose-400/80 border border-gray-700 `
-                        : `bg-gray-50 text-rose-500/80 border border-gray-100`;
-                    } else {
-                      dayClass += isDark
-                        ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600`
-                        : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
-                    }
+                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
+                    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isHoliday = IT_HOLIDAYS.some(h => h.date === dateStr);
+                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && calYear === todayDate.getFullYear();
 
                     return (
                       <div
                         key={day}
-                        className={dayClass}
-                        title={
-                          isHoliday
-                            ? IT_HOLIDAYS.find((h) => h.date === currentDateStr)
-                              ?.name
-                            : ""
-                        }
+                        className={`aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all relative ${
+                          isToday ? "bg-emerald-500 text-white scale-110 shadow-lg shadow-emerald-500/30" :
+                          isHoliday ? "bg-blue-500 text-white shadow-md shadow-blue-500/20" :
+                          isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-50 hover:bg-gray-100 text-gray-600"
+                        }`}
                       >
                         {day}
                       </div>
                     );
                   })}
                 </div>
-                <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-                  <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
-                    <span
-                      className={isDark ? "text-gray-300" : "text-gray-700"}
-                    >
-                      Public Holiday
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm font-medium">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
-                    <span
-                      className={isDark ? "text-gray-300" : "text-gray-700"}
-                    >
-                      Today
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </motion.div>
         );
       }
+
+      case "individualAnalytics":
+        return (
+          <div className="p-6">
+            <MyPerformance 
+              userEmail={selectedAnalysisEmail}
+              userName={selectedAnalysisName}
+              isDark={isDark}
+              isManagerView={true}
+              onBack={() => {
+                setCurrentSection(analysisReturnTo || "employees");
+                setAnalysisReturnTo(null);
+              }}
+            />
+          </div>
+        );
+
+      case "departmentAnalytics":
+        return (
+          <div className="p-6">
+            <DepartmentPerformance 
+              deptId={selectedDeptAnalysisId}
+              deptName={selectedDeptAnalysisName}
+              allUsers={allUsers}
+              analyticsData={analyticsData}
+              isDark={isDark}
+              onBack={() => {
+                setCurrentSection(analysisReturnTo || "departments");
+                setAnalysisReturnTo(null);
+              }}
+            />
+          </div>
+        );
 
       case "activityMonitor":
         return (

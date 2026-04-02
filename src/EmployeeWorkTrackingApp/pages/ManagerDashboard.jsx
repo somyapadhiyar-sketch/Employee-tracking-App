@@ -41,6 +41,7 @@ export default function ManagerDashboard() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeProfile, setShowEmployeeProfile] = useState(false);
   const [selectedAnalysisEmail, setSelectedAnalysisEmail] = useState("");
+  const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
   const [reportFilter, setReportFilter] = useState("daily");
   const [reportRoleFilter, setReportRoleFilter] = useState("employee");
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1889,13 +1890,21 @@ export default function ManagerDashboard() {
                 : "bg-white border-gray-100"
                 }`}
             >
-              <h2
-                className={`text-xl font-bold mb-4 flex items-center ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                <i className="fas fa-users mr-2"></i>Team Members List (
-                {deptEmployees.length})
-              </h2>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                <h2
+                  className={`text-xl font-bold flex items-center ${isDark ? "text-white" : "text-gray-800"
+                    }`}
+                >
+                  <i className="fas fa-users mr-2"></i>Team Members List (
+                  {deptEmployees.length})
+                </h2>
+                <button
+                  onClick={() => setCurrentSection("myAnalysis")}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center gap-2 text-sm"
+                >
+                  <i className="fas fa-chart-line"></i> View My Analysis
+                </button>
+              </div>
               <div className="space-y-3">
                 {deptEmployees.map((emp) => (
                   <div
@@ -1928,15 +1937,16 @@ export default function ManagerDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                       <button
                         onClick={() => {
                           setSelectedAnalysisEmail(emp.email);
+                          setSelectedAnalysisName(`${emp.firstName} ${emp.lastName}`);
                           setCurrentSection("individualAnalytics");
                         }}
-                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 text-white rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all"
+                        className="flex-1 sm:flex-none px-3 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                       >
-                        <i className="fas fa-chart-line mr-1.5"></i> View Analytics
+                        <i className="fas fa-chart-line text-[10px] sm:text-xs"></i> <span className="hidden sm:inline">View </span>Analytics
                       </button>
                       <button
                         onClick={() =>
@@ -1945,9 +1955,9 @@ export default function ManagerDashboard() {
                             `${emp.firstName} ${emp.lastName}`
                           )
                         }
-                        className="flex-1 sm:flex-none px-4 py-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-lg text-sm font-bold"
+                        className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
                       >
-                        Remove
+                        <i className="fas fa-user-minus text-[10px] sm:text-xs"></i> Remove
                       </button>
                     </div>
                   </div>
@@ -2037,7 +2047,7 @@ export default function ManagerDashboard() {
                   return (
                     <div
                       key={emp.id}
-                      className={`flex flex-col sm:flex-row justify-between sm:items-center p-4 rounded-xl border gap-4 ${isDark
+                      className={`flex items-center justify-between p-3 px-4 rounded-xl border gap-4 ${isDark
                         ? "bg-gray-700 border-gray-600"
                         : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
                         }`}
@@ -2578,7 +2588,23 @@ export default function ManagerDashboard() {
             >
               <i className="fas fa-arrow-left"></i> Back to Team
             </button>
-            <MyPerformance userEmail={selectedAnalysisEmail} isDark={isDark} />
+            <MyPerformance userEmail={selectedAnalysisEmail} userName={selectedAnalysisName} isDark={isDark} isManagerView={true} />
+          </div>
+        );
+
+      case "myAnalysis":
+        return (
+          <div className="space-y-6">
+            <button
+              onClick={() => setCurrentSection("team")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold ${isDark
+                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm border border-gray-100"
+                }`}
+            >
+              <i className="fas fa-arrow-left"></i> Back to Team
+            </button>
+            <MyPerformance userEmail={user.email} userName={userName} isDark={isDark} isManagerView={false} />
           </div>
         );
 

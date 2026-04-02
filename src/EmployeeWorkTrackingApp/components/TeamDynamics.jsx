@@ -22,7 +22,7 @@ import {
   Cell,
 } from "recharts";
 
-export default function TeamDynamics({ isDark, dept, deptEmployees = [] }) {
+export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHeader = false }) {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
@@ -343,18 +343,20 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [] }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="mb-10"
-      >
-        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
-          My Team - {dept || "Department Dynamics"}
-        </h1>
-        <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
-          Live tracking and productivity analysis of all employees across your department.
-        </p>
-      </motion.div>
+      {!hideHeader && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-10"
+        >
+          <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
+            My Team - {dept || "Department Dynamics"}
+          </h1>
+          <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+            Live tracking and productivity analysis of all employees across your department.
+          </p>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 

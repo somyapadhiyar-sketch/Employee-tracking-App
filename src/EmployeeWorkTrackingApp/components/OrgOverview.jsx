@@ -31,7 +31,16 @@ const CustomTooltip = ({ active, payload, isDark }) => {
   return null;
 };
 
-const OrgOverview = ({ allUsers, workLogs, analyticsData, leaveRequests, departmentsMap, isDark, onRefresh }) => {
+const OrgOverview = ({ 
+  allUsers, 
+  workLogs, 
+  analyticsData, 
+  leaveRequests, 
+  departmentsMap, 
+  isDark, 
+  onViewDepartment,
+  onViewEmployee
+}) => {
 
   // --- COMPUTE OPTIMIZED LOOKUP TABLES ---
   const lookups = useMemo(() => {
@@ -54,6 +63,22 @@ const OrgOverview = ({ allUsers, workLogs, analyticsData, leaveRequests, departm
 
     return { byUser, byUserAndDay };
   }, [analyticsData]);
+
+  const [filterDeptId, setFilterDeptId] = React.useState("");
+  const [selectedEmployeeEmail, setSelectedEmployeeEmail] = React.useState("");
+
+  const approvedUsers = useMemo(() => {
+    let filtered = allUsers.filter(u => u.status === 'approved');
+    if (filterDeptId) {
+      filtered = filtered.filter(u => u.department === filterDeptId || u.departmentId === filterDeptId);
+    }
+    return filtered;
+  }, [allUsers, filterDeptId]);
+
+  const departments = useMemo(() => 
+    Object.entries(departmentsMap).map(([id, data]) => ({ id, ...data })),
+    [departmentsMap]
+  );
 
   // 3. Waterfall Chart: Company Time Audit
   const waterfallData = useMemo(() => {
@@ -116,22 +141,32 @@ const OrgOverview = ({ allUsers, workLogs, analyticsData, leaveRequests, departm
     analyticsData.forEach(a => {
       const user = allUsers.find(u => u.email === a.employee_email);
       const deptId = user?.department;
-      if (deptId && departmentsMap[deptId]) {
-        const deptName = departmentsMap[deptId].name;
+      if (deptId) {
+        const deptName = departmentsMap[deptId]?.name || deptId;
         if (!deptTotals[deptName]) deptTotals[deptName] = 0;
         deptTotals[deptName] += (a.active_time_seconds || 0) / 3600;
       }
     });
 
-    return Object.entries(deptTotals)
+    const result = Object.entries(deptTotals)
       .map(([name, value]) => ({ name, value: Math.round(value) }))
       .sort((a, b) => b.value - a.value);
+
+    // Placeholder if empty
+    if (result.length === 0) {
+      return [
+        { name: 'No Data', value: 100 }
+      ];
+    }
+    return result;
   }, [allUsers, analyticsData, departmentsMap]);
 
   // 8. Burnout vs Under-utilization Matrix
   const burnoutMatrixData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    const depts = Object.values(departmentsMap);
+    const depts = Object.entries(departmentsMap).map(([id, data]) => ({ id, ...data }));
+
+    if (depts.length === 0) return [];
 
     return depts.map(dept => {
       const deptEmployees = allUsers.filter(u => u.department === dept.id);
@@ -203,23 +238,99 @@ const OrgOverview = ({ allUsers, workLogs, analyticsData, leaveRequests, departm
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="mb-10 flex items-center justify-between"
+        className="mb-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6"
       >
         <div>
-          <h1 className={`text-3xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
+          <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
             Productivity Analysis
           </h1>
-          <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
-            Live tracking and productivity analysis of all employees across all departments.
+          <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            Live tracking and productivity analysis across all departments.
           </p>
         </div>
-        <button
-          onClick={onRefresh}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-bold font-black transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-        >
-          <i className="fas fa-sync-alt anim-spin-hover"></i>
-          <span className="hidden sm:inline">Refresh Data</span>
-        </button>
+
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+          {/* Department Selector Group */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative group min-w-[200px]">
+              <div className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-500"}`}>
+                <i className="fas fa-filter text-xs"></i>
+              </div>
+              <select
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFilterDeptId(val);
+                  setSelectedEmployeeEmail(""); 
+                }}
+                value={filterDeptId}
+                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
+                  isDark 
+                  ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500" 
+                  : "bg-white border-gray-100 text-slate-700 focus:border-blue-400 shadow-sm"
+                }`}
+              >
+                <option value="">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.name || dept.id}</option>
+                ))}
+              </select>
+              <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}>
+                <i className="fas fa-chevron-down text-[10px]"></i>
+              </div>
+            </div>
+
+            {filterDeptId && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onViewDepartment(filterDeptId)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 whitespace-nowrap"
+              >
+                View Team Analysis
+              </motion.button>
+            )}
+          </div>
+
+          {/* Employee Selector Group */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative group min-w-[220px]">
+              <div className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-emerald-400" : "text-emerald-500"}`}>
+                <i className="fas fa-user text-xs"></i>
+              </div>
+              <select
+                onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
+                value={selectedEmployeeEmail}
+                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
+                  isDark 
+                  ? "bg-gray-800 border-gray-700 text-white focus:border-emerald-500" 
+                  : "bg-white border-gray-100 text-slate-700 focus:border-emerald-400 shadow-sm"
+                }`}
+              >
+                <option value="">Select Employee...</option>
+                {approvedUsers.map(emp => (
+                  <option key={emp.id} value={emp.email}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </select>
+              <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}>
+                <i className="fas fa-chevron-down text-[10px]"></i>
+              </div>
+            </div>
+
+            {selectedEmployeeEmail && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  const emp = approvedUsers.find(u => u.email === selectedEmployeeEmail);
+                  if (emp) onViewEmployee(emp.email, `${emp.firstName} ${emp.lastName}`);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 whitespace-nowrap"
+              >
+                View Performance
+              </motion.button>
+            )}
+          </div>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -105,15 +105,22 @@ def start_tracking():
                     u = doc_item.to_dict()
                     fullname = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip().lower()
                     if detected_name_in_title in fullname:
-                        active_user_doc = doc_item
                         STICKY_AGENT_EMAIL = u.get("email")
+                        if u.get("clockedIn") == True:
+                            active_user_doc = doc_item
                         break
 
             # 2. FALLBACK TO CLOCKED-IN USERS
             if not active_user_doc:
                 temp_users_query = [d for d in all_users if d.to_dict().get("clockedIn") == True]
                 
-                if AGENT_EMAIL:
+                if STICKY_AGENT_EMAIL:
+                    for doc_item in temp_users_query:
+                        if doc_item.to_dict().get("email") == STICKY_AGENT_EMAIL:
+                            active_user_doc = doc_item
+                            break
+
+                if not active_user_doc and AGENT_EMAIL:
                     for doc_item in temp_users_query:
                         if doc_item.to_dict().get("email") == AGENT_EMAIL:
                             active_user_doc = doc_item
@@ -121,7 +128,8 @@ def start_tracking():
                 
                 if not active_user_doc and temp_users_query:
                     active_user_doc = temp_users_query[0]
-                else:
+                
+                if not active_user_doc:
                     # Final safety: If no one is clocked in, we can't track anyone
                     print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ⚠️  No clocked-in users found. Waiting for someone to clock-in...")
                     time.sleep(10)
