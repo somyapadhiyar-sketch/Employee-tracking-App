@@ -27,6 +27,12 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
   const [analyticsData, setAnalyticsData] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,14 +60,11 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     fetchData();
   }, []);
 
-  // 1. Scatter Plot Data: Anomaly Detection (Active vs Idle)
+  // 1. Scatter Plot Data: Anomaly Detection (Active vs Idle) - Period Totals
   const scatterData = useMemo(() => {
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const teamEmails = deptEmployees.map((e) => e.email);
-
     return deptEmployees.map((emp) => {
       const empAnalytics = analyticsData.filter(
-        (a) => a.employee_email === emp.email && a.date === today
+        (a) => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate
       );
       const active = empAnalytics.reduce((acc, curr) => acc + (curr.active_time_seconds || 0), 0) / 60; // Minutes
       const idle = empAnalytics.reduce((acc, curr) => acc + (curr.idle_time_seconds || 0), 0) / 60; // Minutes
@@ -73,9 +76,9 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         z: 10,
       };
     });
-  }, [analyticsData, deptEmployees]);
+  }, [analyticsData, deptEmployees, startDate, endDate]);
 
-  // 2. Area Chart Data: Peak Productivity Hours (9 AM - 6 PM)
+  // 2. Area Chart Data: Peak Productivity Hours (9 AM - 6 PM) - Average across period
   const trendData = useMemo(() => {
     const hourlyData = Array.from({ length: 10 }, (_, i) => ({
       hour: i + 9,
@@ -83,11 +86,11 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
       productivity: 0,
     }));
 
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const teamEmails = deptEmployees.map((e) => e.email);
+    const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
 
     analyticsData.forEach((row) => {
-      if (row.date === today && teamEmails.includes(row.employee_email) && row.last_updated) {
+      if (row.date >= startDate && row.date <= endDate && teamEmails.includes(row.employee_email) && row.last_updated) {
         const h = new Date(row.last_updated).getHours();
         if (h >= 9 && h <= 18) {
           const index = h - 9;
@@ -101,28 +104,21 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     return hourlyData.map(d => ({
       ...d,
       time: d.hour > 12 ? `${d.hour - 12} PM` : d.hour === 12 ? '12 PM' : `${d.hour} AM`,
-      productivity: Math.round(d.productivity)
+      productivity: Math.round(d.productivity / dayDiff) // Average per day
     }));
-  }, [analyticsData, deptEmployees]);
+  }, [analyticsData, deptEmployees, startDate, endDate]);
 
-  // 3. Horizontal Bar Chart: Leave & Attendance Trends
+  // 3. Horizontal Bar Chart: Leave Trends (Based on Range)
   const leaveData = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
     return deptEmployees.map((emp) => {
-      const monthLeaves = leaveRequests.filter((r) => {
+      const rangeLeaves = leaveRequests.filter((r) => {
         if (r.employeeId !== emp.id || r.status !== "approved") return false;
-        const d = new Date(r.startDate);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        return r.startDate >= startDate && r.startDate <= endDate;
       });
 
-      // Total used leaves across all time to calculate balance (Simplified)
       const totalUsed = leaveRequests
         .filter((r) => r.employeeId === emp.id && r.status === "approved")
         .reduce((sum, r) => {
-          // Basic duration calculation if not provided
           const s = new Date(r.startDate);
           const e = new Date(r.endDate);
           const diff = Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) + 1;
@@ -131,26 +127,26 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
 
       return {
         name: emp.firstName,
-        leavesThisMonth: monthLeaves.length,
-        balanceRemaining: Math.max(0, 20 - totalUsed), // Assuming 20 days total policy
+        leavesInPeriod: rangeLeaves.length,
+        balanceRemaining: Math.max(0, 20 - totalUsed),
       };
-    }).sort((a, b) => b.leavesThisMonth - a.leavesThisMonth).slice(0, 10);
-  }, [leaveRequests, deptEmployees]);
+    }).sort((a, b) => b.leavesInPeriod - a.leavesInPeriod).slice(0, 10);
+  }, [leaveRequests, deptEmployees, startDate, endDate]);
 
-  // 4. Composed Chart: Target vs Achieved (Logged Hours vs 8h Line)
+  // 4. Composed Chart: Target vs Achieved (Period Totals)
   const targetData = useMemo(() => {
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
     return deptEmployees.map((emp) => {
-      const empLogs = workLogs.filter((l) => l.employeeId === emp.id && l.date === today);
+      const empLogs = workLogs.filter((l) => l.employeeId === emp.id && l.date >= startDate && l.date <= endDate);
       const totalHours = empLogs.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
       return {
         name: emp.firstName,
         hours: Math.round(totalHours * 10) / 10,
-        target: 8,
+        target: 8 * dayDiff, // 8h per day
       };
     }).sort((a, b) => b.hours - a.hours).slice(0, 12);
-  }, [workLogs, deptEmployees]);
+  }, [workLogs, deptEmployees, startDate, endDate]);
 
   // 5. Gantt Chart: Punctuality & Shift Timeline (9 AM - 6 PM)
   const ganttData = useMemo(() => {
@@ -313,12 +309,12 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       // Special styling for Target vs Achieved if it's the target chart data
-      if (payload.some(p => p.name === "Logged Hours" || p.name === "Min. Requirement (8h)")) {
+      if (payload.some(p => p.name === "Logged Hours" || p.name === "Total Hours Target")) {
         return (
           <div className="bg-white p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] border border-gray-50 flex flex-col gap-1 min-w-[140px]">
             <p className="text-gray-800 font-black text-base">{data.name}</p>
             <p className="text-violet-500 font-bold text-xs">Logged Hours: {data.hours || 0}</p>
-            <p className="text-rose-500 font-bold text-xs">Min. Requirement (8h): {data.target || 8}</p>
+            <p className="text-rose-500 font-bold text-xs">Target Hours: {data.target || 8}</p>
           </div>
         );
       }
@@ -344,18 +340,44 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
       className="space-y-8"
     >
       {!hideHeader && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="mb-10"
-        >
-          <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
-            My Team - {dept || "Department Dynamics"}
-          </h1>
-          <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
-            Live tracking and productivity analysis of all employees across your department.
-          </p>
-        </motion.div>
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6 mb-10">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+          >
+            <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
+              My Team - {dept || "Department Dynamics"}
+            </h1>
+            <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+              Live tracking and productivity analysis of all employees across your department.
+            </p>
+          </motion.div>
+
+          {/* Date Range Picker */}
+          <div className={`p-4 rounded-3xl border shadow-sm flex items-center gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+            <div className="flex items-center gap-3">
+              <i className="fas fa-calendar-alt text-violet-500"></i>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-violet-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-violet-400"}`}
+              />
+              <span className={isDark ? "text-gray-500" : "text-gray-400"}>
+                <i className="fas fa-arrow-right text-[10px]"></i>
+              </span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={(e) => setEndDate(e.target.value)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-violet-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-violet-400"}`}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -435,8 +457,8 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Peak Productivity Hours</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Team Focus Wave (9AM - 6PM)</p>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Peak Productivity Trends</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Team Focus Wave (Avg per day)</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-500">
               <i className="fas fa-chart-area"></i>
@@ -483,7 +505,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Leave & Attendance</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Balance vs Taken This Month</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Balance vs Taken in Period</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
               <i className="fas fa-calendar-minus"></i>
@@ -504,7 +526,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar dataKey="leavesThisMonth" name="Taken This Month" stackId="a" fill="#f43f5e" radius={[0, 0, 0, 0]} barSize={20} />
+                <Bar dataKey="leavesInPeriod" name="Taken in Period" stackId="a" fill="#f43f5e" radius={[0, 0, 0, 0]} barSize={20} />
                 <Bar dataKey="balanceRemaining" name="Total Balance" stackId="a" fill="#10b981" radius={[0, 10, 10, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
@@ -519,8 +541,8 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Target vs Achieved</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Logged Hours vs 8h Minimum</p>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Overall Period Progress</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Hours vs Target</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500">
               <i className="fas fa-bullseye"></i>
@@ -575,7 +597,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
                 <Line 
                     type="monotone" 
                     dataKey="target" 
-                    name="Min. Requirement (8h)" 
+                    name="Total Hours Target" 
                     stroke="#ff4d6d" 
                     strokeWidth={3} 
                     dot={{ r: 4, fill: "#ff4d6d", stroke: "#fff", strokeWidth: 2 }} 

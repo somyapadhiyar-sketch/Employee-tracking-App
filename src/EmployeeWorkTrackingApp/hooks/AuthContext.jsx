@@ -69,6 +69,22 @@ export function AuthProvider({ children }) {
     loading,
     logout,
     updateUser,
+    refreshUser: async () => {
+      if (auth.currentUser) {
+        setLoading(true);
+        try {
+          const userDocRef = doc(db, "users", auth.currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setCurrentUser({ uid: auth.currentUser.uid, ...userDoc.data() });
+          }
+        } catch (error) {
+          console.error("Refresh error:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
   };
 
   return (

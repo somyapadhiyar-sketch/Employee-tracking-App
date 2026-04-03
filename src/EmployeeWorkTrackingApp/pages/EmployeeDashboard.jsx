@@ -28,7 +28,13 @@ export default function EmployeeDashboard() {
   const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const getISTTimeString = () => new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
-  const [reportFilter, setReportFilter] = useState("daily");
+  const [reportStartDate, setReportStartDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 7);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  });
+  const [reportEndDate, setReportEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [workType, setWorkType] = useState(null);
   const [clockedIn, setClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState(null);
@@ -218,23 +224,8 @@ export default function EmployeeDashboard() {
       !(log.duration || "").toLowerCase().includes(searchString)
     ) return false;
 
-    // If searchDate or searchTerm is set, it overrides the reportFilter period
-    if (searchDate) {
-      if (log.date !== searchDate) return false;
-    } else if (searchTerm) {
-      // If searching by keyword, show matching logs regardless of the period filter
-      // to ensure the user can find messages from the past easily
-    } else {
-      if (reportFilter === "daily") {
-        if (log.date !== today) return false;
-      } else if (reportFilter === "weekly") {
-        const diffTime = Math.abs(todayObj - logDateObj);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 7) return false;
-      } else if (reportFilter === "monthly") {
-        if (logDateObj.getMonth() !== todayObj.getMonth() || logDateObj.getFullYear() !== todayObj.getFullYear()) return false;
-      }
-    }
+    // Date Range Filter
+    if (log.date < reportStartDate || log.date > reportEndDate) return false;
 
     return true;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -919,37 +910,12 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              My Reports
+            </h1>
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1
-                  className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
-                >
-                  My Reports
-                </h1>
-                <div className={`p-1 flex rounded-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                  <button
-                    onClick={() => setReportFilter('daily')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'daily' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    onClick={() => setReportFilter('weekly')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'weekly' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => setReportFilter('monthly')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'monthly' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Monthly
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative group">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 md:flex-[2] relative group">
                   <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
                   <input
                     type="text"
@@ -963,17 +929,25 @@ export default function EmployeeDashboard() {
                   />
                 </div>
 
-                <div className="relative group">
-                  <i className={`fas fa-calendar absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
-                  <input
-                    type="date"
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
-                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
-                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-blue-500/50"
-                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-blue-100"
-                      }`}
-                  />
+                <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
+                  <div className="flex items-center gap-2 w-full">
+                    <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-blue-400" : "text-blue-500"}`}></i>
+                    <input 
+                      type="date" 
+                      value={reportStartDate} 
+                      onChange={(e) => setReportStartDate(e.target.value)}
+                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
+                    />
+                    <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
+                       <i className="fas fa-arrow-right"></i>
+                    </span>
+                    <input 
+                      type="date" 
+                      value={reportEndDate} 
+                      onChange={(e) => setReportEndDate(e.target.value)}
+                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -988,7 +962,7 @@ export default function EmployeeDashboard() {
                 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
                   }`}
               >
-                {searchDate ? `Work History for ${searchDate}` : searchTerm ? `Search Results for "${searchTerm}"` : (reportFilter === 'daily' ? "Today's Work History" : reportFilter === 'weekly' ? "Last 7 Days Work History" : "This Month's Work History")}
+                {searchTerm ? `Search Results for "${searchTerm}"` : `Work History from ${reportStartDate} to ${reportEndDate}`}
               </h2>
               {filteredWorkLogs.length === 0 ? (
                 <p

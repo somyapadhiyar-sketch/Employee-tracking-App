@@ -31,6 +31,12 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
   const [peakCurveData, setPeakCurveData] = useState([]);
   const [monthlyProgress, setMonthlyProgress] = useState(0);
   const [monthlyHours, setMonthlyHours] = useState(0);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -47,40 +53,37 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        // 1. Daily Focus Score & Monthly Goal
-        const todayAnalytics = analyticsData.filter(log => log.date === todayStr);
-        let totalActiveToday = todayAnalytics.reduce((acc, log) => acc + (log.active_time_seconds || 0), 0);
-        let totalIdleToday = todayAnalytics.reduce((acc, log) => acc + (log.idle_time_seconds || 0), 0);
-        const dailyLogged = totalActiveToday + totalIdleToday;
-        setFocusScore(dailyLogged > 0 ? Math.round((totalActiveToday / dailyLogged) * 100) : 0);
+        // 1. Efficiency & Goal
+        const inRangeAnalytics = analyticsData.filter(log => log.date >= startDate && log.date <= endDate);
+        
+        let totalActiveRange = inRangeAnalytics.reduce((acc, log) => acc + (log.active_time_seconds || 0), 0);
+        let totalIdleRange = inRangeAnalytics.reduce((acc, log) => acc + (log.idle_time_seconds || 0), 0);
+        const rangeLogged = totalActiveRange + totalIdleRange;
+        setFocusScore(rangeLogged > 0 ? Math.round((totalActiveRange / rangeLogged) * 100) : 0);
 
-        // Monthly Goal Progress (160 Hours Target)
-        const monthlyLogs = analyticsData.filter(log => {
-          const d = new Date(log.date);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        });
-        const totalMonthlySeconds = monthlyLogs.reduce((acc, log) => acc + (log.active_time_seconds || 0), 0);
-        const totalHrs = Math.round(totalMonthlySeconds / 3600);
+        const totalHrs = Math.round(totalActiveRange / 3600);
         setMonthlyHours(totalHrs);
         setMonthlyProgress(Math.min(100, Math.round((totalHrs / 160) * 100)));
 
-        // 2. Activity Heatmap (GitHub Style) - Last 31 Days (to include the 1st)
-        const last31Days = [];
-        for (let i = 30; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
+        // 2. Activity Heatmap - Based on Range
+        const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+        const rangeDays = [];
+        for (let i = 0; i < dayDiff; i++) {
+          const d = new Date(startDate);
+          d.setDate(d.getDate() + i);
           const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
           const dayLogs = analyticsData.filter(log => log.date === dateStr);
           const active = dayLogs.reduce((acc, log) => acc + (log.active_time_seconds || 0), 0);
-          last31Days.push({ date: dateStr, intensity: active / 3600 }); // Hours
+          rangeDays.push({ date: dateStr, intensity: active / 3600 });
         }
-        setHeatmapData(last31Days);
+        setHeatmapData(rangeDays);
 
-        // 3. Weekly Time Breakdown (Stacked Bar) - Last 7 Days
-        const last7Days = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
+        // 3. Breakdown - Max last 14 days if range is long
+        const breakdownCount = Math.min(dayDiff, 14);
+        const breakdownDays = [];
+        for (let i = 0; i < breakdownCount; i++) {
+          const d = new Date(endDate);
+          d.setDate(d.getDate() - (breakdownCount - 1 - i));
           const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
           const dayLogs = analyticsData.filter(log => log.date === dateStr);
           let active = 0, idle = 0;
@@ -88,14 +91,14 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
             active += (log.active_time_seconds || 0);
             idle += (log.idle_time_seconds || 0);
           });
-          last7Days.push({
+          breakdownDays.push({
             name: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
             Active: Math.round(active / 3600 * 10) / 10,
             Idle: Math.round(idle / 3600 * 10) / 10,
             Break: Math.round(Math.max(0, 8 * 3600 - active - idle) / 3600 * 10) / 10
           });
         }
-        setWeeklyData(last7Days);
+        setWeeklyData(breakdownDays);
 
         // 4. Hourly Productivity & App Aggregation
         const appAggregation = {};
@@ -105,25 +108,22 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           active: 0
         }));
 
-        todayAnalytics.forEach(row => {
+        inRangeAnalytics.forEach(row => {
           const title = (row.latest_window_title || "Unknown").split('-')[0].trim();
           const activeTime = (row.active_time_seconds || 0);
-          const idleTime = (row.idle_time_seconds || 0);
 
-          // Peak Curve
           if (row.last_updated) {
             const h = new Date(row.last_updated).getHours();
             if (h >= 0 && h < 24) {
-              hourlyGroups[h].active += activeTime / 60; // Minutes
+              hourlyGroups[h].active += activeTime / 60;
             }
           }
 
-          // Top Apps
           if (!appAggregation[title]) appAggregation[title] = 0;
           appAggregation[title] += activeTime;
         });
 
-        setPeakCurveData(hourlyGroups.filter(g => g.hour >= 8 && g.hour <= 20)); // Focus hours 8 AM to 8 PM
+        setPeakCurveData(hourlyGroups.filter(g => g.hour >= 8 && g.hour <= 20));
 
         const appUsageMapped = Object.entries(appAggregation)
           .map(([name, value]) => ({
@@ -141,7 +141,7 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
     };
 
     fetchAnalytics();
-  }, [userEmail]);
+  }, [userEmail, startDate, endDate]);
 
   if (loading) {
     return (
@@ -166,7 +166,7 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 pb-10"
     >
-      <div className="flex items-start justify-between gap-8">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
         <div>
           <h1 className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
             {isManagerView && userName ? `${userName}'s Analytics` : "Personal Growth Analytics"}
@@ -175,14 +175,41 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
             {isManagerView ? "Review the employee's performance and motivation trends" : "Track your performance and motivation trends"}
           </p>
         </div>
-        {onBack && (
-          <button 
-            onClick={onBack}
-            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center border transition-all shadow-lg active:scale-95 shrink-0 ${isDark ? "bg-gray-800 border-gray-700 text-white hover:bg-gray-700" : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"}`}
-          >
-            <i className="fas fa-arrow-left"></i>
-          </button>
-        )}
+        
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className={`p-4 rounded-3xl border shadow-sm flex items-center gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+            <div className="flex items-center gap-3">
+              <i className="fas fa-calendar-alt text-blue-500"></i>
+              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
+              />
+              <span className={isDark ? "text-gray-500" : "text-gray-400"}>
+                <i className="fas fa-arrow-right text-[10px]"></i>
+              </span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={(e) => setEndDate(e.target.value)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
+              />
+            </div>
+          </div>
+
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center border transition-all shadow-lg active:scale-95 shrink-0 ${isDark ? "bg-gray-800 border-gray-700 text-white hover:bg-gray-700" : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"}`}
+            >
+              <i className="fas fa-arrow-left"></i>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
@@ -193,9 +220,9 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           className={`p-6 rounded-3xl shadow-xl border flex flex-col justify-between lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
           <div className="flex items-center justify-between mb-4">
-             <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Monthly Goal</h3>
+             <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Period Goal</h3>
              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"}`}>
-                <i className="fas fa-bullseye"></i>
+                <i className="fas fa-history"></i>
              </div>
           </div>
           <div className="flex-grow flex items-center justify-center py-4">
@@ -225,8 +252,8 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
             </div>
           </div>
           <div className="text-center">
-             <p className={`text-3xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>{monthlyHours}<span className="text-sm font-bold text-gray-400">/160 hrs</span></p>
-             <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Current Progress</p>
+             <p className={`text-3xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>{monthlyHours}<span className="text-sm font-bold text-gray-400"> hrs</span></p>
+             <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Total In Period</p>
           </div>
         </motion.div>
 
@@ -286,9 +313,9 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           className={`p-6 rounded-3xl shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
           <div className="flex items-center justify-between mb-8">
-            <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Daily Focus Meter</h3>
+            <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Efficiency Meter</h3>
             <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold ${focusScore >= 80 ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"}`}>
-              {focusScore >= 80 ? "Peak Focus" : "Steady Growth"}
+              Average Score
             </span>
           </div>
 
@@ -336,7 +363,7 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         >
           <div className="mb-6 flex items-center justify-between">
             <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Activity Patterns</h3>
-            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Last 30 Days</p>
+            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Selected Period</p>
           </div>
           <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
             {heatmapData.map((day, i) => {
@@ -375,7 +402,7 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
             whileHover={{ scale: 1.01 }}
             className={`p-6 rounded-3xl shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
           >
-            <h3 className={`text-xl font-bold mb-8 ${isDark ? "text-white" : "text-gray-800"}`}>Weekly Breakdown</h3>
+            <h3 className={`text-xl font-bold mb-8 ${isDark ? "text-white" : "text-gray-800"}`}>Period Breakdown</h3>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyData}>
@@ -402,7 +429,7 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Top Applications & Websites</h3>
-              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Today's Usage (Minutes)</p>
+              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period Usage (Minutes)</p>
             </div>
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">

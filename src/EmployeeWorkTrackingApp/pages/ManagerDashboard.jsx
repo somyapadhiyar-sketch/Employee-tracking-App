@@ -42,8 +42,14 @@ export default function ManagerDashboard() {
   const [showEmployeeProfile, setShowEmployeeProfile] = useState(false);
   const [selectedAnalysisEmail, setSelectedAnalysisEmail] = useState("");
   const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
-  const [reportFilter, setReportFilter] = useState("daily");
   const [reportRoleFilter, setReportRoleFilter] = useState("employee");
+  const [reportStartDate, setReportStartDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 7);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  });
+  const [reportEndDate, setReportEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [toast, setToast] = useState(null);
@@ -295,8 +301,9 @@ export default function ManagerDashboard() {
     .filter((log) => {
       if (log.department !== dept) return false;
 
-      const todayObj = new Date();
-      const logDateObj = new Date(log.date);
+      // Filter by dynamic date range
+      if (reportStartDate && log.date < reportStartDate) return false;
+      if (reportEndDate && log.date > reportEndDate) return false;
 
       // Search matching logic (consistent with Employee Dashboard)
       const logWorkTypeName = WORK_TYPES?.[log.workType]?.name || (log.workType === 'office' ? 'Office Work' : 'Non-Office Work');
@@ -311,23 +318,6 @@ export default function ManagerDashboard() {
         !log.date.toLowerCase().includes(searchString) &&
         !(log.duration || "").toLowerCase().includes(searchString)
       ) return false;
-
-      // Period or Specific Date filter
-      if (searchDate) {
-        if (log.date !== searchDate) return false;
-      } else if (searchTerm) {
-        // Keyword override: ignore Daily/Weekly filter when searching
-      } else {
-        if (reportFilter === "daily") {
-          if (log.date !== today) return false;
-        } else if (reportFilter === "weekly") {
-          const diffTime = Math.abs(todayObj - logDateObj);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          if (diffDays > 7) return false;
-        } else if (reportFilter === "monthly") {
-          if (logDateObj.getMonth() !== todayObj.getMonth() || logDateObj.getFullYear() !== todayObj.getFullYear()) return false;
-        }
-      }
 
       return true;
     })
@@ -2112,37 +2102,12 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              Reports
+            </h1>
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1
-                  className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
-                >
-                  Reports
-                </h1>
-                <div className={`p-1 flex rounded-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                  <button
-                    onClick={() => setReportFilter('daily')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'daily' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    onClick={() => setReportFilter('weekly')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'weekly' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => setReportFilter('monthly')}
-                    className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${reportFilter === 'monthly' ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
-                  >
-                    Monthly
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative group">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 md:flex-[2] relative group">
                   <i className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
                   <input
                     type="text"
@@ -2156,17 +2121,25 @@ export default function ManagerDashboard() {
                   />
                 </div>
 
-                <div className="relative group">
-                  <i className={`fas fa-calendar absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
-                  <input
-                    type="date"
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
-                    className={`w-full pl-11 pr-4 py-3 rounded-2xl border transition-all ${isDark
-                      ? "bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-violet-500/50"
-                      : "bg-white border-gray-200 text-gray-800 focus:ring-4 focus:ring-violet-100"
-                      }`}
-                  />
+                <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
+                  <div className="flex items-center gap-2 w-full">
+                    <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-violet-400" : "text-violet-500"}`}></i>
+                    <input 
+                      type="date" 
+                      value={reportStartDate} 
+                      onChange={(e) => setReportStartDate(e.target.value)}
+                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
+                    />
+                    <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
+                       <i className="fas fa-arrow-right"></i>
+                    </span>
+                    <input 
+                      type="date" 
+                      value={reportEndDate} 
+                      onChange={(e) => setReportEndDate(e.target.value)}
+                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -2188,8 +2161,8 @@ export default function ManagerDashboard() {
                   Employee Reports
                 </button>
                 <button
-                  onClick={() => setReportRoleFilter("manager")}
-                  className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "manager"
+                  onClick={() => setReportRoleFilter("dept_manager")}
+                  className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "dept_manager"
                     ? "border-violet-500 text-violet-500"
                     : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     }`}
@@ -2202,7 +2175,7 @@ export default function ManagerDashboard() {
                 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
                   }`}
               >
-                {searchDate ? `Work Report for ${searchDate}` : searchTerm ? `Search Results for "${searchTerm}"` : (reportFilter === 'daily' ? "Today's Work Report" : reportFilter === 'weekly' ? "Last 7 Days Work Report" : "This Month's Work Report")}
+                {searchTerm ? `Search Results for "${searchTerm}"` : `Report from ${reportStartDate} to ${reportEndDate}`}
               </h2>
               {finalReports.length === 0 ? (
                 <p
@@ -2218,7 +2191,7 @@ export default function ManagerDashboard() {
                       key={log.id}
                       className={`flex flex-col justify-between p-4 rounded-xl border gap-2 ${isDark
                         ? "bg-gray-700 border-gray-600"
-                        : "bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200"
+                        : "bg-gray-50 border-gray-200"
                         }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">

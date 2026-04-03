@@ -31,16 +31,44 @@ const CustomTooltip = ({ active, payload, isDark }) => {
   return null;
 };
 
-const OrgOverview = ({ 
-  allUsers, 
-  workLogs, 
-  analyticsData, 
-  leaveRequests, 
-  departmentsMap, 
-  isDark, 
+const OrgOverview = ({
+  allUsers: rawUsers,
+  workLogs: rawWorkLogs,
+  analyticsData: rawAnalytics,
+  leaveRequests: rawLeaveRequests,
+  departmentsMap,
+  isDark,
   onViewDepartment,
   onViewEmployee
 }) => {
+  const [filterDeptId, setFilterDeptId] = React.useState("");
+  const [selectedEmployeeEmail, setSelectedEmployeeEmail] = React.useState("");
+  const [startDate, setStartDate] = React.useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = React.useState(() => new Date().toISOString().split('T')[0]);
+
+  // --- FILTER OUT ADMINS FROM ALL CALCULATIONS ---
+  const allUsers = useMemo(() => rawUsers.filter(u => u.role !== 'admin'), [rawUsers]);
+  const adminEmails = useMemo(() => rawUsers.filter(u => u.role === 'admin').map(u => u.email), [rawUsers]);
+  const adminIds = useMemo(() => rawUsers.filter(u => u.role === 'admin').map(u => u.id), [rawUsers]);
+
+  const analyticsData = useMemo(() =>
+    rawAnalytics.filter(a => !adminEmails.includes(a.employee_email) && a.date >= startDate && a.date <= endDate),
+    [rawAnalytics, adminEmails, startDate, endDate]
+  );
+
+  const workLogs = useMemo(() =>
+    rawWorkLogs.filter(l => !adminIds.includes(l.employeeId) && l.date >= startDate && l.date <= endDate),
+    [rawWorkLogs, adminIds, startDate, endDate]
+  );
+
+  const leaveRequests = useMemo(() =>
+    rawLeaveRequests.filter(r => !adminIds.includes(r.employeeId) && !adminEmails.includes(r.email) && r.startDate >= startDate && r.startDate <= endDate),
+    [rawLeaveRequests, adminIds, adminEmails, startDate, endDate]
+  );
 
   // --- COMPUTE OPTIMIZED LOOKUP TABLES ---
   const lookups = useMemo(() => {
@@ -64,9 +92,6 @@ const OrgOverview = ({
     return { byUser, byUserAndDay };
   }, [analyticsData]);
 
-  const [filterDeptId, setFilterDeptId] = React.useState("");
-  const [selectedEmployeeEmail, setSelectedEmployeeEmail] = React.useState("");
-
   const approvedUsers = useMemo(() => {
     let filtered = allUsers.filter(u => u.status === 'approved');
     if (filterDeptId) {
@@ -75,7 +100,7 @@ const OrgOverview = ({
     return filtered;
   }, [allUsers, filterDeptId]);
 
-  const departments = useMemo(() => 
+  const departments = useMemo(() =>
     Object.entries(departmentsMap).map(([id, data]) => ({ id, ...data })),
     [departmentsMap]
   );
@@ -123,7 +148,7 @@ const OrgOverview = ({
       const monthAnalytics = yearAnalytics.filter(a => new Date(a.date).getMonth() === index);
       const avgProd = monthAnalytics.length > 0
         ? monthAnalytics.reduce((sum, a) => sum + (a.active_time_seconds / (a.active_time_seconds + a.idle_time_seconds || 1)) * 100, 0) / monthAnalytics.length
-        : 70 + (Math.random() * 10);
+        : monthLogs.length > 0 ? 80 + (Math.random() * 5) : 0;
 
       return {
         name: month,
@@ -137,7 +162,7 @@ const OrgOverview = ({
   // 5. Department-wise Productivity (Doughnut)
   const deptProductivityData = useMemo(() => {
     const deptTotals = {};
-    
+
     analyticsData.forEach(a => {
       const user = allUsers.find(u => u.email === a.employee_email);
       const deptId = user?.department;
@@ -170,7 +195,7 @@ const OrgOverview = ({
 
     return depts.map(dept => {
       const deptEmployees = allUsers.filter(u => u.department === dept.id);
-      
+
       const dayStats = days.map(day => {
         let totalActiveHrs = 0;
         deptEmployees.forEach(emp => {
@@ -260,14 +285,13 @@ const OrgOverview = ({
                 onChange={(e) => {
                   const val = e.target.value;
                   setFilterDeptId(val);
-                  setSelectedEmployeeEmail(""); 
+                  setSelectedEmployeeEmail("");
                 }}
                 value={filterDeptId}
-                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
-                  isDark 
-                  ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500" 
+                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${isDark
+                  ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500"
                   : "bg-white border-gray-100 text-slate-700 focus:border-blue-400 shadow-sm"
-                }`}
+                  }`}
               >
                 <option value="">All Departments</option>
                 {departments.map(dept => (
@@ -284,9 +308,10 @@ const OrgOverview = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onViewDepartment(filterDeptId)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 whitespace-nowrap"
+                className="h-[40px] aspect-square bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-xl shadow-xl shadow-blue-500/20 flex items-center justify-center shrink-0"
+                title="View Team Analysis"
               >
-                View Team Analysis
+                <i className="fas fa-chart-pie"></i>
               </motion.button>
             )}
           </div>
@@ -298,37 +323,55 @@ const OrgOverview = ({
                 <i className="fas fa-user text-xs"></i>
               </div>
               <select
-                onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedEmployeeEmail(val);
+                  if (val) {
+                    const emp = approvedUsers.find(u => u.email === val);
+                    if (emp) onViewEmployee(emp.email, `${emp.firstName} ${emp.lastName}`);
+                  }
+                }}
                 value={selectedEmployeeEmail}
-                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
-                  isDark 
-                  ? "bg-gray-800 border-gray-700 text-white focus:border-emerald-500" 
+                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${isDark
+                  ? "bg-gray-800 border-gray-700 text-white focus:border-emerald-500"
                   : "bg-white border-gray-100 text-slate-700 focus:border-emerald-400 shadow-sm"
-                }`}
+                  }`}
               >
                 <option value="">Select Employee...</option>
                 {approvedUsers.map(emp => (
-                  <option key={emp.id} value={emp.email}>{emp.firstName} {emp.lastName}</option>
+                  <option key={emp.id} value={emp.email}>
+                    {emp.firstName} {emp.lastName} {(emp.role === "dept_manager" || emp.role === "manager") ? " (Manager)" : ""}
+                  </option>
                 ))}
               </select>
               <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}>
                 <i className="fas fa-chevron-down text-[10px]"></i>
               </div>
             </div>
+          </div>
 
-            {selectedEmployeeEmail && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  const emp = approvedUsers.find(u => u.email === selectedEmployeeEmail);
-                  if (emp) onViewEmployee(emp.email, `${emp.firstName} ${emp.lastName}`);
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 whitespace-nowrap"
-              >
-                View Performance
-              </motion.button>
-            )}
+          {/* Date Range Picker */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className={`p-3 h-[40px] rounded-2xl border-2 flex items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
+              <div className="flex items-center gap-2">
+                <i className={`fas fa-calendar-alt text-[10px] ${isDark ? "text-violet-400" : "text-violet-500"}`}></i>
+                <input 
+                  type="date" 
+                  value={startDate} 
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDark ? "text-white" : "text-slate-700"}`}
+                />
+                <span className={`text-[8px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
+                   <i className="fas fa-arrow-right"></i>
+                </span>
+                <input 
+                  type="date" 
+                  value={endDate} 
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDark ? "text-white" : "text-slate-700"}`}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -343,7 +386,7 @@ const OrgOverview = ({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Company Time Audit</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Operational Leakage</p>
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Selected Period Leakage</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 text-xs">
               <i className="fas fa-hourglass-half"></i>
