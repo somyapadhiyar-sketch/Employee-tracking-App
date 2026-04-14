@@ -80,12 +80,24 @@ function EmployeeWorkTrackingApp() {
     console.log("Login Success Data:", userData);
     
     // Update the auth context immediately.
-    // The useEffect below will handle the navigation once the context re-renders.
     if (auth && auth.updateUser) {
       auth.updateUser(userData);
     }
     
-    showToast(`Login successful! role: ${userData.role}`, "success");
+    // Direct navigation for a smoother experience (no "refresh" feel)
+    // Using case-insensitive role check for robustness
+    const userRole = (userData.role || "").toLowerCase();
+    const dashboardPath =
+      userRole === "admin"
+        ? "/admin"
+        : userRole === "employee"
+          ? "/employee"
+          : "/manager";
+    
+    console.log("Navigating directly to dashboard:", dashboardPath);
+    navigate(dashboardPath, { replace: true });
+    
+    showToast("Login successful!", "success");
   };
 
   const handleRegisterSuccess = () => {
@@ -95,7 +107,6 @@ function EmployeeWorkTrackingApp() {
 
   const handleLogout = async () => {
     await auth.logout();
-    navigate("/login");
     showToast("Logged out successfully!", "info");
   };
 

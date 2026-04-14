@@ -54,6 +54,8 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await signOut(auth);
+      // Clear state immediately to avoid redirection race conditions (Fixes logout redirect issue)
+      setCurrentUser(null); 
     } catch (error) {
       console.error("Failed to log out", error);
     }
@@ -61,7 +63,11 @@ export function AuthProvider({ children }) {
 
   // Update user locally
   const updateUser = (updatedData) => {
-    setCurrentUser(prevUser => ({ ...prevUser, ...updatedData }));
+    if (!updatedData) {
+      setCurrentUser(null);
+    } else {
+      setCurrentUser(prevUser => ({ ...(prevUser || {}), ...updatedData }));
+    }
   };
 
   // The values we want to provide to the rest of the app
@@ -90,8 +96,13 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {/* We only render the app once Firebase has checked the initial login state */}
-      {!loading && children}
+      {/* 
+        Changing this from {!loading && children} to just {children}.
+        This ensures the App never unmounts during auth transitions, 
+        which keeps the Login page validation messages visible and prevents 
+        unexpected "refreshes".
+      */}
+      {children}
     </AuthContext.Provider>
   );
 }

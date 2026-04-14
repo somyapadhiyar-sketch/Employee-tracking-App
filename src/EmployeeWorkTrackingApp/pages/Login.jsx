@@ -64,10 +64,11 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     const userData = userDoc.data();
 
     // Verify Role and Status
-    const isEmployeeMatch = role === "employee" && userData.role === "employee";
+    const dbRole = (userData.role || "").toLowerCase();
+    const isEmployeeMatch = role === "employee" && dbRole === "employee";
     const isManagerMatch =
-      role === "dept_manager" && (userData.role === "dept_manager" || userData.role === "manager");
-    const isAdminMatch = role === "admin" && userData.role === "admin";
+      role === "dept_manager" && (dbRole === "dept_manager" || dbRole === "manager");
+    const isAdminMatch = role === "admin" && dbRole === "admin";
 
     if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
       await signOut(auth);
@@ -146,6 +147,35 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     const cleanEmail = email.trim();
 
     try {
+      // 1. Pre-verify role by email to avoid race conditions and URL changes
+      const q = query(
+        collection(db, "users"),
+        where("email", "==", cleanEmail.toLowerCase())
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+
+        // Verify Role Match (case-insensitive for robustness)
+        const dbRole = (userData.role || "").toLowerCase();
+        const isEmployeeMatch = role === "employee" && dbRole === "employee";
+        const isManagerMatch =
+          role === "dept_manager" && (dbRole === "dept_manager" || dbRole === "manager");
+        const isAdminMatch = role === "admin" && dbRole === "admin";
+
+        if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
+          throw new Error(
+            `You are not authorized to log in as a ${
+              role === "dept_manager" ? "manager" : role
+            }. Please select the correct login role.`
+          );
+        }
+
+        if (userData.status === "pending") {
+          throw new Error("Your account is pending admin approval.");
+        }
+      }
 
 
       // 2. Check for legacy/hardcoded Admin credentials if role is admin
