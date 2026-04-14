@@ -31,12 +31,8 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
   const [peakCurveData, setPeakCurveData] = useState([]);
   const [monthlyProgress, setMonthlyProgress] = useState(0);
   const [monthlyHours, setMonthlyHours] = useState(0);
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+  const [endDate, setEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
 
   useEffect(() => {
     const fetchAnalytics = async () => {

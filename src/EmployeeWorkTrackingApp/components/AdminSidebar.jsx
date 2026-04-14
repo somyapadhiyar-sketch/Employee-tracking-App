@@ -82,6 +82,18 @@ export default function AdminSidebar({
       color: "from-blue-500 to-blue-600",
     },
     {
+      id: "reportDetails",
+      icon: "fa-file-invoice",
+      label: "Report Details",
+      color: "from-blue-500 to-blue-600",
+    },
+    {
+      id: "generatePdf",
+      icon: "fa-file-pdf",
+      label: "Generate PDF",
+      color: "from-blue-500 to-blue-600",
+    },
+    {
       id: "profile",
       icon: "fa-user-circle",
       label: "My Profile",

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
@@ -11,6 +12,7 @@ import ManagerActivityReport from "../components/ManagerActivityReport";
 import OrgOverview from "../components/OrgOverview";
 import MyPerformance from "./MyPerformance";
 import DepartmentPerformance from "../components/DepartmentPerformance";
+import GeneratePDF from "../components/GeneratePDF";
 
 import {
   collection,
@@ -103,7 +105,120 @@ export default function AdminDashboard() {
   const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
   const [selectedDeptAnalysisId, setSelectedDeptAnalysisId] = useState(null);
   const [selectedDeptAnalysisName, setSelectedDeptAnalysisName] = useState("");
+  const [selectedReportDept, setSelectedReportDept] = useState("");
+  const [selectedReportEmployee, setSelectedReportEmployee] = useState("");
+  const [reportSearchTerm, setReportSearchTerm] = useState("");
+  const [reportDetailsStartDate, setReportDetailsStartDate] = useState(() =>
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+  );
+  const [reportDetailsEndDate, setReportDetailsEndDate] = useState(() =>
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+  );
   const [analysisReturnTo, setAnalysisReturnTo] = useState(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+
+
+  const handleGenerateReport = async () => {
+    console.log("handleGenerateReport triggered");
+    setIsGeneratingReport(true);
+    setPdfPreviewUrl(null); // Clear previous preview
+    try {
+      // Find department name if selected
+      let deptName = "All Departments";
+      if (selectedReportDept) {
+        const dept = departmentsMap[selectedReportDept];
+        if (dept) deptName = dept.name;
+      }
+
+      // Find employee name and email if selected
+      let empName = "All Employees";
+      let empEmail = auth?.currentUser?.email;
+      if (selectedReportEmployee) {
+        const emp = allUsers.find((u) => u.id === selectedReportEmployee);
+        if (emp) {
+          empName = `${emp.firstName} ${emp.lastName}`;
+          empEmail = emp.email;
+        }
+      }
+
+      const payload = {
+        employee_name: empName,
+        email: empEmail,
+        department: deptName,
+        departmentId: selectedReportDept || "all",
+        employee: empName,
+        employeeEmail: selectedReportEmployee || "all",
+        start_date: reportDetailsStartDate,
+        end_date: reportDetailsEndDate,
+        startDate: reportDetailsStartDate,
+        endDate: reportDetailsEndDate,
+        generatedBy: userName,
+        action: "preview", // Added for routing
+      };
+
+      console.log("GenerateReport Payload:", payload);
+
+      const response = await fetch("/n8n-webhook/webhook-test/testid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+
+      console.log('Response received (Admin):', response);
+
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+      const blob = await response.blob();
+
+      // Check if the response is actually a PDF
+      if (blob.type !== "application/pdf") {
+        const text = await blob.text();
+        console.error("n8n Error Response:", text);
+        showToast(
+          "n8n sent an error instead of a PDF. Check the console.",
+          "error"
+        );
+        setIsGeneratingReport(false);
+        return;
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+
+      showToast("Report generated! Preview available below.", "success");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      showToast(
+        "Failed to generate report. Make sure n8n is running.",
+        "error"
+      );
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!pdfPreviewUrl) return;
+
+    let deptName = "All_Departments";
+    if (selectedReportDept) {
+      const dept = departmentsMap[selectedReportDept];
+      if (dept) deptName = dept.name;
+    }
+
+    const link = document.createElement("a");
+    link.href = pdfPreviewUrl;
+    const fileName = `Report_${deptName.replace(
+      /\s+/g,
+      "_"
+    )}_${reportDetailsStartDate}.pdf`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
 
   const fetchDashboardData = async () => {
     setLoadingData(true);
@@ -120,7 +235,9 @@ export default function AdminDashboard() {
       );
 
       const analyticsSnap = await getDocs(collection(db, "employee_analytics"));
-      setAnalyticsData(analyticsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setAnalyticsData(
+        analyticsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      );
 
       const holidaysSnap = await getDocs(collection(db, "publicHolidays"));
       if (holidaysSnap.empty) {
@@ -216,6 +333,22 @@ export default function AdminDashboard() {
       month: "long",
       day: "numeric",
     });
+  const formatDisplayDuration = (duration) => {
+    if (!duration) return "";
+    if (duration.includes("h") || duration.includes("m") || duration.includes("s")) return duration;
+    if (duration.includes(":")) {
+      const partsArr = duration.split(":").map(Number);
+      if (partsArr.length === 3) {
+        const [h, m, s] = partsArr;
+        const res = [];
+        if (h > 0) res.push(`${h}h`);
+        if (m > 0) res.push(`${m}m`);
+        if (s > 0 || res.length === 0) res.push(`${s}s`);
+        return res.join(" ");
+      }
+    }
+    return duration;
+  };
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -508,9 +641,386 @@ export default function AdminDashboard() {
 
   const renderSection = () => {
     switch (currentSection) {
+      case "generatePdf": {
+        return (
+          <GeneratePDF
+            allUsers={allUsers}
+            departmentsMap={departmentsMap}
+            isDark={isDark}
+            currentUserEmail={auth?.currentUser?.email}
+          />
+        );
+      }
+      case "reportDetails": {
+        const departmentsList = Object.entries(departmentsMap).map(
+          ([id, d]) => ({ id, ...d })
+        );
+        const filteredEmployeesForReport = allUsers.filter(
+          (u) =>
+            u.status === "approved" &&
+            u.role !== "admin" &&
+            (!selectedReportDept ||
+              u.department === selectedReportDept ||
+              u.departmentId === selectedReportDept)
+        );
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h1
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
+            >
+              Report Details
+            </h1>
+            <div
+              className={`p-6 rounded-2xl border space-y-6 ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100 shadow-sm"
+                }`}
+            >
+              {/* Search Bar Row */}
+              <div className="relative group">
+                <i
+                  className={`fas fa-search absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"
+                    } group-focus-within:text-blue-500 transition-colors`}
+                ></i>
+                <input
+                  type="text"
+                  placeholder="Search name, messages or keywords..."
+                  value={reportSearchTerm}
+                  onChange={(e) => setReportSearchTerm(e.target.value)}
+                  className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 transition-all font-bold ${isDark
+                    ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                    : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
+                    }`}
+                />
+              </div>
+
+              {/* Selectors and Dates Row */}
+              <div className="flex flex-col lg:flex-row flex-wrap gap-4 items-end">
+                <div className="flex-[1.5] min-w-[200px] w-full">
+                  <label
+                    className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                  >
+                    Department
+                  </label>
+                  <div className="relative group">
+                    <div
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-500"
+                        }`}
+                    >
+                      <i className="fas fa-building text-sm"></i>
+                    </div>
+                    <select
+                      value={selectedReportDept}
+                      onChange={(e) => {
+                        setSelectedReportDept(e.target.value);
+                        setSelectedReportEmployee("");
+                      }}
+                      className={`w-full pl-11 pr-10 py-3 rounded-xl border-2 transition-all appearance-none cursor-pointer font-bold text-sm outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
+                        }`}
+                    >
+                      <option value="">All Departments</option>
+                      {departmentsList.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-down text-[10px]"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-[1.5] min-w-[200px] w-full">
+                  <label
+                    className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                  >
+                    Employee
+                  </label>
+                  <div className="relative group">
+                    <div
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-emerald-400" : "text-emerald-500"
+                        }`}
+                    >
+                      <i className="fas fa-user text-sm"></i>
+                    </div>
+                    <select
+                      value={selectedReportEmployee}
+                      onChange={(e) =>
+                        setSelectedReportEmployee(e.target.value)
+                      }
+                      className={`w-full pl-11 pr-10 py-3 rounded-xl border-2 transition-all appearance-none cursor-pointer font-bold text-sm outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
+                        }`}
+                    >
+                      <option value="">Select Employee</option>
+                      {filteredEmployeesForReport.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName}{" "}
+                          {emp.role === "manager" || emp.role === "dept_manager"
+                            ? "(Manager)"
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <div
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-down text-[10px]"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-[2] min-w-[280px] w-full flex gap-3">
+                  <div className="flex-1">
+                    <label
+                      className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={reportDetailsStartDate}
+                      onChange={(e) =>
+                        setReportDetailsStartDate(e.target.value)
+                      }
+                      className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
+                        }`}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label
+                      className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={reportDetailsEndDate}
+                      onChange={(e) => setReportDetailsEndDate(e.target.value)}
+                      className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
+                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
+                        }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-2xl shadow-xl overflow-hidden border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                      <th className="px-6 py-4 font-bold text-sm">Employee</th>
+                      <th className="px-6 py-4 font-bold text-sm">Date</th>
+                      <th className="px-6 py-4 font-bold text-sm">Work Type</th>
+                      <th className="px-6 py-4 font-bold text-sm">
+                        Task Details
+                      </th>
+                      <th className="px-6 py-4 font-bold text-sm">Time</th>
+                      <th className="px-6 py-4 font-bold text-sm text-right">
+                        Duration
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-100"
+                      }`}
+                  >
+                    {(() => {
+                      const filteredLogs = workLogs
+                        .filter((log) => {
+                          const matchesEmployee =
+                            !selectedReportEmployee ||
+                            log.employeeId === selectedReportEmployee;
+                          const matchesDept =
+                            !selectedReportDept ||
+                            allUsers.find((u) => u.id === log.employeeId)
+                              ?.department === selectedReportDept ||
+                            allUsers.find((u) => u.id === log.employeeId)
+                              ?.departmentId === selectedReportDept;
+
+                          const matchesStartDate =
+                            !reportDetailsStartDate ||
+                            log.date >= reportDetailsStartDate;
+                          const matchesEndDate =
+                            !reportDetailsEndDate ||
+                            log.date <= reportDetailsEndDate;
+                          const matchesDate =
+                            matchesStartDate && matchesEndDate;
+
+                          const logEmployee = allUsers.find(
+                            (u) => u.id === log.employeeId
+                          );
+                          const employeeName = `${logEmployee?.firstName || ""
+                            } ${logEmployee?.lastName || ""}`.toLowerCase();
+                          const description = (
+                            log.description || ""
+                          ).toLowerCase();
+                          const search = reportSearchTerm.toLowerCase();
+
+                          const matchesSearch =
+                            !search ||
+                            employeeName.includes(search) ||
+                            description.includes(search) ||
+                            (log.workType || "").toLowerCase().includes(search);
+
+                          return (
+                            matchesEmployee &&
+                            matchesDept &&
+                            matchesDate &&
+                            matchesSearch
+                          );
+                        })
+                        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                      if (filteredLogs.length === 0) {
+                        return (
+                          <tr>
+                            <td
+                              colSpan="6"
+                              className={`px-6 py-12 text-center text-lg italic ${isDark ? "text-gray-500" : "text-gray-400"
+                                }`}
+                            >
+                              No work logs found matching your filters.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filteredLogs.map((log) => {
+                        const logEmployee = allUsers.find(
+                          (u) => u.id === log.employeeId
+                        );
+                        return (
+                          <tr
+                            key={log.id}
+                            className={`hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-tr from-blue-500 to-indigo-600`}
+                                >
+                                  {logEmployee?.firstName?.charAt(0)}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span
+                                    className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"
+                                      }`}
+                                  >
+                                    {logEmployee?.firstName}{" "}
+                                    {logEmployee?.lastName}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-medium ${isDark ? "text-gray-400" : "text-gray-500"
+                                      }`}
+                                  >
+                                    {logEmployee?.role === "manager" ||
+                                      logEmployee?.role === "dept_manager"
+                                      ? "Manager"
+                                      : "Employee"}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-600"
+                                }`}
+                            >
+                              {new Date(log.date).toLocaleDateString(
+                                undefined,
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                }
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 w-fit ${log.workType === "office"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-violet-100 text-violet-700"
+                                  }`}
+                              >
+                                <i
+                                  className={`fas ${log.workType === "office"
+                                    ? "fa-briefcase"
+                                    : "fa-laptop-house"
+                                    } text-[10px]`}
+                                ></i>
+                                {log.workType === "office"
+                                  ? "Office"
+                                  : "Non-Office"}
+                              </span>
+                            </td>
+                            <td
+                              className={`px-6 py-4 text-sm leading-relaxed max-w-sm ${isDark ? "text-gray-300" : "text-gray-700"
+                                }`}
+                            >
+                              {log.description}
+                            </td>
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"
+                                }`}
+                            >
+                              {log.taskStartTime} - {log.taskEndTime}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <span
+                                className={`text-sm font-black ${isDark
+                                  ? "text-emerald-400"
+                                  : "text-emerald-600"
+                                  }`}
+                              >
+                                {formatDisplayDuration(log.duration) ||
+                                  (log.minutes
+                                    ? `${log.minutes}m`
+                                    : `${log.hours}h`)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        );
+      }
       case "org_overview":
         return (
-          <OrgOverview 
+          <OrgOverview
             allUsers={allUsers}
             workLogs={workLogs}
             analyticsData={analyticsData}
@@ -553,9 +1063,15 @@ export default function AdminDashboard() {
                     className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
-                    Welcome back, <span className="text-blue-500 font-extrabold">{userName}</span>
+                    Welcome back,{" "}
+                    <span className="text-blue-500 font-extrabold">
+                      {userName}
+                    </span>
                   </h1>
-                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  <p
+                    className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                  >
                     Have a great day ahead!
                   </p>
                 </div>
@@ -564,11 +1080,16 @@ export default function AdminDashboard() {
                   animate={{ opacity: 1, x: 0 }}
                   className="flex flex-col items-center sm:items-end"
                 >
-                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"
-                    }`}>
+                  <p
+                    className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"
+                      }`}
+                  >
                     {formatTime(currentTime)}
                   </p>
-                  <p className={`text-sm font-bold tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  <p
+                    className={`text-sm font-bold tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"
+                      }`}
+                  >
                     {formatDate(currentTime)}
                   </p>
                 </motion.div>
@@ -1060,32 +1581,51 @@ export default function AdminDashboard() {
             departmentsMap[u.department]?.name.toLowerCase().includes(s)
           );
         };
-        const filteredManagers = approvedManagers.filter(u => filterFn(u, managerSearchTerm));
-        const filteredEmployees = regularEmployees.filter(u => filterFn(u, employeeSearchTerm));
+        const filteredManagers = approvedManagers.filter((u) =>
+          filterFn(u, managerSearchTerm)
+        );
+        const filteredEmployees = regularEmployees.filter((u) =>
+          filterFn(u, employeeSearchTerm)
+        );
 
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"} mb-8`}>
+            <h1
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                } mb-8`}
+            >
               All Employees & Managers
             </h1>
 
             {/* Department Managers Section */}
-            <div className={`rounded-2xl p-6 shadow-lg mb-8 overflow-x-auto border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+            <div
+              className={`rounded-2xl p-6 shadow-lg mb-8 overflow-x-auto border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
+            >
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-xl font-bold text-violet-400 flex items-center whitespace-nowrap">
-                  <i className="fas fa-user-tie mr-2"></i>Department Managers ({filteredManagers.length})
+                  <i className="fas fa-user-tie mr-2"></i>Department Managers (
+                  {filteredManagers.length})
                 </h2>
                 <div className="relative group w-full sm:w-64">
-                  <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-violet-500 transition-colors`}></i>
+                  <i
+                    className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"
+                      } group-focus-within:text-violet-500 transition-colors`}
+                  ></i>
                   <input
                     type="text"
                     placeholder="Search managers..."
                     value={managerSearchTerm}
                     onChange={(e) => setManagerSearchTerm(e.target.value)}
-                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-violet-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-violet-100 focus:bg-white"}`}
+                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark
+                      ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-violet-500"
+                      : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-violet-100 focus:bg-white"
+                      }`}
                   />
                 </div>
               </div>
@@ -1094,29 +1634,69 @@ export default function AdminDashboard() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
-                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">Name</th>
+                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">
+                        Name
+                      </th>
                       <th className="px-4 py-4 font-bold text-sm">Email</th>
-                      <th className="px-4 py-4 font-bold text-sm">Department</th>
-                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">Actions</th>
+                      <th className="px-4 py-4 font-bold text-sm">
+                        Department
+                      </th>
+                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredManagers.map((emp) => (
                       <React.Fragment key={emp.id}>
-                        <tr className={`border-b ${isDark ? "border-gray-600 hover:bg-gray-700" : "hover:bg-gray-50"} ${expandedEmployeeId === emp.id ? (isDark ? "bg-gray-700" : "bg-gray-50") : ""}`}>
-                          <td className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""}`}>{emp.firstName} {emp.lastName}</td>
-                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{emp.email}</td>
-                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""}`}>{departmentsMap[emp.department]?.name}</td>
+                        <tr
+                          className={`border-b ${isDark
+                            ? "border-gray-600 hover:bg-gray-700"
+                            : "hover:bg-gray-50"
+                            } ${expandedEmployeeId === emp.id
+                              ? isDark
+                                ? "bg-gray-700"
+                                : "bg-gray-50"
+                              : ""
+                            }`}
+                        >
+                          <td
+                            className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""
+                              }`}
+                          >
+                            {emp.firstName} {emp.lastName}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            {emp.email}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""
+                              }`}
+                          >
+                            {departmentsMap[emp.department]?.name}
+                          </td>
                           <td className="px-4 py-3 flex gap-3">
                             <button
                               onClick={() => toggleEmployeeExpand(emp.id)}
-                              title={expandedEmployeeId === emp.id ? "Close" : "View"}
+                              title={
+                                expandedEmployeeId === emp.id ? "Close" : "View"
+                              }
                               className="w-9 h-9 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
                             >
-                              <i className={`fas fa-${expandedEmployeeId === emp.id ? "eye-slash" : "eye"}`}></i>
+                              <i
+                                className={`fas fa-${expandedEmployeeId === emp.id
+                                  ? "eye-slash"
+                                  : "eye"
+                                  }`}
+                              ></i>
                             </button>
                             <button
-                              onClick={() => handleDeleteEmployee(emp.id, emp.firstName)}
+                              onClick={() =>
+                                handleDeleteEmployee(emp.id, emp.firstName)
+                              }
                               title="Delete"
                               className="w-9 h-9 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
                             >
@@ -1128,8 +1708,18 @@ export default function AdminDashboard() {
                           {expandedEmployeeId === emp.id && (
                             <tr>
                               <td colSpan="4" className="p-0">
-                                <div className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"}`}>
-                                  <ProfileCard user={emp} role={emp.role} isAdminView={true} workLogs={getEmployeeWorkLogs(emp.id)} isInline={true} onClose={() => setExpandedEmployeeId(null)} />
+                                <div
+                                  className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"
+                                    }`}
+                                >
+                                  <ProfileCard
+                                    user={emp}
+                                    role={emp.role}
+                                    isAdminView={true}
+                                    workLogs={getEmployeeWorkLogs(emp.id)}
+                                    isInline={true}
+                                    onClose={() => setExpandedEmployeeId(null)}
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -1140,24 +1730,41 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               ) : (
-                <p className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}>No managers found for "{managerSearchTerm}"</p>
+                <p
+                  className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"
+                    }`}
+                >
+                  No managers found for "{managerSearchTerm}"
+                </p>
               )}
             </div>
 
             {/* Regular Employees Section */}
-            <div className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+            <div
+              className={`rounded-2xl p-6 shadow-lg overflow-x-auto border ${isDark
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-100"
+                }`}
+            >
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-xl font-bold text-blue-400 flex items-center whitespace-nowrap">
-                  <i className="fas fa-users mr-2"></i>Employees ({filteredEmployees.length})
+                  <i className="fas fa-users mr-2"></i>Employees (
+                  {filteredEmployees.length})
                 </h2>
                 <div className="relative group w-full sm:w-64">
-                  <i className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} group-focus-within:text-blue-500 transition-colors`}></i>
+                  <i
+                    className={`fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"
+                      } group-focus-within:text-blue-500 transition-colors`}
+                  ></i>
                   <input
                     type="text"
                     placeholder="Search employees..."
                     value={employeeSearchTerm}
                     onChange={(e) => setEmployeeSearchTerm(e.target.value)}
-                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-blue-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-100 focus:bg-white"}`}
+                    className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border transition-all ${isDark
+                      ? "bg-gray-700/50 border-gray-600 text-white focus:ring-1 focus:ring-blue-500"
+                      : "bg-gray-50 border-gray-200 text-gray-800 focus:ring-2 focus:ring-blue-100 focus:bg-white"
+                      }`}
                   />
                 </div>
               </div>
@@ -1166,29 +1773,69 @@ export default function AdminDashboard() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">Name</th>
+                      <th className="px-4 py-4 font-bold rounded-tl-lg text-sm">
+                        Name
+                      </th>
                       <th className="px-4 py-4 font-bold text-sm">Email</th>
-                      <th className="px-4 py-4 font-bold text-sm">Department</th>
-                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">Actions</th>
+                      <th className="px-4 py-4 font-bold text-sm">
+                        Department
+                      </th>
+                      <th className="px-4 py-4 font-bold rounded-tr-lg text-sm">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredEmployees.map((emp) => (
                       <React.Fragment key={emp.id}>
-                        <tr className={`border-b ${isDark ? "border-gray-600 hover:bg-gray-700" : "hover:bg-gray-50"} ${expandedEmployeeId === emp.id ? (isDark ? "bg-gray-700" : "bg-gray-50") : ""}`}>
-                          <td className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""}`}>{emp.firstName} {emp.lastName}</td>
-                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>{emp.email}</td>
-                          <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""}`}>{departmentsMap[emp.department]?.name}</td>
+                        <tr
+                          className={`border-b ${isDark
+                            ? "border-gray-600 hover:bg-gray-700"
+                            : "hover:bg-gray-50"
+                            } ${expandedEmployeeId === emp.id
+                              ? isDark
+                                ? "bg-gray-700"
+                                : "bg-gray-50"
+                              : ""
+                            }`}
+                        >
+                          <td
+                            className={`px-4 py-3 font-medium text-sm ${isDark ? "text-white" : ""
+                              }`}
+                          >
+                            {emp.firstName} {emp.lastName}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            {emp.email}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : ""
+                              }`}
+                          >
+                            {departmentsMap[emp.department]?.name}
+                          </td>
                           <td className="px-4 py-3 flex gap-3">
                             <button
                               onClick={() => toggleEmployeeExpand(emp.id)}
-                              title={expandedEmployeeId === emp.id ? "Close" : "View"}
+                              title={
+                                expandedEmployeeId === emp.id ? "Close" : "View"
+                              }
                               className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
                             >
-                              <i className={`fas fa-${expandedEmployeeId === emp.id ? "eye-slash" : "eye"}`}></i>
+                              <i
+                                className={`fas fa-${expandedEmployeeId === emp.id
+                                  ? "eye-slash"
+                                  : "eye"
+                                  }`}
+                              ></i>
                             </button>
                             <button
-                              onClick={() => handleDeleteEmployee(emp.id, emp.firstName)}
+                              onClick={() =>
+                                handleDeleteEmployee(emp.id, emp.firstName)
+                              }
                               title="Delete"
                               className="w-9 h-9 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-lg transition-all hover:scale-110 shadow-sm flex items-center justify-center"
                             >
@@ -1200,8 +1847,18 @@ export default function AdminDashboard() {
                           {expandedEmployeeId === emp.id && (
                             <tr>
                               <td colSpan="4" className="p-0">
-                                <div className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"}`}>
-                                  <ProfileCard user={emp} role={emp.role} isAdminView={true} workLogs={getEmployeeWorkLogs(emp.id)} isInline={true} onClose={() => setExpandedEmployeeId(null)} />
+                                <div
+                                  className={`px-4 py-2 ${isDark ? "bg-gray-800" : "bg-slate-50"
+                                    }`}
+                                >
+                                  <ProfileCard
+                                    user={emp}
+                                    role={emp.role}
+                                    isAdminView={true}
+                                    workLogs={getEmployeeWorkLogs(emp.id)}
+                                    isInline={true}
+                                    onClose={() => setExpandedEmployeeId(null)}
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -1212,7 +1869,12 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               ) : (
-                <p className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}>No employees found for "{employeeSearchTerm}"</p>
+                <p
+                  className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"
+                    }`}
+                >
+                  No employees found for "{employeeSearchTerm}"
+                </p>
               )}
             </div>
           </motion.div>
@@ -1469,11 +2131,12 @@ export default function AdminDashboard() {
             >
               <div className="space-y-4">
                 {(() => {
-                  const filteredReqs = leaveFilter === "pending"
-                    ? pendingLeaveRequests
-                    : leaveFilter === "approved"
-                      ? approvedLeaveRequests
-                      : allLeaveRequests;
+                  const filteredReqs =
+                    leaveFilter === "pending"
+                      ? pendingLeaveRequests
+                      : leaveFilter === "approved"
+                        ? approvedLeaveRequests
+                        : allLeaveRequests;
 
                   if (filteredReqs.length === 0) {
                     return (
@@ -1481,10 +2144,15 @@ export default function AdminDashboard() {
                         <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
                           <i className="fas fa-clipboard-check text-4xl text-white"></i>
                         </div>
-                        <h3 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>
+                        <h3
+                          className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"
+                            }`}
+                        >
                           No {leaveFilter} leave requests
                         </h3>
-                        <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+                        <p
+                          className={isDark ? "text-gray-400" : "text-gray-500"}
+                        >
                           {leaveFilter === "pending"
                             ? "All clear! There are no new requests waiting for your approval."
                             : `There are currently no ${leaveFilter} requests in the system.`}
@@ -1516,11 +2184,17 @@ export default function AdminDashboard() {
                                   }`}
                               >
                                 {emp.firstName} {emp.lastName}
-                                {req.leaveDuration === "half" && (
-                                  <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
-                                    Half Leave
-                                  </span>
-                                )}
+                                {(req.leaveDuration === "half" ||
+                                  req.leaveDuration === "first_half" ||
+                                  req.leaveDuration === "second_half") && (
+                                    <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
+                                      {req.leaveDuration === "half"
+                                        ? "Half Leave"
+                                        : req.leaveDuration === "first_half"
+                                          ? "1st Half Leave"
+                                          : "2nd Half Leave"}
+                                    </span>
+                                  )}
                               </p>
                               <p
                                 className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
@@ -1558,11 +2232,35 @@ export default function AdminDashboard() {
                           >
                             <strong>Dates:</strong> {req.startDate} to{" "}
                             {req.endDate}
-                            {req.leaveDuration === "half" ? (
-                              <span className="ml-2 font-bold text-orange-500">(0.5 Day)</span>
+                            {req.startTime && req.endTime && (
+                              <div className="mt-1 text-xs font-bold text-orange-500">
+                                <i className="fas fa-clock mr-1"></i> Time:{" "}
+                                {req.startTime} to {req.endTime}
+                              </div>
+                            )}
+                            {req.leaveDuration === "half" ||
+                              req.leaveDuration === "first_half" ||
+                              req.leaveDuration === "second_half" ? (
+                              <span className="ml-2 font-bold text-orange-500">
+                                (0.5 Day -{" "}
+                                {req.leaveDuration === "half"
+                                  ? "Half"
+                                  : req.leaveDuration === "first_half"
+                                    ? "1st Half"
+                                    : "2nd Half"}
+                                )
+                              </span>
                             ) : (
                               <span className="ml-2 font-bold text-blue-500">
-                                ({Math.ceil(Math.abs(new Date(req.endDate) - new Date(req.startDate)) / (1000 * 60 * 60 * 24)) + 1} Days)
+                                (
+                                {Math.ceil(
+                                  Math.abs(
+                                    new Date(req.endDate) -
+                                    new Date(req.startDate)
+                                  ) /
+                                  (1000 * 60 * 60 * 24)
+                                ) + 1}{" "}
+                                Days)
                               </span>
                             )}
                           </p>
@@ -1603,8 +2301,18 @@ export default function AdminDashboard() {
         const IT_HOLIDAYS = publicHolidays;
 
         const monthNames = [
-          "January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December"
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
         ];
 
         const calendarDays = Array(firstDayOfMonth).fill(null);
@@ -1618,9 +2326,13 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
-                Company Holidays
+            <div className="flex items-center justify-between mb-8">
+              <h1
+                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  } flex items-center`}
+              >
+                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
+                Public Holidays
               </h1>
               <button
                 onClick={() => setShowSelectHolidaysModal(true)}
@@ -1645,33 +2357,64 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={idx}
-                      onClick={() => setCurrentCalendarDate(new Date(holiday.date))}
-                      className={`cursor-pointer flex items-center justify-between p-5 rounded-[1.5rem] shadow-sm border transition-all hover:scale-[1.02] duration-300 ${
-                        isPast
-                          ? isDark ? "bg-gray-800/80 border-gray-700 opacity-60" : "bg-gray-50 border-gray-100 opacity-70"
-                          : isDark ? "bg-gray-800 border-gray-700 hover:border-blue-500/50" : "bg-white border-blue-50 hover:border-blue-200"
-                      }`}
+                      onClick={() =>
+                        setCurrentCalendarDate(new Date(holiday.date))
+                      }
+                      className={`cursor-pointer flex items-center justify-between p-5 rounded-[1.5rem] shadow-sm border transition-all duration-300 ${isPast
+                        ? isDark
+                          ? "bg-gray-800/80 border-gray-700 opacity-60"
+                          : "bg-gray-50 border-gray-100 opacity-70"
+                        : isDark
+                          ? "bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-lg"
+                          : "bg-white border-blue-50 hover:border-blue-200 hover:shadow-lg"
+                        }`}
                     >
                       <div className="flex items-center gap-5">
-                        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-bold ${
-                          isPast ? "bg-gray-300 text-gray-500" : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg"
-                        }`}>
-                          <span className="text-[10px] uppercase font-black">{holDate.toLocaleString('default', { month: 'short' })}</span>
-                          <span className="text-xl leading-none">{holDate.getDate()}</span>
+                        <div
+                          className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-bold ${isPast
+                            ? "bg-gray-300 text-gray-500"
+                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg"
+                            }`}
+                        >
+                          <span className="text-[10px] uppercase font-black">
+                            {holDate.toLocaleString("default", {
+                              month: "short",
+                            })}
+                          </span>
+                          <span className="text-xl leading-none">
+                            {holDate.getDate()}
+                          </span>
                         </div>
                         <div>
-                          <p className={`font-black text-lg ${isPast ? (isDark ? "text-gray-400" : "text-gray-500") : (isDark ? "text-white" : "text-slate-800")}`}>
+                          <p
+                            className={`font-black text-lg ${isPast
+                              ? isDark
+                                ? "text-gray-400"
+                                : "text-gray-500"
+                              : isDark
+                                ? "text-white"
+                                : "text-slate-800"
+                              }`}
+                          >
                             {holiday.name}
                           </p>
-                          <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"} mt-1 inline-block`}>
+                          <span
+                            className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"
+                              } mt-1 inline-block`}
+                          >
                             <i className="far fa-calendar mr-2"></i>
-                            {holDate.toLocaleDateString(undefined, { weekday: 'long' })}
+                            {holDate.toLocaleDateString(undefined, {
+                              weekday: "long",
+                            })}
                           </span>
                         </div>
                       </div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-                        isPast ? "bg-gray-100 text-gray-400" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                      }`}>
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${isPast
+                          ? "bg-gray-100 text-gray-400"
+                          : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                          }`}
+                      >
                         {isPast ? "Passed" : "Upcoming"}
                       </span>
                     </div>
@@ -1680,45 +2423,117 @@ export default function AdminDashboard() {
               </div>
 
               {/* Mini Calendar View */}
-              <div className={`w-full md:w-2/5 md:sticky md:top-6 rounded-[2rem] p-8 shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-slate-800"}`}>
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-black">{monthNames[calMonth]} {calYear}</h2>
-                  <div className="flex gap-2">
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}>
-                      <i className="fas fa-chevron-left"></i>
-                    </button>
-                    <button onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"}`}>
-                      <i className="fas fa-chevron-right"></i>
-                    </button>
+              <div
+                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-[2rem] p-8 shadow-2xl border ${isDark
+                  ? "bg-gray-800 border-gray-700 text-white"
+                  : "bg-white border-gray-100 text-slate-800"
+                  }`}
+              >
+                <div className="flex flex-col mb-8">
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-2xl font-black">
+                      {monthNames[calMonth]}
+                    </h2>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() =>
+                          setCurrentCalendarDate(
+                            new Date(calYear, calMonth - 1, 1)
+                          )
+                        }
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark
+                          ? "bg-gray-700 hover:bg-gray-600"
+                          : "bg-gray-100 hover:bg-gray-200"
+                          }`}
+                      >
+                        <i className="fas fa-chevron-left text-sm opacity-60"></i>
+                      </button>
+                      <button
+                        onClick={() => setCurrentCalendarDate(new Date())}
+                        className={`text-sm font-bold opacity-70 hover:opacity-100 transition-all ${isDark ? "text-white" : "text-slate-800"
+                          }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        onClick={() =>
+                          setCurrentCalendarDate(
+                            new Date(calYear, calMonth + 1, 1)
+                          )
+                        }
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark
+                          ? "bg-gray-700 hover:bg-gray-600"
+                          : "bg-gray-100 hover:bg-gray-200"
+                          }`}
+                      >
+                        <i className="fas fa-chevron-right text-sm opacity-60"></i>
+                      </button>
+                    </div>
                   </div>
+                  <p className="text-sm font-bold opacity-40">{calYear}</p>
                 </div>
 
                 <div className="grid grid-cols-7 gap-2 mb-4 text-center">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                    <div key={day} className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{day}</div>
+                  {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, idx) => (
+                    <div
+                      key={day}
+                      className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 || idx === 6 ? "text-rose-500" : "text-gray-400"
+                        }`}
+                    >
+                      {day}
+                    </div>
                   ))}
                 </div>
 
                 <div className="grid grid-cols-7 gap-2">
                   {calendarDays.map((day, idx) => {
-                    if (!day) return <div key={`empty-${idx}`} className="p-2"></div>;
-                    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const isHoliday = IT_HOLIDAYS.some(h => h.date === dateStr);
-                    const isToday = day === todayDate.getDate() && calMonth === todayDate.getMonth() && calYear === todayDate.getFullYear();
+                    if (!day)
+                      return <div key={`empty-${idx}`} className="p-2"></div>;
+                    const dateStr = `${calYear}-${String(calMonth + 1).padStart(
+                      2,
+                      "0"
+                    )}-${String(day).padStart(2, "0")}`;
+                    const isHoliday = IT_HOLIDAYS.some(
+                      (h) => h.date === dateStr
+                    );
+                    const isToday =
+                      day === todayDate.getDate() &&
+                      calMonth === todayDate.getMonth() &&
+                      calYear === todayDate.getFullYear();
+
+                    const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
                     return (
                       <div
                         key={day}
-                        className={`aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all relative ${
-                          isToday ? "bg-emerald-500 text-white scale-110 shadow-lg shadow-emerald-500/30" :
-                          isHoliday ? "bg-blue-500 text-white shadow-md shadow-blue-500/20" :
-                          isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-50 hover:bg-gray-100 text-gray-600"
-                        }`}
+                        className={`aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all relative cursor-default ${isToday
+                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105"
+                          : isHoliday
+                            ? "bg-blue-500 text-white shadow-md shadow-blue-500/20"
+                            : isDark
+                              ? "bg-gray-700/50 hover:bg-gray-600 text-gray-300"
+                              : "bg-gray-50 hover:bg-gray-100 text-slate-800 border border-gray-100"
+                          }`}
                       >
-                        {day}
+                        <span className={!isToday && !isHoliday && isWeekend ? "text-rose-400" : ""}>
+                          {day}
+                        </span>
                       </div>
                     );
                   })}
+                </div>
+                {/* Legend */}
+                <div className={`mt-8 pt-6 border-t ${isDark ? "border-gray-700" : "border-gray-100"}`}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></div>
+                      <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Public Holiday</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></div>
+                      <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Today</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1729,7 +2544,7 @@ export default function AdminDashboard() {
       case "individualAnalytics":
         return (
           <div className="p-6">
-            <MyPerformance 
+            <MyPerformance
               userEmail={selectedAnalysisEmail}
               userName={selectedAnalysisName}
               isDark={isDark}
@@ -1745,7 +2560,7 @@ export default function AdminDashboard() {
       case "departmentAnalytics":
         return (
           <div className="p-6">
-            <DepartmentPerformance 
+            <DepartmentPerformance
               deptId={selectedDeptAnalysisId}
               deptName={selectedDeptAnalysisName}
               allUsers={allUsers}
@@ -1767,17 +2582,25 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
             >
               Company Activity Monitor
             </h1>
-            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              Live tracking and productivity analysis of all employees across all departments.
+            <p
+              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+            >
+              Live tracking and productivity analysis of all employees across
+              all departments.
             </p>
-            
+
             {/* Wahi Manager wala component Admin ke liye bhi perfect chalega! */}
-            <ManagerActivityReport isDark={isDark} adminView={true} allUsers={allUsers} />
-            
+            <ManagerActivityReport
+              isDark={isDark}
+              adminView={true}
+              allUsers={allUsers}
+            />
           </motion.div>
         );
 
@@ -2098,7 +2921,10 @@ export default function AdminDashboard() {
           {loadingData ? (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
               <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
-              <p className={`text-lg font-bold animate-pulse ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <p
+                className={`text-lg font-bold animate-pulse ${isDark ? "text-gray-300" : "text-gray-600"
+                  }`}
+              >
                 Syncing organizational data...
               </p>
             </div>

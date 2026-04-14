@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, signInWithPopup, getAdditionalUserInfo, deleteUser } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../../firebase"; // Make sure db is exported from here
 import { useAuth } from "../hooks/AuthContext";
+import { ALLOWED_LOCATIONS, GEOFENCE_RADIUS } from "../constants/config";
 
 export default function Login({ onLoginSuccess, onSwitchToRegister }) {
   const { refreshUser } = useAuth();
@@ -42,12 +43,22 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
   const verifyAndLogin = async (user) => {
     const uid = user.uid;
     const userDocRef = doc(db, "users", uid);
-    let userDoc = await getDoc(userDocRef);
+    let userDoc;
+    
+    try {
+      userDoc = await getDoc(userDocRef);
+    } catch (err) {
+      console.error("Error fetching user doc:", err);
+      await signOut(auth);
+      if (err.code === "permission-denied") {
+        throw new Error("Your account is pending admin approval.");
+      }
+      throw new Error("Failed to connect to the database. Please try again.");
+    }
 
     if (!userDoc.exists()) {
       await signOut(auth);
-      setError("User profile not found in database. Please register first.");
-      return null;
+      throw new Error("User profile not found in database. Please register first.");
     }
 
     const userData = userDoc.data();
@@ -60,36 +71,90 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
 
     if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
       await signOut(auth);
-      setError(
+      throw new Error(
         `You are not authorized to log in as a ${
           role === "dept_manager" ? "manager" : role
         }. Please select the correct login role.`
       );
-      return null;
     }
 
     if (userData.status === "pending") {
       await signOut(auth);
-      setError("Your account is pending admin approval.");
-      return null;
+      throw new Error("Your account is pending admin approval.");
     }
 
     return userData;
+  };
+
+  const getLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          let msg = "Please enable location access to log in.";
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = "Location access denied. Please enable it in browser settings to log in.";
+          }
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth radius in meters
+    const rad = (deg) => (deg * Math.PI) / 180;
+    const phi1 = rad(lat1);
+    const phi2 = rad(lat2);
+    const dPhi = rad(lat2 - lat1);
+    const dLambda = rad(lon2 - lon1);
+
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in meters
   };
 
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
     try {
+      // Track location first
+      const location = await getLocation();
+
+      // Geofence Check (Skipped for Admins)
+      if (role !== 'admin') {
+        let isNearAnySite = false;
+        ALLOWED_LOCATIONS.forEach(site => {
+          const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
+          if (dist <= GEOFENCE_RADIUS) isNearAnySite = true;
+        });
+
+        if (!isNearAnySite) {
+          throw new Error("Login failed: You must be at an authorized office location to log in.");
+        }
+      }
+      
       const result = await signInWithPopup(auth, googleProvider);
       const { isNewUser } = getAdditionalUserInfo(result);
       
-      // Check if profile exists before keeping the Auth record
+      // Check if profile exists
       const userDocRef = doc(db, "users", result.user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        // If it's a new sign-in, delete the unwanted auth record
         if (isNewUser) {
           try {
             await deleteUser(result.user);
@@ -103,6 +168,12 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
         return;
       }
 
+      // Update location in Firestore
+      await updateDoc(userDocRef, {
+        lastLoginLocation: location,
+        lastLoginAt: new Date().toISOString(),
+      });
+
       const userData = await verifyAndLogin(result.user);
       if (userData && onLoginSuccess) {
         onLoginSuccess(userData);
@@ -112,11 +183,9 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
       if (err.code === "auth/popup-closed-by-user") {
         setError("Sign-in popup was closed before completion.");
       } else if (err.code === "auth/operation-not-allowed") {
-        setError("Google login is not enabled in Firebase Console. Please enable it.");
-      } else if (err.code === "auth/popup-blocked") {
-        setError("SignIn popup was blocked by your browser. Please enable popups.");
+        setError("Google login is not enabled in Firebase Console.");
       } else {
-        setError(`Google Sign-In failed: ${err.message || "Please try again."}`);
+        setError(err.message || "Google Sign-In failed.");
       }
     } finally {
       setLoading(false);
@@ -128,15 +197,87 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     setError("");
     setLoading(true);
 
+    const cleanEmail = email.trim();
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // 1. Track location first
+      const location = await getLocation();
+
+      // Geofence Check (Skipped for Admins)
+      if (role !== 'admin') {
+        let isNearAnySite = false;
+        ALLOWED_LOCATIONS.forEach(site => {
+          const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
+          if (dist <= GEOFENCE_RADIUS) isNearAnySite = true;
+        });
+
+        if (!isNearAnySite) {
+          throw new Error("Login failed: You must be at an authorized office location to log in.");
+        }
+      }
+
+      // 2. Check for legacy/hardcoded Admin credentials if role is admin
+      if (role === 'admin') {
+        const { ADMIN_CREDENTIALS } = await import("../constants/config");
+        const hardcodedAdmin = ADMIN_CREDENTIALS.find(
+          a => a.email.toLowerCase() === cleanEmail.toLowerCase() && a.password === password
+        );
+
+        if (hardcodedAdmin) {
+          const q = query(
+            collection(db, "users"),
+            where("email", "==", cleanEmail.toLowerCase()),
+            where("role", "==", "admin")
+          );
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            const userRef = doc(db, "users", querySnapshot.docs[0].id);
+            await updateDoc(userRef, {
+              lastLoginLocation: location,
+              lastLoginAt: new Date().toISOString(),
+            });
+
+            const userData = querySnapshot.docs[0].data();
+            if (onLoginSuccess) {
+              onLoginSuccess(userData);
+              return;
+            }
+          }
+        }
+      }
+
+      // 3. Standard Firebase Auth login
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      
+      // Update location in Firestore
+      const userDocRef = doc(db, "users", userCredential.user.uid);
+      await updateDoc(userDocRef, {
+        lastLoginLocation: location,
+        lastLoginAt: new Date().toISOString(),
+      });
+
       const userData = await verifyAndLogin(userCredential.user);
+      
       if (userData && onLoginSuccess) {
         onLoginSuccess(userData);
       }
-    } catch (error) {
-      console.error(error);
-      setError("Invalid email or password.");
+    } catch (err) {
+      console.error("Login error:", err);
+      
+      if (err.message.includes("location") || err.message.includes("Location")) {
+        setError(err.message);
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setError("Invalid email or password. If you usually login with Google, you might need to use 'Forgot Password' to set a manual password.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.");
+      } else if (err.code === 'auth/user-disabled') {
+        setError("This account has been disabled by an administrator.");
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("Too many failed login attempts. Please try again later or reset your password.");
+      } else {
+        setError(err.message || "An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }

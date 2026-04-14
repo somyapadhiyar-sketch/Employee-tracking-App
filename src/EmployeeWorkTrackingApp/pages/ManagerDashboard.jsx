@@ -4,6 +4,8 @@ import {
   WORK_TYPES,
   LATE_THRESHOLD_HOUR,
   LATE_THRESHOLD_MINUTE,
+  GEOFENCE_RADIUS,
+  ALLOWED_LOCATIONS
 } from "../constants/config";
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
@@ -13,6 +15,7 @@ import { useOutletContext } from "react-router-dom";
 import ManagerActivityReport from "../components/ManagerActivityReport";
 import TeamDynamics from "../components/TeamDynamics";
 import MyPerformance from "./MyPerformance";
+import GeneratePDF from "../components/GeneratePDF";
 
 
 import {
@@ -43,18 +46,13 @@ export default function ManagerDashboard() {
   const [selectedAnalysisEmail, setSelectedAnalysisEmail] = useState("");
   const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
   const [reportRoleFilter, setReportRoleFilter] = useState("employee");
-  const [reportStartDate, setReportStartDate] = useState(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - 7);
-    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  });
+  const [reportStartDate, setReportStartDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [reportEndDate, setReportEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [toast, setToast] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchDate, setSearchDate] = useState(() => getISTDate());
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
@@ -194,12 +192,13 @@ export default function ManagerDashboard() {
   const [clockInTime, setClockInTime] = useState(null);
   const [workType, setWorkType] = useState(null);
   const [attendanceFilter, setAttendanceFilter] = useState(null);
-  const [leaveFilter, setLeaveFilter] = useState("pending");
-  const [leaveStartDate, setLeaveStartDate] = useState("");
-  const [leaveEndDate, setLeaveEndDate] = useState("");
+  const [leaveStartDate, setLeaveStartDate] = useState(() => getISTDate());
+  const [leaveEndDate, setLeaveEndDate] = useState(() => getISTDate());
   const [leaveReason, setLeaveReason] = useState("");
   const [leaveType, setLeaveType] = useState("sick");
-  const [myLeaveFilter, setMyLeaveFilter] = useState("all");
+  const [leaveStartTime, setLeaveStartTime] = useState("09:00");
+  const [leaveEndTime, setLeaveEndTime] = useState("13:30");
+  const [leaveFilter, setLeaveFilter] = useState("all");
   const [myLeaveSearchTerm, setMyLeaveSearchTerm] = useState("");
   const [myLeaveStatusFilter, setMyLeaveStatusFilter] = useState("all");
   const [leaveDuration, setLeaveDuration] = useState("full");
@@ -217,6 +216,23 @@ export default function ManagerDashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const formatDisplayDuration = (duration) => {
+    if (!duration) return "";
+    if (duration.includes("h") || duration.includes("m") || duration.includes("s")) return duration;
+    if (duration.includes(":")) {
+      const partsArr = duration.split(":").map(Number);
+      if (partsArr.length === 3) {
+        const [h, m, s] = partsArr;
+        const res = [];
+        if (h > 0) res.push(`${h}h`);
+        if (m > 0) res.push(`${m}m`);
+        if (s > 0 || res.length === 0) res.push(`${s}s`);
+        return res.join(" ");
+      }
+    }
+    return duration;
+  };
 
   const formatTime = (date) => {
     if (!date) return "--:--:--";
@@ -244,7 +260,7 @@ export default function ManagerDashboard() {
 
   const showToastMessage = (message, type = "success") => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 6000);
   };
 
   const userName = user?.firstName
@@ -362,7 +378,7 @@ export default function ManagerDashboard() {
 
   const calculateLeaveDuration = (start, end, durationType = "full") => {
     if (!start || !end) return 0;
-    if (durationType === "half") return 0.5;
+    if (durationType === "half" || durationType === "first_half" || durationType === "second_half") return 0.5;
     const s = new Date(start);
     const e = new Date(end);
     const diffTime = Math.abs(e - s);
@@ -438,11 +454,11 @@ export default function ManagerDashboard() {
 
     const lType = leaveType;
     const lDuration = lType === "sick" ? "full" : leaveDuration;
-    const lEndDate = lDuration === "half" ? leaveStartDate : leaveEndDate;
+    const lEndDate = (lDuration === "half" || lDuration === "first_half" || lDuration === "second_half") ? leaveStartDate : leaveEndDate;
 
     try {
       await addDoc(collection(db, "leaveRequests"), {
-        employeeId: user.id,
+        employeeId: currentUserId,
         employeeName: userName,
         department: dept,
         startDate: leaveStartDate,
@@ -450,9 +466,11 @@ export default function ManagerDashboard() {
         reason: leaveReason,
         leaveType: lType,
         leaveDuration: lDuration,
+        startTime: (lDuration === "first_half" || lDuration === "second_half" || lDuration === "half") ? leaveStartTime : null,
+        endTime: (lDuration === "first_half" || lDuration === "second_half" || lDuration === "half") ? leaveEndTime : null,
         status: "pending",
         isManager: true,
-        role: user.role,
+        role: user?.role || "manager",
         appliedAt: new Date().toISOString(),
       });
       showToastMessage("Leave request submitted!", "success");
@@ -461,6 +479,7 @@ export default function ManagerDashboard() {
       setLeaveReason("");
       fetchDashboardData();
     } catch (err) {
+      console.error("Submit leave error:", err);
       showToastMessage("Failed to submit leave.", "error");
     }
   };
@@ -521,9 +540,11 @@ export default function ManagerDashboard() {
         setEditingLogId(null);
         setEditingLogOwner(null);
         setEditingLogName(null);
+        setCurrentSection("reports");
       } else {
         await addDoc(collection(db, "workLogs"), dataToSave);
         showToastMessage("Work entry saved!", "success");
+        setCurrentSection("reports");
       }
 
       setDescription("");
@@ -571,20 +592,82 @@ export default function ManagerDashboard() {
     return deptEmployees;
   };
 
+  const getLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          let msg = "Please enable location access to clock in.";
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = "Location access denied. Please enable it in browser settings to clock in.";
+          }
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth radius in meters
+    const rad = (deg) => (deg * Math.PI) / 180;
+    const phi1 = rad(lat1);
+    const phi2 = rad(lat2);
+    const dPhi = rad(lat2 - lat1);
+    const dLambda = rad(lon2 - lon1);
+
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in meters
+  };
+
   const handleClockIn = async () => {
-    setClockedIn(true);
-    setClockInTime(new Date());
     try {
+      showToastMessage("Fetching location...", "info");
+      const location = await getLocation();
+
+      // Geofence Check
+      let isNearAnySite = false;
+      let minDistance = Infinity;
+
+      ALLOWED_LOCATIONS.forEach(site => {
+        const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
+        if (dist < minDistance) minDistance = dist;
+        if (dist <= GEOFENCE_RADIUS) {
+          isNearAnySite = true;
+        }
+      });
+
+      if (!isNearAnySite) {
+        throw new Error(`You are not at an authorized location. (Approx. ${Math.round(minDistance)}m away from nearest site)`);
+      }
+
       const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
         clockedIn: true,
         lastClockInDate: todayDate,
         lastClockInTime: getISTTimeString(),
+        lastClockInLocation: location,
       });
-      showToastMessage("Clocked in successfully!", "success");
+
+      setClockedIn(true);
+      setClockInTime(new Date());
+      showToastMessage("Clocked in successfully at authorized location!", "success");
     } catch (err) {
       console.error(err);
-      showToastMessage("Failed to clock in to database.", "error");
+      showToastMessage(err.message || "Failed to clock in. Please try again.", "error");
     }
   };
 
@@ -646,11 +729,11 @@ export default function ManagerDashboard() {
     const hours = Math.floor(diffSec / 3600);
     const mins = Math.floor((diffSec % 3600) / 60);
     const secs = diffSec % 60;
-    setCalculatedDuration(
-      `${hours.toString().padStart(2, "0")}:${mins
-        .toString()
-        .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-    );
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0) parts.push(`${mins}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+    setCalculatedDuration(parts.join(" "));
   };
 
   const selectWorkType = (type) => setWorkType(type);
@@ -759,7 +842,7 @@ export default function ManagerDashboard() {
                   <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                     {formatDate(currentTime)}
                   </p>
-                  
+
                   {/* Clock In Section Inside Welcome */}
                   <div className="mt-4 flex flex-wrap items-center justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
                     <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -790,11 +873,10 @@ export default function ManagerDashboard() {
                         onClick={handleToggleBreak}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${
-                          isOnBreak 
-                            ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40" 
-                            : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
-                        }`}
+                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${isOnBreak
+                          ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
+                          : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
+                          }`}
                       >
                         <i className={`fas ${isOnBreak ? "fa-play" : "fa-coffee"}`}></i>
                         {isOnBreak ? "Resume Work" : "Start Break"}
@@ -1016,7 +1098,6 @@ export default function ManagerDashboard() {
             </motion.div>
           </motion.div>
         );
-
       case "myLeave":
         return (
           <motion.div
@@ -1185,44 +1266,76 @@ export default function ManagerDashboard() {
                   </div>
                 </div>
 
-                {/* Casual Leave Specific: Duration Dropdown */}
+                {/* Casual Leave Specific: Duration Toggle */}
                 <AnimatePresence>
                   {leaveType === "casual" && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="space-y-3 overflow-hidden"
+                      className="space-y-4 overflow-hidden"
                     >
-                      <label
-                        className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"
-                          }`}
-                      >
+                      <label className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                         Casual Leave Type
                       </label>
-                      <div className="relative group">
-                        <i className={`fas fa-clock absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
-                        <select
-                          value={leaveDuration}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setLeaveDuration(val);
-                            if (val === "half") setLeaveEndDate(leaveStartDate);
-                          }}
-                          className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
-                            ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                            : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
-                            }`}
-                        >
-                          <option value="full">Full Day Leave</option>
-                          <option value="half">Half Day Leave</option>
-                        </select>
-                        <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Primary Duration Dropdown */}
+                        <div className="relative group flex items-center">
+                          <i className={`fas fa-clock absolute left-4 inset-y-0 flex items-center pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
+                          <select
+                            value={leaveDuration === "full" ? "full" : "half"}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "full") {
+                                setLeaveDuration("full");
+                              } else {
+                                setLeaveDuration("first_half");
+                                setLeaveEndDate(leaveStartDate);
+                              }
+                            }}
+                            className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
+                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                              : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
+                              }`}
+                          >
+                            <option value="full">Full Day Leave</option>
+                            <option value="half">Half Day Leave</option>
+                          </select>
+                          <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                        </div>
+
+                        {/* Secondary Half-Type Dropdown (Only if Half is selected) */}
+                        {leaveDuration !== "full" && (
+                          <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="relative group flex items-center"
+                          >
+                            <i className={`fas fa-adjust absolute left-4 inset-y-0 flex items-center pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
+                            <select
+                              value={leaveDuration}
+                              onChange={(e) => {
+                                setLeaveDuration(e.target.value);
+                                setLeaveEndDate(leaveStartDate);
+                              }}
+                              className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
+                                ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                                : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
+                                }`}
+                            >
+                              <option value="first_half">First Half</option>
+                              <option value="second_half">Second Half</option>
+                            </select>
+                            <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                          </motion.div>
+                        )}
                       </div>
+
                       <p className={`text-[11px] font-medium px-1 flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                         <i className="fas fa-info-circle text-violet-400"></i>
-                        {leaveDuration === "full" 
-                          ? "This will count as 1 full day from your balance." 
+                        {leaveDuration === "full"
+                          ? "This will count as 1 full day from your balance."
                           : "This will count as 0.5 days from your balance."}
                       </p>
                     </motion.div>
@@ -1230,28 +1343,65 @@ export default function ManagerDashboard() {
                 </AnimatePresence>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
-                        }`}
-                    >
-                      {leaveDuration === "half" && leaveType === "casual" ? "Leave Date" : "Start Date"}
-                    </label>
-                    <input
-                      type="date"
-                      value={leaveStartDate}
-                      onChange={(e) => {
-                        setLeaveStartDate(e.target.value);
-                        if (leaveDuration === "half") setLeaveEndDate(e.target.value);
-                      }}
-                      required
-                      className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                        : "border-gray-200 focus:border-violet-500 focus:bg-white"
-                        }`}
-                    />
+                  <div className={(leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual" ? "md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4" : ""}>
+                    <div className={(leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual" ? "md:col-span-1" : ""}>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        {(leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual" ? "Leave Date" : "Start Date"}
+                      </label>
+                      <input
+                        type="date"
+                        value={leaveStartDate}
+                        onChange={(e) => {
+                          setLeaveStartDate(e.target.value);
+                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(e.target.value);
+                        }}
+                        required
+                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                          : "border-gray-200 focus:border-violet-500 focus:bg-white"
+                          }`}
+                      />
+                    </div>
+
+                    {(leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual" && (
+                      <>
+                        <div>
+                          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            From Time
+                          </label>
+                          <input
+                            type="time"
+                            value={leaveStartTime}
+                            onChange={(e) => setLeaveStartTime(e.target.value)}
+                            required
+                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                              : "border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
+                              }`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            To Time
+                          </label>
+                          <input
+                            type="time"
+                            value={leaveEndTime}
+                            onChange={(e) => setLeaveEndTime(e.target.value)}
+                            required
+                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
+                              : "border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
+                              }`}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {!(leaveDuration === "half" && leaveType === "casual") && (
+                  {!((leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual") && (
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -1379,9 +1529,9 @@ export default function ManagerDashboard() {
                               <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
                                 {LEAVE_BALANCE[req.leaveType]?.name}
                               </span>
-                              {req.leaveDuration === "half" && (
+                              {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
                                 <span className="ml-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700">
-                                  Half
+                                  {req.leaveDuration === "half" ? "Half" : req.leaveDuration === "first_half" ? "1st Half" : "2nd Half"}
                                 </span>
                               )}
                             </td>
@@ -1537,9 +1687,9 @@ export default function ManagerDashboard() {
                             <div>
                               <p className={`font-black text-lg ${isDark ? "text-white" : "text-gray-800"}`}>
                                 {emp.firstName} {emp.lastName}{" "}
-                                {req.leaveDuration === "half" && (
+                                {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
                                   <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
-                                    Half Leave
+                                    {req.leaveDuration === "half" ? "Half Leave" : req.leaveDuration === "first_half" ? "1st Half Leave" : "2nd Half Leave"}
                                   </span>
                                 )}
                               </p>
@@ -1579,6 +1729,11 @@ export default function ManagerDashboard() {
                           >
                             <strong>Dates:</strong> {req.startDate} to{" "}
                             {req.endDate}
+                            {req.startTime && req.endTime && (
+                              <div className="mt-1 text-xs font-bold text-orange-500">
+                                <i className="fas fa-clock mr-1"></i> Time: {req.startTime} to {req.endTime}
+                              </div>
+                            )}
                           </p>
                         </div>
                         {req.status === "pending" && (
@@ -2124,18 +2279,18 @@ export default function ManagerDashboard() {
                 <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
                   <div className="flex items-center gap-2 w-full">
                     <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-violet-400" : "text-violet-500"}`}></i>
-                    <input 
-                      type="date" 
-                      value={reportStartDate} 
+                    <input
+                      type="date"
+                      value={reportStartDate}
                       onChange={(e) => setReportStartDate(e.target.value)}
                       className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
                     />
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
-                       <i className="fas fa-arrow-right"></i>
+                      <i className="fas fa-arrow-right"></i>
                     </span>
-                    <input 
-                      type="date" 
-                      value={reportEndDate} 
+                    <input
+                      type="date"
+                      value={reportEndDate}
                       onChange={(e) => setReportEndDate(e.target.value)}
                       className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
                     />
@@ -2206,7 +2361,7 @@ export default function ManagerDashboard() {
                         </span>
                         <div className="flex items-center gap-3">
                           <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
-                            {log.duration}
+                            {formatDisplayDuration(log.duration)}
                           </span>
                           <button onClick={() => handleEditLog(log)} className="text-violet-500 hover:text-violet-600 transition-colors p-1" title="Edit">
                             <i className="fas fa-edit"></i>
@@ -2584,6 +2739,18 @@ export default function ManagerDashboard() {
       case "profile":
         return <ProfilePage auth={{ currentUser: user }} />;
 
+      case "generatePdf":
+        console.log("Rendering GeneratePDF section in ManagerDashboard");
+        return (
+          <GeneratePDF
+            allUsers={allUsers}
+            departmentsMap={departmentsMap}
+            isDark={isDark}
+            restrictedDeptId={dept}
+            currentUserEmail={auth?.currentUser?.email}
+          />
+        );
+
       default:
         return null;
     }
@@ -2710,6 +2877,15 @@ export default function ManagerDashboard() {
               <span>
                 <i className="fas fa-user-plus w-5"></i> Pending
               </span>
+              {deptPending.length > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-lg"
+                >
+                  {deptPending.length}
+                </motion.span>
+              )}
             </button>
             <button
               onClick={() => {
@@ -2728,12 +2904,23 @@ export default function ManagerDashboard() {
                 setCurrentSection("leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "leave"
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "leave"
                 ? "bg-violet-500 text-white"
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-calendar-check w-5"></i> Leave Requests
+              <span>
+                <i className="fas fa-calendar-check w-5"></i> Leave Requests
+              </span>
+              {pendingLeaveRequests.length > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-lg"
+                >
+                  {pendingLeaveRequests.length}
+                </motion.span>
+              )}
             </button>
             <button
               onClick={() => {
@@ -2810,6 +2997,18 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
+                setCurrentSection("generatePdf");
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "generatePdf"
+                ? "bg-violet-500 text-white"
+                : "hover:bg-violet-50 text-gray-700"
+                }`}
+            >
+              <i className="fas fa-file-pdf w-5"></i> Generate PDF
+            </button>
+            <button
+              onClick={() => {
                 setCurrentSection("holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
@@ -2820,6 +3019,7 @@ export default function ManagerDashboard() {
             >
               <i className="fas fa-umbrella-beach w-5"></i> Public Holidays
             </button>
+
 
             <button
               onClick={() => {
@@ -2901,6 +3101,7 @@ export default function ManagerDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
     </>
   );
 }

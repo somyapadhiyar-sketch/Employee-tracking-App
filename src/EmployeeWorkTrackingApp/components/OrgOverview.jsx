@@ -43,12 +43,8 @@ const OrgOverview = ({
 }) => {
   const [filterDeptId, setFilterDeptId] = React.useState("");
   const [selectedEmployeeEmail, setSelectedEmployeeEmail] = React.useState("");
-  const [startDate, setStartDate] = React.useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = React.useState(() => new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+  const [endDate, setEndDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
 
   // --- FILTER OUT ADMINS FROM ALL CALCULATIONS ---
   const allUsers = useMemo(() => rawUsers.filter(u => u.role !== 'admin'), [rawUsers]);
@@ -304,10 +300,10 @@ const OrgOverview = ({
             </div>
 
             {filterDeptId && (
-              <motion.button
+                <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onViewDepartment(filterDeptId)}
+                onClick={() => onViewDepartment(filterDeptId, departmentsMap[filterDeptId]?.name || filterDeptId)}
                 className="h-[40px] aspect-square bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-xl shadow-xl shadow-blue-500/20 flex items-center justify-center shrink-0"
                 title="View Team Analysis"
               >

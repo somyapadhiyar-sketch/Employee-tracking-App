@@ -29,7 +29,7 @@ export function ProfileCard({
     }
   };
 
-  const recentWorkLogs = workLogs.slice(-10).reverse();
+
 
   // Helper component to render each info card neatly
   const InfoCard = ({ icon, label, value, colorClass }) => (
@@ -168,102 +168,6 @@ export function ProfileCard({
           )}
         </div>
 
-        {/* Work History Section */}
-        {isAdminView && workLogs.length > 0 && (
-          <div className="mt-10 pt-8 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-6">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${isDark
-                  ? "bg-gray-700 text-emerald-400"
-                  : "bg-emerald-100 text-emerald-600"
-                  }`}
-              >
-                <i className="fas fa-history"></i>
-              </div>
-              <h3
-                className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"
-                  }`}
-              >
-                Recent Work Activity
-              </h3>
-            </div>
-
-            <div
-              className={`space-y-4 max-h-72 overflow-y-auto pr-2 custom-scrollbar`}
-            >
-              {recentWorkLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className={`p-5 rounded-xl border transition-all hover:shadow-md ${isDark
-                    ? "bg-gray-700/50 border-gray-600"
-                    : "bg-white border-gray-200 shadow-sm"
-                    }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`font-bold text-lg flex items-center gap-2 ${isDark ? "text-white" : "text-gray-900"
-                        }`}
-                    >
-                      <i
-                        className={`fas ${log.workType === "office"
-                          ? "fa-briefcase text-blue-500"
-                          : "fa-laptop text-violet-500"
-                          }`}
-                      ></i>
-                      {log.workType === "office"
-                        ? "Office Work"
-                        : "Non-Office Work"}
-                    </span>
-                    <span
-                      className={`text-sm font-bold px-3 py-1.5 rounded-lg ${isDark
-                        ? "bg-gray-800 text-emerald-400 border border-gray-600"
-                        : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                        }`}
-                    >
-                      <i className="fas fa-stopwatch mr-1.5"></i>
-                      {log.duration ||
-                        (log.minutes
-                          ? `${log.minutes} min`
-                          : `${log.hours} hours`)}
-                    </span>
-                  </div>
-                  <p
-                    className={`text-base leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"
-                      }`}
-                  >
-                    {log.description}
-                  </p>
-                  <div
-                    className={`flex items-center gap-4 mt-4 pt-3 border-t ${isDark ? "border-gray-600" : "border-gray-100"
-                      }`}
-                  >
-                    <p
-                      className={`text-sm font-medium flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"
-                        }`}
-                    >
-                      <i className="fas fa-calendar-alt"></i>{" "}
-                      {new Date(log.date).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </p>
-                    {log.taskStartTime && log.taskEndTime && (
-                      <p
-                        className={`text-sm font-medium flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"
-                          }`}
-                      >
-                        <i className="fas fa-clock"></i> {log.taskStartTime} -{" "}
-                        {log.taskEndTime}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </motion.div>
   );

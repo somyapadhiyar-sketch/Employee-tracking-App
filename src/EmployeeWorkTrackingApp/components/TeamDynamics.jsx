@@ -22,17 +22,18 @@ import {
   Cell,
 } from "recharts";
 
-export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHeader = false }) {
+export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHeader = false, propStartDate, propEndDate }) {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => propStartDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+  const [endDate, setEndDate] = useState(() => propEndDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+
+  useEffect(() => {
+    if (propStartDate) setStartDate(propStartDate);
+    if (propEndDate) setEndDate(propEndDate);
+  }, [propStartDate, propEndDate]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -353,7 +354,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
             </p>
           </motion.div>
 
-          {/* Date Range Picker */}
+          {/* Date Range Picker - Keep it here for side-by-side if header is shown */}
           <div className={`p-4 rounded-3xl border shadow-sm flex items-center gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
             <div className="flex items-center gap-3">
               <i className="fas fa-calendar-alt text-violet-500"></i>
@@ -379,6 +380,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           </div>
         </div>
       )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 

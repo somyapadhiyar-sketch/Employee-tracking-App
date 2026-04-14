@@ -593,8 +593,8 @@ export default function EmployeeDashboard() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${isOnBreak
-                            ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
-                            : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
+                          ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
+                          : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
                           }`}
                       >
                         <i className={`fas ${isOnBreak ? "fa-play" : "fa-coffee"}`}></i>
@@ -932,18 +932,18 @@ export default function EmployeeDashboard() {
                 <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
                   <div className="flex items-center gap-2 w-full">
                     <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-blue-400" : "text-blue-500"}`}></i>
-                    <input 
-                      type="date" 
-                      value={reportStartDate} 
+                    <input
+                      type="date"
+                      value={reportStartDate}
                       onChange={(e) => setReportStartDate(e.target.value)}
                       className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
                     />
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
-                       <i className="fas fa-arrow-right"></i>
+                      <i className="fas fa-arrow-right"></i>
                     </span>
-                    <input 
-                      type="date" 
-                      value={reportEndDate} 
+                    <input
+                      type="date"
+                      value={reportEndDate}
                       onChange={(e) => setReportEndDate(e.target.value)}
                       className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
                     />
@@ -1468,7 +1468,10 @@ export default function EmployeeDashboard() {
             className="space-y-6"
           >
             <div className="flex items-center justify-between mb-8">
-              <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              <h1
+                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  } flex items-center`}
+              >
                 <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
                 Public Holidays
               </h1>
@@ -1487,7 +1490,7 @@ export default function EmployeeDashboard() {
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-blue-900/20' : 'bg-white border-blue-100 bg-gradient-to-br from-white to-blue-50')} transition-all hover:scale-[1.01] duration-300`}>
+                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide transition-all duration-300 ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-md' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-md')}`}>
                       <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md'}`}>
                           <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
