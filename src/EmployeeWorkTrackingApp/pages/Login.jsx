@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, signInWith
 import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../../firebase"; // Make sure db is exported from here
 import { useAuth } from "../hooks/AuthContext";
-import { ALLOWED_LOCATIONS, GEOFENCE_RADIUS } from "../constants/config";
+// Removed ALLOWED_LOCATIONS and GEOFENCE_RADIUS imports
 
 export default function Login({ onLoginSuccess, onSwitchToRegister }) {
   const { refreshUser } = useAuth();
@@ -86,66 +86,13 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     return userData;
   };
 
-  const getLocation = () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported by your browser"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          let msg = "Please enable location access to log in.";
-          if (error.code === error.PERMISSION_DENIED) {
-            msg = "Location access denied. Please enable it in browser settings to log in.";
-          }
-          reject(new Error(msg));
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
-  };
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; // Earth radius in meters
-    const rad = (deg) => (deg * Math.PI) / 180;
-    const phi1 = rad(lat1);
-    const phi2 = rad(lat2);
-    const dPhi = rad(lat2 - lat1);
-    const dLambda = rad(lon2 - lon1);
-
-    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
-              Math.cos(phi1) * Math.cos(phi2) *
-              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // in meters
-  };
 
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
     try {
-      // Track location first
-      const location = await getLocation();
 
-      // Geofence Check (Skipped for Admins)
-      if (role !== 'admin') {
-        let isNearAnySite = false;
-        ALLOWED_LOCATIONS.forEach(site => {
-          const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
-          if (dist <= GEOFENCE_RADIUS) isNearAnySite = true;
-        });
-
-        if (!isNearAnySite) {
-          throw new Error("Login failed: You must be at an authorized office location to log in.");
-        }
-      }
       
       const result = await signInWithPopup(auth, googleProvider);
       const { isNewUser } = getAdditionalUserInfo(result);
@@ -170,7 +117,6 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
 
       // Update location in Firestore
       await updateDoc(userDocRef, {
-        lastLoginLocation: location,
         lastLoginAt: new Date().toISOString(),
       });
 
@@ -200,21 +146,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     const cleanEmail = email.trim();
 
     try {
-      // 1. Track location first
-      const location = await getLocation();
 
-      // Geofence Check (Skipped for Admins)
-      if (role !== 'admin') {
-        let isNearAnySite = false;
-        ALLOWED_LOCATIONS.forEach(site => {
-          const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
-          if (dist <= GEOFENCE_RADIUS) isNearAnySite = true;
-        });
-
-        if (!isNearAnySite) {
-          throw new Error("Login failed: You must be at an authorized office location to log in.");
-        }
-      }
 
       // 2. Check for legacy/hardcoded Admin credentials if role is admin
       if (role === 'admin') {
@@ -234,7 +166,6 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
           if (!querySnapshot.empty) {
             const userRef = doc(db, "users", querySnapshot.docs[0].id);
             await updateDoc(userRef, {
-              lastLoginLocation: location,
               lastLoginAt: new Date().toISOString(),
             });
 
@@ -253,7 +184,6 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
       // Update location in Firestore
       const userDocRef = doc(db, "users", userCredential.user.uid);
       await updateDoc(userDocRef, {
-        lastLoginLocation: location,
         lastLoginAt: new Date().toISOString(),
       });
 

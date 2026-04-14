@@ -19,6 +19,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // This listener fires automatically whenever the user logs in or out
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true); // Ensure loading is true when we are checking auth state
       if (firebaseUser) {
         // User is logged into Firebase Auth. Now fetch their extra data from Firestore!
         try {

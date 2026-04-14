@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ThemeProvider } from "./EmployeeWorkTrackingApp/context/ThemeContext";
 import Login from "./EmployeeWorkTrackingApp/pages/Login";
 import Register from "./EmployeeWorkTrackingApp/pages/Register";
@@ -42,22 +42,50 @@ function EmployeeWorkTrackingApp() {
   const [toast, setToast] = useState(null);
   const navigate = useNavigate();
 
+  // Handle automatic redirection after successful login/auth state update
+  useEffect(() => {
+    if (!auth.loading) {
+      const path = window.location.pathname;
+      const isPublicRoute = path === "/login" || path === "/register" || path === "/";
+      
+      if (auth.currentUser) {
+        if (isPublicRoute || path === "") {
+          const userData = auth.currentUser;
+          const dashboardPath =
+            userData.role === "admin"
+              ? "/admin"
+              : userData.role === "employee"
+                ? "/employee"
+                : "/manager";
+          
+          console.log("Auto-navigating to dashboard:", dashboardPath);
+          navigate(dashboardPath, { replace: true });
+        }
+      } else {
+        // Not logged in. If on a protected route, go to login.
+        if (!isPublicRoute) {
+          console.log("Not logged in, auto-navigating to login");
+          navigate("/login", { replace: true });
+        }
+      }
+    }
+  }, [auth.currentUser, auth.loading, navigate]);
+
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
   const handleLoginSuccess = (userData) => {
-    console.log(userData);
-    const dashboardPath =
-      userData.role === "admin"
-        ? "/admin"
-        : userData.role === "employee"
-          ? "/employee"
-          : "/manager";
-
-    navigate(dashboardPath);
-    showToast("Login successful!", "success");
+    console.log("Login Success Data:", userData);
+    
+    // Update the auth context immediately.
+    // The useEffect below will handle the navigation once the context re-renders.
+    if (auth && auth.updateUser) {
+      auth.updateUser(userData);
+    }
+    
+    showToast(`Login successful! role: ${userData.role}`, "success");
   };
 
   const handleRegisterSuccess = () => {

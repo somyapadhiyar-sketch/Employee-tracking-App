@@ -4,8 +4,6 @@ import {
   WORK_TYPES,
   LATE_THRESHOLD_HOUR,
   LATE_THRESHOLD_MINUTE,
-  GEOFENCE_RADIUS,
-  ALLOWED_LOCATIONS
 } from "../constants/config";
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
@@ -592,79 +590,20 @@ export default function ManagerDashboard() {
     return deptEmployees;
   };
 
-  const getLocation = () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported by your browser"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          let msg = "Please enable location access to clock in.";
-          if (error.code === error.PERMISSION_DENIED) {
-            msg = "Location access denied. Please enable it in browser settings to clock in.";
-          }
-          reject(new Error(msg));
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
-  };
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; // Earth radius in meters
-    const rad = (deg) => (deg * Math.PI) / 180;
-    const phi1 = rad(lat1);
-    const phi2 = rad(lat2);
-    const dPhi = rad(lat2 - lat1);
-    const dLambda = rad(lon2 - lon1);
-
-    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
-              Math.cos(phi1) * Math.cos(phi2) *
-              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // in meters
-  };
 
   const handleClockIn = async () => {
     try {
-      showToastMessage("Fetching location...", "info");
-      const location = await getLocation();
-
-      // Geofence Check
-      let isNearAnySite = false;
-      let minDistance = Infinity;
-
-      ALLOWED_LOCATIONS.forEach(site => {
-        const dist = calculateDistance(location.latitude, location.longitude, site.lat, site.lng);
-        if (dist < minDistance) minDistance = dist;
-        if (dist <= GEOFENCE_RADIUS) {
-          isNearAnySite = true;
-        }
-      });
-
-      if (!isNearAnySite) {
-        throw new Error(`You are not at an authorized location. (Approx. ${Math.round(minDistance)}m away from nearest site)`);
-      }
-
       const todayDate = getISTDate();
       await updateDoc(doc(db, "users", currentUserId), {
         clockedIn: true,
         lastClockInDate: todayDate,
         lastClockInTime: getISTTimeString(),
-        lastClockInLocation: location,
       });
 
       setClockedIn(true);
       setClockInTime(new Date());
-      showToastMessage("Clocked in successfully at authorized location!", "success");
+      showToastMessage("Clocked in successfully!", "success");
     } catch (err) {
       console.error(err);
       showToastMessage(err.message || "Failed to clock in. Please try again.", "error");

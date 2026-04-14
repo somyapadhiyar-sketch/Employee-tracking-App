@@ -72,12 +72,3 @@ export const ADMIN_CREDENTIALS = [
 export const LATE_THRESHOLD_HOUR = 10;
 export const LATE_THRESHOLD_MINUTE = 30;
 
-// Geofence configuration (Radius in meters)
-export const GEOFENCE_RADIUS = 200; 
-
-export const ALLOWED_LOCATIONS = [
-  { name: "SoftCoding Solutions", lat: 23.0584434, lng: 72.5389127 },
-  { name: "Lokmanya college", lat: 23.0239757, lng: 72.5295033 },
-  { name: "Satyam Nagar Market", lat: 23.0090578, lng: 72.6346124 },
-  { name: "Umiyanagar society", lat: 23.0096154, lng: 72.6448775 }
-];
