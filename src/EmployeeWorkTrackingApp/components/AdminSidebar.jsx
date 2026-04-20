@@ -94,6 +94,12 @@ export default function AdminSidebar({
       color: "from-blue-500 to-blue-600",
     },
     {
+      id: "admin_chat",
+      icon: "fa-robot",
+      label: "Admin Insight Chat",
+      color: "from-blue-500 to-indigo-600",
+    },
+    {
       id: "profile",
       icon: "fa-user-circle",
       label: "My Profile",
