@@ -126,7 +126,7 @@ export default function AdminSidebar({
     <>
       {/* Mobile Hamburger Button */}
       <motion.div
-        className="fixed top-4 left-4 z-50 p-2 lg:hidden cursor-pointer"
+        className={`fixed top-4 left-4 z-50 p-2 cursor-pointer ${isSidebarOpen ? "md:hidden" : ""}`}
       >
         <motion.button
           initial={{ scale: 0 }}
@@ -134,7 +134,9 @@ export default function AdminSidebar({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={toggleSidebar}
-          className={`p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+          className={`p-3 rounded-xl shadow-lg border ${isDark 
+            ? "bg-gray-800 text-white border-gray-700" 
+            : "bg-white text-gray-800 border-gray-100"
             }`}
         >
           <i
@@ -146,28 +148,29 @@ export default function AdminSidebar({
       {/* Mobile Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={toggleSidebar}
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={toggleSidebar}
+              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
       <motion.div
-        initial={{ x: -300, opacity: 0 }}
+        initial={{ x: "-100%", opacity: 0 }}
         animate={{
-          x: isSidebarOpen ? 0 : -300,
+          x: isSidebarOpen ? 0 : "-100%",
           opacity: isSidebarOpen ? 1 : 0,
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${isDark
+        className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${isDark
           ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
           : "bg-gradient-to-b from-white to-cyan-50 border-cyan-100"
           }`}
+        style={{ pointerEvents: isSidebarOpen || window.innerWidth >= 1024 ? "auto" : "none" }}
       >
         {/* Profile Section */}
         <motion.div
@@ -264,19 +267,19 @@ export default function AdminSidebar({
                   >
                     <div className="flex flex-col py-1 pb-3">
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (onAddDepartment) onAddDepartment(); }}
+                        onClick={(e) => { e.stopPropagation(); if (onAddDepartment) onAddDepartment(); if (window.innerWidth < 1024) toggleSidebar(); }}
                         className={`w-full text-left px-5 py-2.5 transition-all flex items-center gap-3 font-bold ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-50"}`}
                       >
                         <i className="fas fa-plus w-5 flex justify-center text-sm"></i> Add New Department
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (onDeptAction) onDeptAction("edit"); }}
+                        onClick={(e) => { e.stopPropagation(); if (onDeptAction) onDeptAction("edit"); if (window.innerWidth < 1024) toggleSidebar(); }}
                         className={`w-full text-left px-5 py-2.5 transition-all flex items-center gap-3 font-bold ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-50"}`}
                       >
                         <i className="fas fa-pencil-alt w-5 flex justify-center text-sm"></i> Update Department
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (onDeptAction) onDeptAction("delete"); }}
+                        onClick={(e) => { e.stopPropagation(); if (onDeptAction) onDeptAction("delete"); if (window.innerWidth < 1024) toggleSidebar(); }}
                         className={`w-full text-left px-5 py-2.5 transition-all flex items-center gap-3 font-bold ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-50"}`}
                       >
                         <i className="fas fa-trash-alt w-5 flex justify-center text-sm"></i> Delete Department

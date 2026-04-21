@@ -1,7 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const GeneratePDF = ({ allUsers, departmentsMap, isDark, restrictedDeptId }) => {
+const GeneratePDF = ({
+  allUsers,
+  departmentsMap,
+  isDark,
+  restrictedDeptId,
+  currentUserEmail,
+}) => {
   const [selectedDeptId, setSelectedDeptId] = useState(restrictedDeptId || "");
   const [selectedEmployeeEmail, setSelectedEmployeeEmail] = useState("");
   const [startDate, setStartDate] = useState(() => {
@@ -12,9 +18,27 @@ const GeneratePDF = ({ allUsers, departmentsMap, isDark, restrictedDeptId }) => 
   const [endDate, setEndDate] = useState(
     () => new Date().toISOString().split("T")[0]
   );
+  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
+  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [pdfData, setPdfData] = useState(null); // This will hold the PDF URL or base64
   const [isSending, setIsSending] = useState(false);
+
+  const deptRef = useRef(null);
+  const empRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (deptRef.current && !deptRef.current.contains(event.target)) {
+        setIsDeptDropdownOpen(false);
+      }
+      if (empRef.current && !empRef.current.contains(event.target)) {
+        setIsEmpDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const departments = useMemo(() => {
     const list = Object.entries(departmentsMap).map(([id, data]) => ({
@@ -36,8 +60,11 @@ const GeneratePDF = ({ allUsers, departmentsMap, isDark, restrictedDeptId }) => 
           u.department === selectedDeptId || u.departmentId === selectedDeptId
       );
     }
+    if (currentUserEmail) {
+      filtered = filtered.filter((u) => u.email !== currentUserEmail);
+    }
     return filtered;
-  }, [allUsers, selectedDeptId]);
+  }, [allUsers, selectedDeptId, currentUserEmail]);
 
   const generateReport = async (actionType = "preview") => {
     if (!selectedDeptId && !selectedEmployeeEmail) {
@@ -282,35 +309,88 @@ const GeneratePDF = ({ allUsers, departmentsMap, isDark, restrictedDeptId }) => 
                 >
                   Department
                 </label>
-                <div className="relative">
-                  <select
-                    value={selectedDeptId}
-                    onChange={(e) => {
-                      setSelectedDeptId(e.target.value);
-                      setSelectedEmployeeEmail("");
-                    }}
-                    className={`w-full pl-4 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
+                <div className="relative z-20" ref={deptRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeptDropdownOpen(!isDeptDropdownOpen)}
+                    className={`w-full flex items-center justify-between pl-4 pr-4 py-3 rounded-2xl border-2 transition-all font-bold text-sm outline-none ${
                       isDark
                         ? "bg-gray-900 border-gray-700 text-white focus:border-blue-500"
                         : "bg-gray-50 border-gray-100 text-slate-700 focus:border-blue-400"
                     }`}
                   >
-                    {!restrictedDeptId && (
-                      <option value="">All Departments</option>
-                    )}
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name || dept.id}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                    <i
-                      className={`fas fa-chevron-down text-xs ${
-                        restrictedDeptId ? "text-violet-500" : ""
+                    <span className="truncate">
+                      {selectedDeptId
+                        ? departments.find((d) => d.id === selectedDeptId)?.name ||
+                          selectedDeptId
+                        : "All Departments"}
+                    </span>
+                    <motion.i
+                      animate={{ rotate: isDeptDropdownOpen ? 180 : 0 }}
+                      className={`fas fa-chevron-down text-xs ml-2 opacity-50 ${
+                        restrictedDeptId ? "text-violet-500 opacity-100" : ""
                       }`}
-                    ></i>
-                  </div>
+                    ></motion.i>
+                  </button>
+
+                  <AnimatePresence>
+                    {isDeptDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className={`absolute z-[100] left-0 w-full mt-2 rounded-2xl shadow-2xl border overflow-hidden ${
+                          isDark
+                            ? "bg-gray-800 border-gray-700"
+                            : "bg-white border-gray-100"
+                        }`}
+                      >
+                        <div className="max-h-60 overflow-y-auto scrollbar-hide">
+                          {!restrictedDeptId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDeptId("");
+                                setSelectedEmployeeEmail("");
+                                setIsDeptDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                                !selectedDeptId
+                                  ? "bg-blue-500/10 text-blue-500"
+                                  : isDark
+                                  ? "text-gray-300 hover:bg-gray-700"
+                                  : "text-slate-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              All Departments
+                            </button>
+                          )}
+                          {departments.map((dept) => (
+                            <button
+                              key={dept.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDeptId(dept.id);
+                                setSelectedEmployeeEmail("");
+                                setIsDeptDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                                selectedDeptId === dept.id
+                                  ? restrictedDeptId
+                                    ? "bg-violet-500/10 text-violet-500"
+                                    : "bg-blue-500/10 text-blue-500"
+                                  : isDark
+                                  ? "text-gray-300 hover:bg-gray-700"
+                                  : "text-slate-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              {dept.name || dept.id}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             )}
@@ -324,38 +404,103 @@ const GeneratePDF = ({ allUsers, departmentsMap, isDark, restrictedDeptId }) => 
               >
                 Employee
               </label>
-              <div className="relative">
-                <select
-                  value={selectedEmployeeEmail}
-                  onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
-                  className={`w-full pl-4 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${
+              <div className="relative z-20" ref={empRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
+                  className={`w-full flex items-center justify-between pl-4 pr-4 py-3 rounded-2xl border-2 transition-all font-bold text-sm outline-none ${
                     isDark
                       ? "bg-gray-900 border-gray-700 text-white focus:border-blue-500"
                       : "bg-gray-50 border-gray-100 text-slate-700 focus:border-blue-400"
                   }`}
                 >
-                  <option value="">All Employees</option>
-                  {filteredEmployees.map((emp) => (
-                    <option key={emp.id} value={emp.email}>
-                      {emp.firstName} {emp.lastName}{" "}
-                      {emp.role === "manager" || emp.role === "dept_manager"
-                        ? "(Manager)"
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                  <i
-                    className={`fas fa-chevron-down text-xs ${
-                      restrictedDeptId ? "text-violet-500" : ""
+                  <span className="truncate">
+                    {selectedEmployeeEmail
+                      ? filteredEmployees.find(
+                          (e) => e.email === selectedEmployeeEmail
+                        )?.firstName +
+                        " " +
+                        filteredEmployees.find(
+                          (e) => e.email === selectedEmployeeEmail
+                        )?.lastName
+                      : "All Employees"}
+                  </span>
+                  <motion.i
+                    animate={{ rotate: isEmpDropdownOpen ? 180 : 0 }}
+                    className={`fas fa-chevron-down text-xs ml-2 opacity-50 ${
+                      restrictedDeptId ? "text-violet-500 opacity-100" : ""
                     }`}
-                  ></i>
-                </div>
+                  ></motion.i>
+                </button>
+
+                <AnimatePresence>
+                  {isEmpDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className={`absolute z-[100] left-0 w-full mt-2 rounded-2xl shadow-2xl border overflow-hidden ${
+                        isDark
+                          ? "bg-gray-800 border-gray-700"
+                          : "bg-white border-gray-100"
+                      }`}
+                    >
+                      <div className="max-h-60 overflow-y-auto scrollbar-hide">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEmployeeEmail("");
+                            setIsEmpDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                            !selectedEmployeeEmail
+                              ? "bg-blue-500/10 text-blue-500"
+                              : isDark
+                              ? "text-gray-300 hover:bg-gray-700"
+                              : "text-slate-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          All Employees
+                        </button>
+                        {filteredEmployees.map((emp) => (
+                          <button
+                            key={emp.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployeeEmail(emp.email);
+                              setIsEmpDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                              selectedEmployeeEmail === emp.email
+                                ? restrictedDeptId
+                                  ? "bg-violet-500/10 text-violet-500"
+                                  : "bg-blue-500/10 text-blue-500"
+                                : isDark
+                                ? "text-gray-300 hover:bg-gray-700"
+                                : "text-slate-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="truncate">
+                                {emp.firstName} {emp.lastName}
+                                {(emp.role === "manager" || emp.role === "dept_manager") && (
+                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 font-bold uppercase tracking-wider">
+                                    Manager
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
             {/* Date Range */}
-            <div className="space-y-2 lg:col-span-1">
+            <div className="space-y-2 lg:col-span-1 relative z-10">
               <label
                 className={`text-xs font-black uppercase tracking-widest ${
                   isDark ? "text-gray-400" : "text-gray-500"

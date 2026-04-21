@@ -97,7 +97,7 @@ export default function AdminDashboard() {
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [leaveFilter, setLeaveFilter] = useState("pending");
   const [isSidebarOpen, setIsSidebarOpen] = useState(
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : false
+    typeof window !== "undefined" ? window.innerWidth >= 768 : false
   );
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [publicHolidays, setPublicHolidays] = useState([]);
@@ -118,6 +118,18 @@ export default function AdminDashboard() {
   const [analysisReturnTo, setAnalysisReturnTo] = useState(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
 
   const handleGenerateReport = async () => {
@@ -317,7 +329,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const formatTime = (date) =>
@@ -1061,8 +1086,8 @@ export default function AdminDashboard() {
                 : "bg-gradient-to-r from-cyan-50 via-blue-50 to-indigo-50 border-blue-100"
                 }`}
             >
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
+              <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
+                <div className="flex flex-col items-center sm:items-start">
                   <h1
                     className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
@@ -1082,7 +1107,7 @@ export default function AdminDashboard() {
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex flex-col items-center sm:items-end"
+                  className="flex flex-col items-center sm:items-end w-full sm:w-auto"
                 >
                   <p
                     className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"

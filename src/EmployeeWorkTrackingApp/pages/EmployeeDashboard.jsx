@@ -55,10 +55,15 @@ export default function EmployeeDashboard() {
   const [leaveFilter, setLeaveFilter] = useState("all");
   const [leaveSearchTerm, setLeaveSearchTerm] = useState("");
   const [leaveStatusFilter, setLeaveStatusFilter] = useState("all");
+  const [leaveStartTime, setLeaveStartTime] = useState("09:00");
+  const [leaveEndTime, setLeaveEndTime] = useState("13:30");
+
+  const [isDurationDropdownOpen, setIsDurationDropdownOpen] = useState(false);
+  const [isHalfTypeDropdownOpen, setIsHalfTypeDropdownOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : false
+    typeof window !== "undefined" ? window.innerWidth >= 768 : false
   );
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [publicHolidays, setPublicHolidays] = useState([]);
@@ -161,7 +166,24 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    
+    // Add resize listener to handle sidebar state
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    
+    window.addEventListener("resize", handleResize);
+    // Call once to set initial state correctly
+    handleResize();
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const formatTime = (date) => {
@@ -260,7 +282,7 @@ export default function EmployeeDashboard() {
 
   const calculateLeaveDuration = (start, end, durationType = "full") => {
     if (!start || !end) return 0;
-    if (durationType === "half") return 0.5;
+    if (durationType === "half" || durationType === "first_half" || durationType === "second_half") return 0.5;
     const s = new Date(start);
     const e = new Date(end);
     const diffTime = Math.abs(e - s);
@@ -343,16 +365,22 @@ export default function EmployeeDashboard() {
         "error"
       );
 
+    const lType = leaveType;
+    const lDuration = lType === "sick" ? "full" : leaveDuration;
+    const lEndDate = (lDuration === "half" || lDuration === "first_half" || lDuration === "second_half") ? leaveStartDate : leaveEndDate;
+
     try {
       await addDoc(collection(db, "leaveRequests"), {
         employeeId: currentUserId,
         employeeName: `${user.firstName} ${user.lastName}`,
         department: user.department,
         startDate: leaveStartDate,
-        endDate: leaveDuration === "half" ? leaveStartDate : leaveEndDate,
+        endDate: lEndDate,
         reason: leaveReason,
-        leaveType: leaveType,
-        leaveDuration: leaveDuration,
+        leaveType: lType,
+        leaveDuration: lDuration,
+        startTime: (lDuration === "first_half" || lDuration === "second_half" || lDuration === "half") ? leaveStartTime : null,
+        endTime: (lDuration === "first_half" || lDuration === "second_half" || lDuration === "half") ? leaveEndTime : null,
         status: "pending",
         isManager: false,
         role: user.role,
@@ -537,8 +565,8 @@ export default function EmployeeDashboard() {
                 : "bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 border-blue-100"
                 }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
+              <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
+                <div className="flex flex-col items-center sm:items-start">
                   <h1
                     className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-800"
                       }`}
@@ -552,7 +580,7 @@ export default function EmployeeDashboard() {
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex flex-col items-center sm:items-end"
+                  className="flex flex-col items-center sm:items-end w-full sm:w-auto"
                 >
                   <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-blue-600"
                     }`}>
@@ -563,7 +591,7 @@ export default function EmployeeDashboard() {
                   </p>
 
                   {/* Clock In Section Inside Welcome */}
-                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
+                  <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
                     <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
                       {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
                     </p>
@@ -1136,7 +1164,7 @@ export default function EmployeeDashboard() {
 
             {/* Request Form */}
             <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${isDark
+              className={`rounded-2xl p-4 sm:p-6 shadow-lg border ${isDark
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-gray-100"
                 }`}
@@ -1155,7 +1183,7 @@ export default function EmployeeDashboard() {
                   >
                     Leave Type
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {Object.entries(LEAVE_BALANCE).map(([type, data]) => {
                       const isAvailable = data.total - getUsedLeaves(type) > 0;
                       return (
@@ -1174,9 +1202,9 @@ export default function EmployeeDashboard() {
                             } ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${type === "sick"
+                              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${type === "sick"
                                 ? "bg-gradient-to-br from-rose-400 to-red-500"
                                 : "bg-gradient-to-br from-blue-400 to-cyan-500"
                                 }`}
@@ -1213,7 +1241,7 @@ export default function EmployeeDashboard() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="space-y-3 overflow-hidden"
+                      className="space-y-4 relative z-20"
                     >
                       <label
                         className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"
@@ -1221,24 +1249,132 @@ export default function EmployeeDashboard() {
                       >
                         Casual Leave Type
                       </label>
-                      <div className="relative group">
-                        <i className={`fas fa-clock absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-blue-500 transition-colors`}></i>
-                        <select
-                          value={leaveDuration}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setLeaveDuration(val);
-                            if (val === "half") setLeaveEndDate(leaveStartDate);
-                          }}
-                          className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
-                            ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                            : "bg-gray-50 border-gray-100 focus:border-blue-500 focus:bg-white text-gray-800 shadow-sm"
-                            }`}
-                        >
-                          <option value="full">Full Day Leave</option>
-                          <option value="half">Half Day Leave</option>
-                        </select>
-                        <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Custom Duration Dropdown */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsDurationDropdownOpen(!isDurationDropdownOpen)}
+                            className={`w-full flex items-center px-4 py-3.5 border-2 rounded-xl transition-all focus:border-blue-500 ${isDark
+                              ? "bg-gray-700 border-gray-600 text-white"
+                              : "bg-gray-50 border-gray-100 text-gray-800 shadow-sm"
+                              }`}
+                          >
+                            <i className={`fas fa-clock mr-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                            <span className="flex-1 text-left font-bold text-sm sm:text-base">
+                              {leaveDuration === "full" ? "Full Day Leave" : "Half Day Leave"}
+                            </span>
+                            <motion.i
+                              animate={{ rotate: isDurationDropdownOpen ? 180 : 0 }}
+                              className={`fas fa-chevron-down ml-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                            ></motion.i>
+                          </button>
+
+                          <AnimatePresence>
+                            {isDurationDropdownOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className={`absolute z-[100] w-full mt-2 rounded-xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                                  }`}
+                              >
+                                {[
+                                  { value: "full", label: "Full Day Leave" },
+                                  { value: "half", label: "Half Day Leave" },
+                                ].map((opt) => (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                      const val = opt.value;
+                                      if (val === "full") {
+                                        setLeaveDuration("full");
+                                      } else {
+                                        setLeaveDuration("first_half");
+                                        setLeaveEndDate(leaveStartDate);
+                                        setLeaveStartTime("09:00");
+                                        setLeaveEndTime("13:30");
+                                      }
+                                      setIsDurationDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-3.5 first:rounded-t-xl last:rounded-b-xl hover:bg-blue-500 hover:text-white transition-colors font-bold ${leaveDuration === opt.value
+                                        ? "bg-blue-500/10 text-blue-500"
+                                        : isDark ? "text-gray-200" : "text-gray-700"
+                                      }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Custom Secondary Half-Type Dropdown */}
+                        {(leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") && (
+                          <div className="relative">
+                            <motion.button
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              type="button"
+                              onClick={() => setIsHalfTypeDropdownOpen(!isHalfTypeDropdownOpen)}
+                              className={`w-full flex items-center px-4 py-3.5 border-2 rounded-xl transition-all focus:border-blue-500 ${isDark
+                                ? "bg-gray-700 border-gray-600 text-white"
+                                : "bg-gray-50 border-gray-100 text-gray-800 shadow-sm"
+                                }`}
+                            >
+                              <i className={`fas fa-adjust mr-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                              <span className="flex-1 text-left font-bold text-sm sm:text-base">
+                                {leaveDuration === "second_half" ? "Second Half" : "First Half"}
+                              </span>
+                              <motion.i
+                                animate={{ rotate: isHalfTypeDropdownOpen ? 180 : 0 }}
+                                className={`fas fa-chevron-down ml-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                              ></motion.i>
+                            </motion.button>
+
+                            <AnimatePresence>
+                              {isHalfTypeDropdownOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className={`absolute z-[100] w-full mt-2 rounded-xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                                    }`}
+                                >
+                                  {[
+                                    { value: "first_half", label: "First Half" },
+                                    { value: "second_half", label: "Second Half" },
+                                  ].map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => {
+                                        setLeaveDuration(opt.value);
+                                        setLeaveEndDate(leaveStartDate);
+                                        if (opt.value === "first_half") {
+                                          setLeaveStartTime("09:00");
+                                          setLeaveEndTime("13:30");
+                                        } else {
+                                          setLeaveStartTime("13:30");
+                                          setLeaveEndTime("18:00");
+                                        }
+                                        setIsHalfTypeDropdownOpen(false);
+                                      }}
+                                      className={`w-full text-left px-4 py-3.5 first:rounded-t-xl last:rounded-b-xl hover:bg-blue-500 hover:text-white transition-colors font-bold ${leaveDuration === opt.value
+                                          ? "bg-blue-500/10 text-blue-500"
+                                          : isDark ? "text-gray-200" : "text-gray-700"
+                                        }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
                       </div>
                       <p className={`text-[11px] font-medium px-1 flex items-center gap-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                         <i className="fas fa-info-circle text-blue-400"></i>
@@ -1250,29 +1386,66 @@ export default function EmployeeDashboard() {
                   )}
                 </AnimatePresence>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
-                        }`}
-                    >
-                      {leaveDuration === "half" && leaveType === "casual" ? "Leave Date" : "Start Date"}
-                    </label>
-                    <input
-                      type="date"
-                      value={leaveStartDate}
-                      onChange={(e) => {
-                        setLeaveStartDate(e.target.value);
-                        if (leaveDuration === "half") setLeaveEndDate(e.target.value);
-                      }}
-                      required
-                      className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                        : "border-gray-200 focus:border-blue-500 focus:bg-white"
-                        }`}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 relative z-10">
+                  <div className={(leaveDuration === "first_half" || leaveDuration === "second_half" || leaveDuration === "half") && leaveType === "casual" ? "md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4" : ""}>
+                    <div className={(leaveDuration === "first_half" || leaveDuration === "second_half" || leaveDuration === "half") && leaveType === "casual" ? "md:col-span-1" : ""}>
+                      <label
+                        className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"
+                          }`}
+                      >
+                        {(leaveDuration === "first_half" || leaveDuration === "second_half" || leaveDuration === "half") && leaveType === "casual" ? "Leave Date" : "Start Date"}
+                      </label>
+                      <input
+                        type="date"
+                        value={leaveStartDate}
+                        onChange={(e) => {
+                          setLeaveStartDate(e.target.value);
+                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(e.target.value);
+                        }}
+                        required
+                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                          : "border-gray-200 focus:border-blue-500 focus:bg-white"
+                          }`}
+                      />
+                    </div>
+
+                    {(leaveDuration === "first_half" || leaveDuration === "second_half" || leaveDuration === "half") && leaveType === "casual" && (
+                      <>
+                        <div>
+                          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            From Time
+                          </label>
+                          <input
+                            type="time"
+                            value={leaveStartTime}
+                            onChange={(e) => setLeaveStartTime(e.target.value)}
+                            required
+                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                              ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                              : "border-gray-200 focus:border-blue-500 focus:bg-white text-gray-800"
+                              }`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            To Time
+                          </label>
+                          <input
+                            type="time"
+                            value={leaveEndTime}
+                            onChange={(e) => setLeaveEndTime(e.target.value)}
+                            required
+                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
+                              ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+                              : "border-gray-200 focus:border-blue-500 focus:bg-white text-gray-800"
+                              }`}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {!(leaveDuration === "half" && leaveType === "casual") && (
+                  {!(leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half" && leaveType === "casual") && (
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -1400,10 +1573,17 @@ export default function EmployeeDashboard() {
                               <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${req.leaveType === "sick" ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"}`}>
                                 {LEAVE_BALANCE[req.leaveType]?.name}
                               </span>
-                              {req.leaveDuration === "half" && (
-                                <span className="ml-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700">
-                                  Half
-                                </span>
+                              {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
+                                <div className="mt-1 flex flex-col gap-0.5">
+                                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 w-fit">
+                                    {req.leaveDuration === "first_half" ? "1st Half" : req.leaveDuration === "second_half" ? "2nd Half" : "Half"}
+                                  </span>
+                                  {req.startTime && req.endTime && (
+                                    <span className={`text-[10px] font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                      {req.startTime} - {req.endTime}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -1616,7 +1796,10 @@ export default function EmployeeDashboard() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsSidebarOpen(true)}
-          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}
+          className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg border ${isDark
+            ? "bg-gray-800 text-white border-gray-700"
+            : "bg-white text-gray-800 border-gray-200"
+            } ${isSidebarOpen ? "md:hidden" : ""}`}
         >
           <i className="fas fa-bars text-xl"></i>
         </motion.button>
@@ -1642,7 +1825,7 @@ export default function EmployeeDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+          className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
             ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
             : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
             }`}
@@ -1787,7 +1970,7 @@ export default function EmployeeDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
+          className={`flex-1 overflow-x-hidden overflow-y-auto p-3 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
             }`}
           style={{ height: "100vh" }}
         >

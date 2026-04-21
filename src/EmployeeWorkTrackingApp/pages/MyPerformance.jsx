@@ -173,26 +173,26 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className={`p-4 rounded-3xl border shadow-sm flex items-center gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
-            <div className="flex items-center gap-3">
+          <div className={`w-full sm:w-auto p-3 sm:p-4 rounded-3xl border shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+            <div className="flex items-center gap-3 px-1 sm:px-0">
               <i className="fas fa-calendar-alt text-blue-500"></i>
               <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
               <input 
                 type="date" 
                 value={startDate} 
                 onChange={(e) => setStartDate(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
+                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
               />
-              <span className={isDark ? "text-gray-500" : "text-gray-400"}>
+              <span className={`shrink-0 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                 <i className="fas fa-arrow-right text-[10px]"></i>
               </span>
               <input 
                 type="date" 
                 value={endDate} 
                 onChange={(e) => setEndDate(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
+                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
               />
             </div>
           </div>

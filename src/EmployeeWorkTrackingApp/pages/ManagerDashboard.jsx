@@ -53,7 +53,7 @@ export default function ManagerDashboard() {
   const [searchDate, setSearchDate] = useState(() => getISTDate());
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : false
+    typeof window !== "undefined" ? window.innerWidth >= 768 : false
   );
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
@@ -212,7 +212,20 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const formatDisplayDuration = (duration) => {
@@ -757,8 +770,8 @@ export default function ManagerDashboard() {
                 : "bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-purple-100"
                 }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
+              <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
+                <div className="flex flex-col items-center sm:items-start">
                   <h1
                     className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
@@ -783,7 +796,7 @@ export default function ManagerDashboard() {
                   </p>
 
                   {/* Clock In Section Inside Welcome */}
-                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
+                  <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
                     <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
                       {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
                     </p>
@@ -914,39 +927,6 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <motion.div
-              className={`rounded-2xl p-6 shadow-lg border ${isDark
-                ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600"
-                : "bg-gradient-to-r from-violet-50 via-purple-50 to-pink-50 border-purple-100"
-                }`}
-            >
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h1
-                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
-                      }`}
-                  >
-                    Welcome, <span className="text-violet-500 font-extrabold">{userName}</span>
-                  </h1>
-                  <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                    Manage your team and approve requests
-                  </p>
-                </div>
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex flex-col items-center sm:items-end"
-                >
-                  <p className={`text-xl sm:text-2xl font-mono font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-violet-600"
-                    }`}>
-                    {formatTime(currentTime)}
-                  </p>
-                  <p className={`text-sm font-bold tracking-wide mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                    {formatDate(currentTime)}
-                  </p>
-                </motion.div>
-              </div>
-            </motion.div>
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
@@ -2719,8 +2699,10 @@ export default function ManagerDashboard() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsSidebarOpen(true)}
-          className={`fixed top-4 left-4 z-[60] lg:hidden p-3 rounded-xl shadow-lg ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"
-            }`}
+          className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg border ${isDark
+            ? "bg-gray-800 text-white border-gray-700"
+            : "bg-white text-gray-800 border-gray-200"
+            } ${isSidebarOpen ? "md:hidden" : ""}`}
         >
           <i className="fas fa-bars text-xl"></i>
         </motion.button>
@@ -2746,7 +2728,7 @@ export default function ManagerDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full lg:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen
+          className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0"
             } ${isDark

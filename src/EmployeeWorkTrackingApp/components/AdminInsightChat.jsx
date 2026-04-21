@@ -20,7 +20,8 @@ const AdminInsightChat = ({ isDark }) => {
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [editingChatId, setEditingChatId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editingMsgId, setEditingMsgId] = useState(null);
@@ -28,6 +29,18 @@ const AdminInsightChat = ({ isDark }) => {
   
   const messagesEndRef = useRef(null);
   const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile && !isSidebarOpen) {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isSidebarOpen]);
 
   // --- Persistence ---
   useEffect(() => {
@@ -223,18 +236,48 @@ const AdminInsightChat = ({ isDark }) => {
   };
 
   return (
-    <div className={`flex h-[calc(100vh-50px)] rounded-3xl overflow-hidden border shadow-2xl transition-all duration-500 ${
+    <div className={`relative flex h-[calc(100vh-50px)] rounded-3xl overflow-hidden border shadow-2xl transition-all duration-500 ${
       isDark ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'
     }`}>
       
-      {/* --- Sidebar --- */}
-      <motion.div
-        initial={false}
-        animate={{ width: isSidebarOpen ? '300px' : '0px', opacity: isSidebarOpen ? 1 : 0 }}
-        className={`relative flex flex-col h-full overflow-hidden border-r transition-all duration-300 ${
-          isDark ? 'bg-[#0f1115] border-gray-800 text-gray-200' : 'bg-white border-gray-100 text-gray-700'
-        }`}
-      >
+      {/* Backdrop for Mobile Sidebar - Only mount when needed */}
+      <AnimatePresence>
+        {isSidebarOpen && isMobile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[20] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+      
+      {/* --- Sidebar --- 
+          On mobile, we only render if open or animating to avoid squashing issues.
+          On desktop, it remains part of the flex layout.
+      */}
+      <AnimatePresence>
+        {(isSidebarOpen || !isMobile) && (
+          <motion.div
+            initial={isMobile ? { x: -300, opacity: 0 } : false}
+            animate={{ 
+              width: isMobile ? '280px' : (isSidebarOpen ? '300px' : '0px'), 
+              opacity: (isSidebarOpen || !isMobile) ? 1 : 0,
+              x: (isSidebarOpen || !isMobile) ? 0 : -300
+            }}
+            exit={isMobile ? { x: -300, opacity: 0 } : { width: 0, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            style={{ 
+              position: isMobile ? 'absolute' : 'relative',
+              zIndex: isMobile ? 30 : 10
+            }}
+            className={`top-0 left-0 bottom-0 flex flex-col h-full overflow-hidden border-r shadow-2xl md:shadow-none ${
+              isDark 
+                ? 'bg-[#0f1115] border-gray-800 text-gray-200' 
+                : 'bg-white border-gray-100 text-gray-700'
+            }`}
+          >
         <div className="p-4 flex flex-col h-full">
           {/* Professional New Chat Button */}
           <button
@@ -270,7 +313,10 @@ const AdminInsightChat = ({ isDark }) => {
             {chats.map((chat) => (
               <div
                 key={chat.id}
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={() => {
+                  setActiveChatId(chat.id);
+                  if (window.innerWidth < 768) setIsSidebarOpen(false);
+                }}
                 className={`group relative flex items-center gap-3 px-3.5 py-3 rounded-2xl cursor-pointer transition-all duration-200 border ${
                   activeChatId === chat.id
                     ? isDark 
@@ -331,33 +377,43 @@ const AdminInsightChat = ({ isDark }) => {
             ))}
           </div>
         </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* --- Main Chat Area --- */}
       <div className="flex-1 flex flex-col min-w-0 bg-transparent">
         {/* Top Header */}
-        <header className={`px-6 py-4 border-b flex items-center justify-between z-10 ${
+        <header className={`px-3 sm:px-6 py-2.5 sm:py-4 border-b flex items-center justify-between z-10 ${
           isDark ? 'bg-gray-950/80 border-gray-800 backdrop-blur-md' : 'bg-white/80 border-gray-100 backdrop-blur-md'
         }`}>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSidebarOpen(!isSidebarOpen);
+              }}
+              className={`p-2 lg:p-2.5 rounded-xl transition-all shadow-md flex items-center justify-center flex-shrink-0 ${
+                isDark 
+                  ? 'bg-gray-800 hover:bg-gray-700 text-blue-400' 
+                  : 'bg-white hover:bg-gray-50 text-blue-600 border border-blue-50'
+              }`}
+              title="Toggle Sidebar"
             >
-              <Menu size={20} />
+              <Menu size={isMobile ? 18 : 22} className={isSidebarOpen && isMobile ? "rotate-90 transition-transform" : "transition-transform"} />
             </button>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white shadow-lg">
-                <Bot size={20} />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white shadow-lg flex-shrink-0">
+                <Bot size={isMobile ? 16 : 20} />
               </div>
-              <div>
-                <h2 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                  {activeChat ? activeChat.title : 'Admin Insight Assistant'}
+              <div className="min-w-0">
+                <h2 className={`font-bold text-sm sm:text-lg truncate leading-tight ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  {activeChat ? activeChat.title : 'Assistant'}
                 </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    Quantum Analysis Engine Active
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
+                  <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Active
                   </span>
                 </div>
               </div>
@@ -365,24 +421,24 @@ const AdminInsightChat = ({ isDark }) => {
           </div>
         </header>
 
-        {/* Messages */}
-        <div className={`flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 custom-scrollbar ${
+        {/* Messages area */}
+        <div className={`flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 lg:space-y-8 custom-scrollbar ${
           isDark ? 'bg-gray-950' : 'bg-gray-50/30'
         }`}>
           {!activeChatId ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-4 max-w-lg mx-auto">
-              <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-3xl flex items-center justify-center mb-6 animate-bounce">
-                <Bot size={40} />
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mb-4 sm:mb-6 animate-bounce">
+                <Bot size={isMobile ? 28 : 40} />
               </div>
-              <h1 className={`text-3xl font-black mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                Welcome to Insight Assistant
+              <h1 className={`text-xl sm:text-3xl font-black mb-2 sm:mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                Insight Assistant
               </h1>
-              <p className={`text-lg mb-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Your AI-powered bridge to Enterprise Data. Create a new session to start analyzing workloads, productivity, and insights.
+              <p className={`text-sm sm:text-lg mb-6 sm:mb-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Analyze enterprise data with AI. Start a new session to begin.
               </p>
               <button
                 onClick={createNewChat}
-                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-xl shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
+                className="px-6 py-3 sm:px-8 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl sm:rounded-2xl font-bold shadow-lg transition-all hover:scale-105 active:scale-95 text-sm sm:text-base"
               >
                 Start New Investigation
               </button>
@@ -392,21 +448,21 @@ const AdminInsightChat = ({ isDark }) => {
               {activeMessages.map((msg, index) => (
                 <motion.div
                   key={msg.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`flex gap-4 max-w-[90%] sm:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 shadow-md ${
+                  <div className={`flex gap-2 sm:gap-4 max-w-[95%] sm:max-w-[85%] lg:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 shadow-md ${
                       msg.role === 'user' 
                         ? 'bg-blue-600 text-white' 
                         : isDark ? 'bg-gray-800 text-blue-400' : 'bg-white border border-blue-100 text-blue-600'
                     }`}>
-                      {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
+                      {msg.role === 'user' ? <User size={isMobile ? 14 : 20} /> : <Bot size={isMobile ? 14 : 20} />}
                     </div>
                     
-                    <div className={`group/msg relative px-5 py-4 rounded-3xl shadow-sm ${
+                    <div className={`group/msg relative px-3 py-2 sm:px-5 sm:py-4 rounded-xl sm:rounded-3xl shadow-sm ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white rounded-tr-none'
                         : isDark 
@@ -470,21 +526,21 @@ const AdminInsightChat = ({ isDark }) => {
                   animate={{ opacity: 1, y: 0 }}
                   className="flex justify-start"
                 >
-                  <div className="flex gap-4 max-w-[80%]">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 shadow-md ${
+                  <div className="flex gap-2 sm:gap-4 max-w-[90%] sm:max-w-[80%]">
+                    <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0 mt-1 shadow-md ${
                       isDark ? 'bg-gray-800 text-blue-400' : 'bg-white border border-blue-100 text-blue-600'
                     }`}>
-                      <Bot size={20} />
+                      <Bot size={isMobile ? 14 : 20} />
                     </div>
-                    <div className={`px-6 py-4 rounded-3xl rounded-tl-none border flex items-center gap-4 ${
+                    <div className={`px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-3xl rounded-tl-none border flex items-center gap-2 sm:gap-4 ${
                       isDark ? 'bg-gray-900 border-gray-800 text-blue-400' : 'bg-blue-50/50 border-blue-100 text-blue-600'
                     }`}>
-                      <div className="flex gap-1.5">
-                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-2 h-2 rounded-full bg-current"></motion.span>
-                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-2 h-2 rounded-full bg-current"></motion.span>
-                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-2 h-2 rounded-full bg-current"></motion.span>
+                      <div className="flex gap-1 sm:gap-1.5 flex-shrink-0">
+                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-current"></motion.span>
+                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-current"></motion.span>
+                        <motion.span animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-current"></motion.span>
                       </div>
-                      <span className="text-sm font-bold tracking-tight">Assistant is thinking...</span>
+                      <span className="text-[10px] sm:text-sm font-bold tracking-tight whitespace-nowrap">Assistant is thinking...</span>
                     </div>
                   </div>
                 </motion.div>
@@ -496,7 +552,7 @@ const AdminInsightChat = ({ isDark }) => {
 
         {/* Input area */}
         {activeChatId && (
-          <div className={`p-6 border-t ${
+          <div className={`p-2.5 sm:p-4 lg:p-6 border-t ${
             isDark ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'
           }`}>
             <form onSubmit={handleSend} className="relative max-w-4xl mx-auto">
@@ -505,8 +561,8 @@ const AdminInsightChat = ({ isDark }) => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
-                placeholder="Ask your assistant anything about the platform..."
-                className={`w-full pl-6 pr-16 py-5 rounded-2xl border-2 transition-all outline-none font-medium text-lg ${
+                placeholder={isMobile ? "Ask your assistant anything..." : "Ask your assistant anything about the platform...."}
+                className={`w-full pl-4 sm:pl-6 pr-12 sm:pr-16 py-3 sm:py-5 rounded-xl sm:rounded-2xl border-2 transition-all outline-none font-medium text-sm sm:text-base lg:text-lg ${
                   isDark 
                     ? 'bg-gray-900 border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' 
                     : 'bg-gray-50 border-gray-100 text-gray-800 focus:border-blue-400 focus:bg-white placeholder-gray-400 shadow-xl shadow-gray-200/50'
@@ -515,33 +571,45 @@ const AdminInsightChat = ({ isDark }) => {
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className={`absolute right-3 top-3 bottom-3 px-6 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black transition-all flex items-center gap-3 disabled:opacity-30 disabled:grayscale shadow-lg shadow-blue-500/30 ${
+                className={`absolute right-1.5 top-1.5 bottom-1.5 px-3 sm:px-6 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black transition-all flex items-center gap-3 disabled:opacity-30 disabled:grayscale shadow-md ${
                   !input.trim() || isLoading ? '' : 'hover:scale-105 active:scale-95'
                 }`}
               >
-                {isLoading ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
+                {isLoading ? <Loader2 className="animate-spin" size={isMobile ? 16 : 20} /> : <Send size={isMobile ? 16 : 20} />}
+                {!isMobile && <span>Send</span>}
               </button>
             </form>
-            <p className={`text-[11px] mt-4 text-center font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-              AI can make mistakes. Verify important statistics with the main dashboard.
+            <p className={`text-[9px] sm:text-[11px] mt-2 sm:mt-4 text-center font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              Verify important stats with the main dashboard.
             </p>
           </div>
         )}
       </div>
 
       <style>{`
+        .markdown-content {
+          font-size: 0.9rem;
+        }
+        @media (max-width: 640px) {
+          .markdown-content { font-size: 0.8rem; }
+          .markdown-content table { font-size: 0.7rem !important; }
+          .markdown-content th, .markdown-content td { padding: 8px !important; }
+        }
         .markdown-content table {
           width: 100%;
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
           border-collapse: collapse;
-          margin: 16px 0;
-          font-size: 0.95rem;
+          margin: 12px 0;
+          font-size: 0.9rem;
           background: ${isDark ? '#0a0a0a' : '#fff'};
-          border-radius: 12px;
-          overflow: hidden;
+          border-radius: 8px;
+          border: 1px solid ${isDark ? '#1f2937' : '#f3f4f6'};
         }
         .markdown-content th, .markdown-content td {
           border: 1px solid ${isDark ? '#1f2937' : '#f3f4f6'};
-          padding: 12px 16px;
+          padding: 10px 12px;
           text-align: left;
         }
         .markdown-content th {
@@ -549,26 +617,30 @@ const AdminInsightChat = ({ isDark }) => {
           font-weight: 800;
           color: ${isDark ? '#3b82f6' : '#2563eb'};
           text-transform: uppercase;
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           letter-spacing: 0.05em;
         }
         .markdown-content tr:nth-child(even) {
           background-color: ${isDark ? '#0d0d0d' : '#f9fafb'};
         }
         .markdown-content ul, .markdown-content ol {
-          margin-left: 24px;
-          margin-bottom: 12px;
-          list-style-type: square;
+          margin-left: 20px;
+          margin-bottom: 8px;
         }
         .markdown-content h1, .markdown-content h2, .markdown-content h3 {
-          font-weight: 900;
-          margin-top: 24px;
-          margin-bottom: 12px;
+          font-weight: 800;
+          margin-top: 16px;
+          margin-bottom: 8px;
           color: ${isDark ? '#fff' : '#1e293b'};
+          line-height: 1.2;
         }
+        .markdown-content h1 { font-size: 1.4rem; }
+        .markdown-content h2 { font-size: 1.2rem; }
+        .markdown-content h3 { font-size: 1rem; }
+        
         .markdown-content p {
-          margin-bottom: 12px;
-          line-height: 1.7;
+          margin-bottom: 8px;
+          line-height: 1.6;
         }
         .user-markdown {
           color: white;
@@ -577,14 +649,15 @@ const AdminInsightChat = ({ isDark }) => {
           color: ${isDark ? '#e2e8f0' : '#334155'};
         }
         .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
+          width: 4px;
+          height: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background-color: ${isDark ? '#374151' : '#e2e8f0'};
-          border-radius: 20px;
+          border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background-color: ${isDark ? '#4b5563' : '#cbd5e1'};
