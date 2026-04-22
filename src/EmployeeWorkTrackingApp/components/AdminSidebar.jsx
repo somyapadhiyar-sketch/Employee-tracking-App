@@ -21,6 +21,27 @@ export default function AdminSidebar({
   const [isDepartmentsExpanded, setIsDepartmentsExpanded] = useState(false);
 
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
+  const [isToggleVisible, setIsToggleVisible] = useState(false);
+  const hideTimeoutRef = useRef(null);
+
+  const showToggleWithTimeout = () => {
+    setIsToggleVisible(true);
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsToggleVisible(false);
+    }, 2000);
+  };
+
+  const clearHideTimeout = () => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, []);
+
   const userInitial = userName ? userName.charAt(0).toUpperCase() : "A";
   const displayName = userName || "Admin";
 
@@ -124,26 +145,38 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Mobile Hamburger Button */}
-      <motion.div
-        className={`fixed top-4 left-4 z-50 p-2 cursor-pointer ${isSidebarOpen ? "md:hidden" : ""}`}
+      {/* Sidebar Toggle Hover Zone */}
+      <div 
+        className="fixed top-0 left-0 z-[60] transition-all duration-300 lg:hidden cursor-pointer"
+        style={{ width: '56px', height: '56px' }}
+        onMouseEnter={showToggleWithTimeout}
+        onClick={() => {
+          toggleSidebar();
+          showToggleWithTimeout();
+        }}
       >
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={toggleSidebar}
-          className={`p-3 rounded-xl shadow-lg border ${isDark 
-            ? "bg-gray-800 text-white border-gray-700" 
-            : "bg-white text-gray-800 border-gray-100"
-            }`}
+        <motion.div
+          animate={{ opacity: isToggleVisible ? 1 : 0 }}
+          className="p-1 transition-all duration-500"
         >
-          <i
-            className={`fas ${isSidebarOpen ? "fa-times" : "fa-bars"} text-xl`}
-          ></i>
-        </motion.button>
-      </motion.div>
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            whileHover={{ scale: 1.2 }}
+            whileTap={{ scale: 0.9 }}
+            onMouseEnter={clearHideTimeout}
+            onMouseLeave={showToggleWithTimeout}
+            className={`p-2 transition-all duration-300 ${isDark 
+              ? "text-white hover:text-blue-400" 
+              : "text-blue-600 hover:text-blue-700 font-bold"
+              }`}
+          >
+            <i
+              className={`fas ${isSidebarOpen ? "fa-times text-2xl" : "fa-bars text-xl"}`}
+            ></i>
+          </motion.button>
+        </motion.div>
+      </div>
 
       {/* Mobile Overlay */}
       <AnimatePresence>
@@ -201,24 +234,7 @@ export default function AdminSidebar({
           <p className="text-cyan-400 text-sm font-medium">Administrator</p>
         </motion.div>
 
-        {/* Theme Toggle */}
-        <motion.button
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={toggleTheme}
-          className={`mx-auto mb-4 px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all ${isDark
-            ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
-            : "bg-cyan-100 text-gray-700 hover:bg-cyan-200"
-            }`}
-        >
-          <i className={`fas ${isDark ? "fa-sun" : "fa-moon"}`}></i>
-          <span className="hidden sm:inline">
-            {isDark ? "Light Mode" : "Dark Mode"}
-          </span>
-        </motion.button>
+
 
         {/* Navigation */}
         <nav

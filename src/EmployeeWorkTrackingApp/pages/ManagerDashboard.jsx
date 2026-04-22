@@ -29,7 +29,7 @@ import { db } from "../../firebase";
 
 export default function ManagerDashboard() {
   const { auth, onLogout } = useOutletContext();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
   const { departmentsMap } = useDepartments();
 
   const [currentSection, setCurrentSection] = useState("dashboard");
@@ -56,6 +56,26 @@ export default function ManagerDashboard() {
     typeof window !== "undefined" ? window.innerWidth >= 768 : false
   );
   const [isFullScreenImage, setIsFullScreenImage] = useState(false);
+  const [isToggleVisible, setIsToggleVisible] = useState(false);
+  const hideTimeoutRef = useRef(null);
+
+  const showToggleWithTimeout = () => {
+    setIsToggleVisible(true);
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsToggleVisible(false);
+    }, 2000);
+  };
+
+  const clearHideTimeout = () => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, []);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const menuTimeoutRef = useRef(null);
 
@@ -2691,22 +2711,36 @@ export default function ManagerDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Mobile Hamburger Button */}
-      {!isSidebarOpen && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsSidebarOpen(true)}
-          className={`fixed top-4 left-4 z-50 p-3 rounded-xl shadow-lg border ${isDark
-            ? "bg-gray-800 text-white border-gray-700"
-            : "bg-white text-gray-800 border-gray-200"
-            } ${isSidebarOpen ? "md:hidden" : ""}`}
+      {/* Sidebar Toggle Hover Zone */}
+      <div 
+        className="fixed top-0 left-0 z-[60] transition-all duration-300 lg:hidden cursor-pointer"
+        style={{ width: '56px', height: '56px' }}
+        onMouseEnter={showToggleWithTimeout}
+        onClick={() => {
+          setIsSidebarOpen(!isSidebarOpen);
+          showToggleWithTimeout();
+        }}
+      >
+        <motion.div
+          animate={{ opacity: isToggleVisible ? 1 : 0 }}
+          className="p-1 transition-all duration-500"
         >
-          <i className="fas fa-bars text-xl"></i>
-        </motion.button>
-      )}
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            whileHover={{ scale: 1.2 }}
+            whileTap={{ scale: 0.9 }}
+            onMouseEnter={clearHideTimeout}
+            onMouseLeave={showToggleWithTimeout}
+            className={`p-2 transition-all duration-300 ${isDark
+              ? "text-white hover:text-blue-400"
+              : "text-blue-600 hover:text-blue-700 font-bold"
+              }`}
+          >
+            <i className={`fas ${isSidebarOpen ? "fa-times text-2xl" : "fa-bars text-xl"}`}></i>
+          </motion.button>
+        </motion.div>
+      </div>
 
       <div
         className={`flex min-h-screen relative ${isDark
@@ -2968,7 +3002,7 @@ export default function ManagerDashboard() {
         </motion.div>
 
         <div
-          className={`flex-1 overflow-y-auto p-4 pt-20 sm:p-5 sm:pt-22 md:p-6 md:pt-24 lg:p-6 relative w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
+          className={`flex-1 overflow-y-auto p-4 pt-8 sm:p-5 sm:pt-10 md:p-6 md:pt-12 lg:p-6 relative min-w-0 w-full transition-all duration-300 ${isSidebarOpen ? "lg:ml-72" : "lg:ml-0"
             }`}
           style={{ height: "100vh" }}
         >

@@ -21,7 +21,7 @@ const AdminInsightChat = ({ isDark }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [editingChatId, setEditingChatId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editingMsgId, setEditingMsgId] = useState(null);
@@ -32,7 +32,7 @@ const AdminInsightChat = ({ isDark }) => {
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       if (!mobile && !isSidebarOpen) {
         setIsSidebarOpen(true);
@@ -86,7 +86,7 @@ const AdminInsightChat = ({ isDark }) => {
     };
     setChats(prev => [newChat, ...prev]);
     setActiveChatId(newId);
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
   };
 
   const deleteChat = (e, id) => {
@@ -248,7 +248,7 @@ const AdminInsightChat = ({ isDark }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[20] md:hidden"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[20] lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -272,7 +272,7 @@ const AdminInsightChat = ({ isDark }) => {
               position: isMobile ? 'absolute' : 'relative',
               zIndex: isMobile ? 30 : 10
             }}
-            className={`top-0 left-0 bottom-0 flex flex-col h-full overflow-hidden border-r shadow-2xl md:shadow-none ${
+            className={`top-0 left-0 bottom-0 flex flex-col h-full overflow-hidden border-r shadow-2xl lg:shadow-none ${
               isDark 
                 ? 'bg-[#0f1115] border-gray-800 text-gray-200' 
                 : 'bg-white border-gray-100 text-gray-700'
@@ -315,7 +315,7 @@ const AdminInsightChat = ({ isDark }) => {
                 key={chat.id}
                 onClick={() => {
                   setActiveChatId(chat.id);
-                  if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  if (window.innerWidth < 1024) setIsSidebarOpen(false);
                 }}
                 className={`group relative flex items-center gap-3 px-3.5 py-3 rounded-2xl cursor-pointer transition-all duration-200 border ${
                   activeChatId === chat.id
@@ -393,14 +393,14 @@ const AdminInsightChat = ({ isDark }) => {
                 e.stopPropagation();
                 setIsSidebarOpen(!isSidebarOpen);
               }}
-              className={`p-2 lg:p-2.5 rounded-xl transition-all shadow-md flex items-center justify-center flex-shrink-0 ${
+              className={`p-2 lg:p-2.5 rounded-xl transition-all shadow-md flex items-center justify-center flex-shrink-0 relative z-[70] ${
                 isDark 
                   ? 'bg-gray-800 hover:bg-gray-700 text-blue-400' 
                   : 'bg-white hover:bg-gray-50 text-blue-600 border border-blue-50'
               }`}
               title="Toggle Sidebar"
             >
-              <Menu size={isMobile ? 18 : 22} className={isSidebarOpen && isMobile ? "rotate-90 transition-transform" : "transition-transform"} />
+              <History size={isMobile ? 18 : 22} className={isSidebarOpen && isMobile ? "rotate-90 transition-transform" : "transition-transform"} />
             </button>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white shadow-lg flex-shrink-0">
@@ -462,7 +462,7 @@ const AdminInsightChat = ({ isDark }) => {
                       {msg.role === 'user' ? <User size={isMobile ? 14 : 20} /> : <Bot size={isMobile ? 14 : 20} />}
                     </div>
                     
-                    <div className={`group/msg relative px-3 py-2 sm:px-5 sm:py-4 rounded-xl sm:rounded-3xl shadow-sm ${
+                    <div className={`group/msg relative px-3 py-2 sm:px-5 sm:py-4 rounded-xl sm:rounded-3xl shadow-sm overflow-hidden ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white rounded-tr-none'
                         : isDark 
@@ -562,7 +562,7 @@ const AdminInsightChat = ({ isDark }) => {
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
                 placeholder={isMobile ? "Ask your assistant anything..." : "Ask your assistant anything about the platform...."}
-                className={`w-full pl-4 sm:pl-6 pr-12 sm:pr-16 py-3 sm:py-5 rounded-xl sm:rounded-2xl border-2 transition-all outline-none font-medium text-sm sm:text-base lg:text-lg ${
+                className={`w-full pl-4 sm:pl-6 pr-12 lg:pr-32 py-3 sm:py-5 rounded-xl sm:rounded-2xl border-2 transition-all outline-none font-medium text-sm sm:text-base lg:text-lg ${
                   isDark 
                     ? 'bg-gray-900 border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' 
                     : 'bg-gray-50 border-gray-100 text-gray-800 focus:border-blue-400 focus:bg-white placeholder-gray-400 shadow-xl shadow-gray-200/50'
@@ -575,12 +575,12 @@ const AdminInsightChat = ({ isDark }) => {
                   !input.trim() || isLoading ? '' : 'hover:scale-105 active:scale-95'
                 }`}
               >
-                {isLoading ? <Loader2 className="animate-spin" size={isMobile ? 16 : 20} /> : <Send size={isMobile ? 16 : 20} />}
-                {!isMobile && <span>Send</span>}
+                {isLoading ? <Loader2 className="animate-spin flex-shrink-0" size={isMobile ? 16 : 20} /> : <Send className="flex-shrink-0" size={isMobile ? 16 : 20} />}
+                {!isMobile && <span className="flex-shrink-0">Send</span>}
               </button>
             </form>
             <p className={`text-[9px] sm:text-[11px] mt-2 sm:mt-4 text-center font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-              Verify important stats with the main dashboard.
+              AI can make mistakes. Verify important statistics with the main dashboard.
             </p>
           </div>
         )}
@@ -606,6 +606,7 @@ const AdminInsightChat = ({ isDark }) => {
           background: ${isDark ? '#0a0a0a' : '#fff'};
           border-radius: 8px;
           border: 1px solid ${isDark ? '#1f2937' : '#f3f4f6'};
+          max-width: 100%;
         }
         .markdown-content th, .markdown-content td {
           border: 1px solid ${isDark ? '#1f2937' : '#f3f4f6'};
