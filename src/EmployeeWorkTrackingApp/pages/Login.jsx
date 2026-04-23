@@ -44,7 +44,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     const uid = user.uid;
     const userDocRef = doc(db, "users", uid);
     let userDoc;
-    
+
     try {
       userDoc = await getDoc(userDocRef);
     } catch (err) {
@@ -73,8 +73,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
       await signOut(auth);
       throw new Error(
-        `You are not authorized to log in as a ${
-          role === "dept_manager" ? "manager" : role
+        `You are not authorized to log in as a ${role === "dept_manager" ? "manager" : role
         }. Please select the correct login role.`
       );
     }
@@ -94,10 +93,10 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
     setLoading(true);
     try {
 
-      
+
       const result = await signInWithPopup(auth, googleProvider);
       const { isNewUser } = getAdditionalUserInfo(result);
-      
+
       // Check if profile exists
       const userDocRef = doc(db, "users", result.user.uid);
       const userDoc = await getDoc(userDocRef);
@@ -166,8 +165,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
 
         if (!isEmployeeMatch && !isManagerMatch && !isAdminMatch) {
           throw new Error(
-            `You are not authorized to log in as a ${
-              role === "dept_manager" ? "manager" : role
+            `You are not authorized to log in as a ${role === "dept_manager" ? "manager" : role
             }. Please select the correct login role.`
           );
         }
@@ -192,7 +190,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
             where("role", "==", "admin")
           );
           const querySnapshot = await getDocs(q);
-          
+
           if (!querySnapshot.empty) {
             const userRef = doc(db, "users", querySnapshot.docs[0].id);
             await updateDoc(userRef, {
@@ -210,7 +208,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
 
       // 3. Standard Firebase Auth login
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      
+
       // Update location in Firestore
       const userDocRef = doc(db, "users", userCredential.user.uid);
       await updateDoc(userDocRef, {
@@ -218,13 +216,13 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
       });
 
       const userData = await verifyAndLogin(userCredential.user);
-      
+
       if (userData && onLoginSuccess) {
         onLoginSuccess(userData);
       }
     } catch (err) {
       console.error("Login error:", err);
-      
+
       if (err.message.includes("location") || err.message.includes("Location")) {
         setError(err.message);
       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
@@ -372,11 +370,10 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setRole(option.value)}
-                    className={`p-3 rounded-xl border-2 transition-all text-center ${
-                      role === option.value
+                    className={`p-3 rounded-xl border-2 transition-all text-center ${role === option.value
                         ? "border-blue-500 bg-blue-50 text-blue-600"
                         : "border-gray-200 hover:border-gray-300 text-gray-600"
-                    }`}
+                      }`}
                   >
                     <i className={`fas ${option.icon} text-xl mb-1 block`}></i>
                     <span className="text-sm font-medium">{option.label}</span>

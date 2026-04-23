@@ -99,6 +99,9 @@ export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState("");
 
+  const [workLogCurrentPage, setWorkLogCurrentPage] = useState(1);
+  const workLogItemsPerPage = 10;
+
   // Edit Log State
   const [editingLogId, setEditingLogId] = useState(null);
   const [description, setDescription] = useState("");
@@ -249,6 +252,10 @@ export default function EmployeeDashboard() {
 
 
 
+  useEffect(() => {
+    setWorkLogCurrentPage(1);
+  }, [searchTerm, reportStartDate, reportEndDate]);
+
   const filteredWorkLogs = allWorkLogs.filter((log) => {
     if (log.employeeId !== currentUserId) return false;
 
@@ -271,6 +278,14 @@ export default function EmployeeDashboard() {
 
     return true;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const workLogIndexOfLastItem = workLogCurrentPage * workLogItemsPerPage;
+  const workLogIndexOfFirstItem = workLogIndexOfLastItem - workLogItemsPerPage;
+  const currentWorkLogs = filteredWorkLogs.slice(workLogIndexOfFirstItem, workLogIndexOfLastItem);
+  const workLogTotalPages = Math.ceil(filteredWorkLogs.length / workLogItemsPerPage);
+
+  const prevWorkLogPage = () => setWorkLogCurrentPage((prev) => Math.max(prev - 1, 1));
+  const nextWorkLogPage = () => setWorkLogCurrentPage((prev) => Math.min(prev + 1, workLogTotalPages));
 
   const myLeaveRequests = allLeaveRequests.filter(
     (req) => req.employeeId === currentUserId
@@ -1006,12 +1021,14 @@ export default function EmployeeDashboard() {
                 : "bg-white border-gray-100"
                 }`}
             >
-              <h2
-                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                {searchTerm ? `Search Results for "${searchTerm}"` : `Work History from ${reportStartDate} to ${reportEndDate}`}
-              </h2>
+              {searchTerm && (
+                <h2
+                  className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
+                    }`}
+                >
+                  Search Results for "{searchTerm}"
+                </h2>
+              )}
               {filteredWorkLogs.length === 0 ? (
                 <p
                   className={`text-center py-8 ${isDark ? "text-gray-400" : "text-gray-500"
@@ -1021,7 +1038,7 @@ export default function EmployeeDashboard() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {filteredWorkLogs.map((log) => (
+                  {currentWorkLogs.map((log) => (
                     <div
                       key={log.id}
                       className={`flex flex-col justify-between p-4 rounded-xl border gap-2 ${isDark
@@ -1029,15 +1046,13 @@ export default function EmployeeDashboard() {
                         : "bg-gray-50 border-gray-200"
                         }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <span
-                          className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                            }`}
-                        >
-                          {WORK_TYPES?.[log.workType]?.name || log.workType} <span className="text-sm font-normal text-gray-400 ml-2">({log.date})</span>
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                      <div className="flex items-start sm:items-center justify-between gap-2 mb-2">
+                        <div className={`font-bold leading-tight ${isDark ? "text-white" : "text-gray-800"}`}>
+                          {WORK_TYPES?.[log.workType]?.name || log.workType}{" "}
+                          <span className="text-xs sm:text-sm font-normal text-gray-400 whitespace-nowrap inline-block">({log.date})</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                          <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[11px] sm:text-sm font-medium whitespace-nowrap">
                             {log.duration}
                           </span>
                           <button onClick={() => handleEditLog(log)} className="text-blue-500 hover:text-blue-600 transition-colors p-1" title="Edit">
@@ -1061,6 +1076,50 @@ export default function EmployeeDashboard() {
                       </p>
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {/* Pagination Controls */}
+              {workLogTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                  <p className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Showing {workLogIndexOfFirstItem + 1} to {Math.min(workLogIndexOfLastItem, filteredWorkLogs.length)} of {filteredWorkLogs.length} entries
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                    <button
+                      onClick={prevWorkLogPage}
+                      disabled={workLogCurrentPage === 1}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                        workLogCurrentPage === 1
+                          ? isDark
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          : isDark
+                          ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                          : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <div className={`px-4 py-1.5 rounded-lg text-sm font-bold ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-600 border border-blue-100"}`}>
+                      Page {workLogCurrentPage} of {workLogTotalPages}
+                    </div>
+                    <button
+                      onClick={nextWorkLogPage}
+                      disabled={workLogCurrentPage === workLogTotalPages}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                        workLogCurrentPage === workLogTotalPages
+                          ? isDark
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          : isDark
+                          ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                          : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

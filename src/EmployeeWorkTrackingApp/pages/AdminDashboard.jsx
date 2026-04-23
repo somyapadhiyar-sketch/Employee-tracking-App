@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDepartments } from "../hooks/useDepartments";
@@ -25,6 +25,81 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useOutletContext } from "react-router-dom";
+
+const AdminCustomSelect = ({ value, options, onChange, label, isDark, icon, iconColorLight, iconColorDark }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div className="flex-[1.5] min-w-[200px] w-full">
+      <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+        {label}
+      </label>
+      <div className={`relative group ${isOpen ? "z-50" : "z-20"}`} ref={containerRef}>
+        <div className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none ${isDark ? iconColorDark : iconColorLight}`}>
+          <i className={`fas ${icon} text-sm`}></i>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center justify-between pl-11 pr-4 py-3 rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
+            ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
+            : "bg-gray-50 border-gray-100 text-slate-700 focus:border-blue-400 shadow-sm"
+            }`}
+        >
+          <span className="truncate pr-2">{selectedOption?.label}</span>
+          <i
+            className={`fas fa-chevron-down text-[10px] transition-transform ${isOpen ? "rotate-180" : ""
+              } opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}
+          ></i>
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={`absolute top-[48px] left-0 w-full z-50 rounded-xl shadow-2xl border max-h-60 overflow-y-auto overflow-x-hidden scrollbar-hide ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                }`}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${value === opt.value
+                    ? "bg-blue-500/10 text-blue-500"
+                    : isDark
+                      ? "text-gray-300 hover:bg-gray-700"
+                      : "text-slate-600 hover:bg-gray-50"
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
 
 const FONT_AWESOME_ICONS = [
   { class: "fa-building", name: "Building" },
@@ -115,6 +190,8 @@ export default function AdminDashboard() {
   const [reportDetailsEndDate, setReportDetailsEndDate] = useState(() =>
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
   );
+  const [reportCurrentPage, setReportCurrentPage] = useState(1);
+  const reportItemsPerPage = 10;
   const [analysisReturnTo, setAnalysisReturnTo] = useState(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
@@ -329,7 +406,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    
+
     const handleResize = () => {
       if (window.innerWidth < 1024) {
         setIsSidebarOpen(false);
@@ -338,7 +415,7 @@ export default function AdminDashboard() {
       }
     };
     window.addEventListener("resize", handleResize);
-    
+
     return () => {
       clearInterval(timer);
       window.removeEventListener("resize", handleResize);
@@ -668,7 +745,7 @@ export default function AdminDashboard() {
   const renderSection = () => {
     switch (currentSection) {
       case "admin_chat": {
-        return <AdminInsightChat isDark={isDark} />;
+        return <AdminInsightChat isDark={isDark} userName={userName} />;
       }
       case "generatePdf": {
         return (
@@ -721,7 +798,10 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="Search name, messages or keywords..."
                   value={reportSearchTerm}
-                  onChange={(e) => setReportSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setReportSearchTerm(e.target.value);
+                    setReportCurrentPage(1);
+                  }}
                   className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 transition-all font-bold ${isDark
                     ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
                     : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
@@ -731,89 +811,46 @@ export default function AdminDashboard() {
 
               {/* Selectors and Dates Row */}
               <div className="flex flex-col lg:flex-row flex-wrap gap-4 items-end">
-                <div className="flex-[1.5] min-w-[200px] w-full">
-                  <label
-                    className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
-                  >
-                    Department
-                  </label>
-                  <div className="relative group">
-                    <div
-                      className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-500"
-                        }`}
-                    >
-                      <i className="fas fa-building text-sm"></i>
-                    </div>
-                    <select
-                      value={selectedReportDept}
-                      onChange={(e) => {
-                        setSelectedReportDept(e.target.value);
-                        setSelectedReportEmployee("");
-                      }}
-                      className={`w-full pl-11 pr-10 py-3 rounded-xl border-2 transition-all appearance-none cursor-pointer font-bold text-sm outline-none ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
-                        }`}
-                    >
-                      <option value="">All Departments</option>
-                      {departmentsList.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div
-                      className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"
-                        }`}
-                    >
-                      <i className="fas fa-chevron-down text-[10px]"></i>
-                    </div>
-                  </div>
-                </div>
+                <AdminCustomSelect
+                  isDark={isDark}
+                  label="Department"
+                  value={selectedReportDept}
+                  icon="fa-building"
+                  iconColorLight="text-blue-500"
+                  iconColorDark="text-blue-400"
+                  options={[
+                    { value: "", label: "All Departments" },
+                    ...departmentsList.map((dept) => ({
+                      value: dept.id,
+                      label: dept.name,
+                    })),
+                  ]}
+                  onChange={(val) => {
+                    setSelectedReportDept(val);
+                    setSelectedReportEmployee("");
+                    setReportCurrentPage(1);
+                  }}
+                />
 
-                <div className="flex-[1.5] min-w-[200px] w-full">
-                  <label
-                    className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
-                      }`}
-                  >
-                    Employee
-                  </label>
-                  <div className="relative group">
-                    <div
-                      className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-emerald-400" : "text-emerald-500"
-                        }`}
-                    >
-                      <i className="fas fa-user text-sm"></i>
-                    </div>
-                    <select
-                      value={selectedReportEmployee}
-                      onChange={(e) =>
-                        setSelectedReportEmployee(e.target.value)
-                      }
-                      className={`w-full pl-11 pr-10 py-3 rounded-xl border-2 transition-all appearance-none cursor-pointer font-bold text-sm outline-none ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
-                        }`}
-                    >
-                      <option value="">Select Employee</option>
-                      {filteredEmployeesForReport.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName}{" "}
-                          {emp.role === "manager" || emp.role === "dept_manager"
-                            ? "(Manager)"
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <div
-                      className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"
-                        }`}
-                    >
-                      <i className="fas fa-chevron-down text-[10px]"></i>
-                    </div>
-                  </div>
-                </div>
+                <AdminCustomSelect
+                  isDark={isDark}
+                  label="Employee"
+                  value={selectedReportEmployee}
+                  icon="fa-user"
+                  iconColorLight="text-emerald-500"
+                  iconColorDark="text-emerald-400"
+                  options={[
+                    { value: "", label: "Select Employee" },
+                    ...filteredEmployeesForReport.map((emp) => ({
+                      value: emp.id,
+                      label: `${emp.firstName} ${emp.lastName} ${emp.role === "manager" || emp.role === "dept_manager" ? "(Manager)" : ""}`.trim(),
+                    })),
+                  ]}
+                  onChange={(val) => {
+                    setSelectedReportEmployee(val);
+                    setReportCurrentPage(1);
+                  }}
+                />
 
                 <div className="flex-[2] min-w-[280px] w-full flex gap-3">
                   <div className="flex-1">
@@ -826,9 +863,10 @@ export default function AdminDashboard() {
                     <input
                       type="date"
                       value={reportDetailsStartDate}
-                      onChange={(e) =>
-                        setReportDetailsStartDate(e.target.value)
-                      }
+                      onChange={(e) => {
+                        setReportDetailsStartDate(e.target.value);
+                        setReportCurrentPage(1);
+                      }}
                       className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
                         ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
                         : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
@@ -845,7 +883,10 @@ export default function AdminDashboard() {
                     <input
                       type="date"
                       value={reportDetailsEndDate}
-                      onChange={(e) => setReportDetailsEndDate(e.target.value)}
+                      onChange={(e) => {
+                        setReportDetailsEndDate(e.target.value);
+                        setReportCurrentPage(1);
+                      }}
                       className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
                         ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
                         : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
@@ -913,12 +954,19 @@ export default function AdminDashboard() {
                             log.description || ""
                           ).toLowerCase();
                           const search = reportSearchTerm.toLowerCase();
+                          const searchTrimmed = search.trim();
+                          const isExactOffice = searchTrimmed === "office";
+                          const workType = (log.workType || "").toLowerCase();
+                          const workTypeMatch = isExactOffice ? workType === "office" : workType.includes(searchTrimmed);
+                          const durationStr = String(formatDisplayDuration(log.duration) || (log.minutes ? `${log.minutes}m` : `${log.hours}h`)).toLowerCase();
 
                           const matchesSearch =
                             !search ||
                             employeeName.includes(search) ||
                             description.includes(search) ||
-                            (log.workType || "").toLowerCase().includes(search);
+                            workTypeMatch ||
+                            durationStr.includes(searchTrimmed) ||
+                            durationStr.replace(/\s+/g, "").includes(searchTrimmed.replace(/\s+/g, ""));
 
                           return (
                             matchesEmployee &&
@@ -929,7 +977,13 @@ export default function AdminDashboard() {
                         })
                         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-                      if (filteredLogs.length === 0) {
+                      const totalPages = Math.ceil(filteredLogs.length / reportItemsPerPage);
+                      const paginatedLogs = filteredLogs.slice(
+                        (reportCurrentPage - 1) * reportItemsPerPage,
+                        reportCurrentPage * reportItemsPerPage
+                      );
+
+                      if (paginatedLogs.length === 0) {
                         return (
                           <tr>
                             <td
@@ -943,7 +997,7 @@ export default function AdminDashboard() {
                         );
                       }
 
-                      return filteredLogs.map((log) => {
+                      return paginatedLogs.map((log) => {
                         const logEmployee = allUsers.find(
                           (u) => u.id === log.employeeId
                         );
@@ -1043,6 +1097,55 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {(() => {
+                const filteredLogsForPagination = workLogs.filter((log) => {
+                  const matchesEmployee = !selectedReportEmployee || log.employeeId === selectedReportEmployee;
+                  const matchesDept = !selectedReportDept || allUsers.find((u) => u.id === log.employeeId)?.department === selectedReportDept || allUsers.find((u) => u.id === log.employeeId)?.departmentId === selectedReportDept;
+                  const matchesStartDate = !reportDetailsStartDate || log.date >= reportDetailsStartDate;
+                  const matchesEndDate = !reportDetailsEndDate || log.date <= reportDetailsEndDate;
+                  const matchesDate = matchesStartDate && matchesEndDate;
+                  const logEmployee = allUsers.find((u) => u.id === log.employeeId);
+                  const employeeName = `${logEmployee?.firstName || ""} ${logEmployee?.lastName || ""}`.toLowerCase();
+                  const description = (log.description || "").toLowerCase();
+                  const search = reportSearchTerm.toLowerCase();
+                  const searchTrimmed = search.trim();
+                  const isExactOffice = searchTrimmed === "office";
+                  const workType = (log.workType || "").toLowerCase();
+                  const workTypeMatch = isExactOffice ? workType === "office" : workType.includes(searchTrimmed);
+                  const durationStr = String(formatDisplayDuration(log.duration) || (log.minutes ? `${log.minutes}m` : `${log.hours}h`)).toLowerCase();
+
+                  const matchesSearch = !search || employeeName.includes(search) || description.includes(search) || workTypeMatch || durationStr.includes(searchTrimmed) || durationStr.replace(/\s+/g, "").includes(searchTrimmed.replace(/\s+/g, ""));
+                  return matchesEmployee && matchesDept && matchesDate && matchesSearch;
+                });
+
+                const totalPages = Math.ceil(filteredLogsForPagination.length / reportItemsPerPage);
+
+                if (totalPages <= 1) return null;
+
+                return (
+                  <div className={`flex justify-between items-center px-6 py-4 border-t ${isDark ? "border-gray-700 bg-gray-800" : "border-gray-100 bg-white"}`}>
+                    <button
+                      onClick={() => setReportCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={reportCurrentPage === 1}
+                      className={`px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${reportCurrentPage === 1 ? (isDark ? "text-gray-500 cursor-not-allowed" : "text-gray-400 cursor-not-allowed") : (isDark ? "text-blue-400 hover:bg-gray-700" : "text-blue-600 hover:bg-blue-50")}`}
+                    >
+                      <i className="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span className={`text-sm font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      Page {reportCurrentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setReportCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={reportCurrentPage === totalPages}
+                      className={`px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${reportCurrentPage === totalPages ? (isDark ? "text-gray-500 cursor-not-allowed" : "text-gray-400 cursor-not-allowed") : (isDark ? "text-blue-400 hover:bg-gray-700" : "text-blue-600 hover:bg-blue-50")}`}
+                    >
+                      Next <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </motion.div>
         );
@@ -2113,42 +2216,52 @@ export default function AdminDashboard() {
             </h1>
 
             {/* FULLY RESTORED LEAVE FILTERS */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-1 sm:gap-3 mb-6 w-full sm:w-auto">
               <button
                 onClick={() => setLeaveFilter("pending")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "pending"
+                className={`flex-1 sm:flex-none flex flex-row items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] xs:text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "pending"
                   ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
                   }`}
               >
-                <i className="fas fa-clock mr-2"></i>Pending (
-                {pendingLeaveRequests.length})
+                <i className="fas fa-clock mr-1 sm:mr-2"></i>
+                <div className="flex flex-row items-center gap-0.5 sm:gap-1 tracking-wide leading-tight">
+                  <span>Pending</span>
+                  <span>({pendingLeaveRequests.length})</span>
+                </div>
               </button>
               <button
                 onClick={() => setLeaveFilter("approved")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "approved"
+                className={`flex-1 sm:flex-none flex flex-row items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] xs:text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "approved"
                   ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
                   }`}
               >
-                <i className="fas fa-check-circle mr-2"></i>Approved (
-                {approvedLeaveRequests.length})
+                <i className="fas fa-check-circle mr-1 sm:mr-2"></i>
+                <div className="flex flex-row items-center gap-0.5 sm:gap-1 tracking-wide leading-tight">
+                  <span className="hidden xs:inline">Approved</span>
+                  <span className="xs:hidden">Approd</span>
+                  <span>({approvedLeaveRequests.length})</span>
+                </div>
               </button>
               <button
                 onClick={() => setLeaveFilter("all")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "all"
+                className={`flex-1 sm:flex-none flex flex-row items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] xs:text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "all"
                   ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
                     : "bg-gray-200 text-gray-700"
                   }`}
               >
-                <i className="fas fa-list mr-2"></i>All (
-                {allLeaveRequests.length})
+                <i className="fas fa-list mr-1 sm:mr-2"></i>
+                <div className="flex flex-row items-center gap-0.5 sm:gap-1 tracking-wide leading-tight">
+                  <span>All</span>
+                  <span>({allLeaveRequests.length})</span>
+                </div>
               </button>
             </div>
 
@@ -2355,20 +2468,20 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6 sm:mb-8 gap-2 sm:gap-4">
               <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                className={`text-[26px] xs:text-[28px] sm:text-3xl font-bold leading-tight ${isDark ? "text-white" : "text-gray-800"
                   } flex items-center`}
               >
-                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
-                Public Holidays
+                <i className="fas fa-umbrella-beach mr-2 sm:mr-3 text-blue-500"></i>
+                <span>Public Holidays</span>
               </h1>
               <button
                 onClick={() => setShowSelectHolidaysModal(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl flex items-center gap-2 active:scale-95"
+                className="px-3 py-2 sm:px-6 sm:py-3 text-[10px] sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-lg sm:rounded-2xl transition-all shadow-md sm:shadow-lg hover:shadow-xl flex items-center gap-1.5 sm:gap-2 active:scale-95 whitespace-nowrap shrink-0"
               >
                 <i className="fas fa-calendar-plus"></i>
-                <span>Manage Holidays</span>
+                <span>Manage <span className="hidden xs:inline">Holidays</span></span>
               </button>
             </div>
 
@@ -2389,7 +2502,7 @@ export default function AdminDashboard() {
                       onClick={() =>
                         setCurrentCalendarDate(new Date(holiday.date))
                       }
-                      className={`cursor-pointer flex items-center justify-between p-5 rounded-[1.5rem] shadow-sm border transition-all duration-300 ${isPast
+                      className={`cursor-pointer flex items-center justify-between p-3 xs:p-4 sm:p-5 rounded-xl sm:rounded-[1.5rem] shadow-sm border transition-all duration-300 ${isPast
                         ? isDark
                           ? "bg-gray-800/80 border-gray-700 opacity-60"
                           : "bg-gray-50 border-gray-100 opacity-70"
@@ -2398,25 +2511,25 @@ export default function AdminDashboard() {
                           : "bg-white border-blue-50 hover:border-blue-200 hover:shadow-lg"
                         }`}
                     >
-                      <div className="flex items-center gap-5">
+                      <div className="flex items-center gap-3 sm:gap-5">
                         <div
-                          className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-bold ${isPast
+                          className={`w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center font-bold ${isPast
                             ? "bg-gray-300 text-gray-500"
-                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg"
+                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md sm:shadow-lg"
                             }`}
                         >
-                          <span className="text-[10px] uppercase font-black">
+                          <span className="text-[8px] sm:text-[10px] uppercase font-black">
                             {holDate.toLocaleString("default", {
                               month: "short",
                             })}
                           </span>
-                          <span className="text-xl leading-none">
+                          <span className="text-base sm:text-xl leading-none">
                             {holDate.getDate()}
                           </span>
                         </div>
-                        <div>
+                        <div className="min-w-0 pr-2">
                           <p
-                            className={`font-black text-lg ${isPast
+                            className={`font-black text-sm sm:text-lg truncate ${isPast
                               ? isDark
                                 ? "text-gray-400"
                                 : "text-gray-500"
@@ -2439,7 +2552,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <span
-                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${isPast
+                        className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shrink-0 ${isPast
                           ? "bg-gray-100 text-gray-400"
                           : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
                           }`}

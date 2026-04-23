@@ -49,18 +49,8 @@ function EmployeeWorkTrackingApp() {
       const isPublicRoute = path === "/login" || path === "/register" || path === "/";
       
       if (auth.currentUser) {
-        if (isPublicRoute || path === "") {
-          const userData = auth.currentUser;
-          const dashboardPath =
-            userData.role === "admin"
-              ? "/admin"
-              : userData.role === "employee"
-                ? "/employee"
-                : "/manager";
-          
-          console.log("Auto-navigating to dashboard:", dashboardPath);
-          navigate(dashboardPath, { replace: true });
-        }
+        // We have disabled automatic redirection to allow you to log in manually 
+        // to different accounts even if a session is already active.
       } else {
         // Not logged in. If on a protected route, go to login.
         if (!isPublicRoute) {
@@ -78,12 +68,12 @@ function EmployeeWorkTrackingApp() {
 
   const handleLoginSuccess = (userData) => {
     console.log("Login Success Data:", userData);
-    
+
     // Update the auth context immediately.
     if (auth && auth.updateUser) {
       auth.updateUser(userData);
     }
-    
+
     // Direct navigation for a smoother experience (no "refresh" feel)
     // Using case-insensitive role check for robustness
     const userRole = (userData.role || "").toLowerCase();
@@ -93,10 +83,10 @@ function EmployeeWorkTrackingApp() {
         : userRole === "employee"
           ? "/employee"
           : "/manager";
-    
+
     console.log("Navigating directly to dashboard:", dashboardPath);
     navigate(dashboardPath, { replace: true });
-    
+
     showToast("Login successful!", "success");
   };
 
@@ -115,10 +105,10 @@ function EmployeeWorkTrackingApp() {
       {toast && (
         <div
           className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success"
-              ? "bg-green-600"
-              : toast.type === "error"
-                ? "bg-red-600"
-                : "bg-blue-600"
+            ? "bg-green-600"
+            : toast.type === "error"
+              ? "bg-red-600"
+              : "bg-blue-600"
             } text-white animate-pulse`}
         >
           {toast.message}

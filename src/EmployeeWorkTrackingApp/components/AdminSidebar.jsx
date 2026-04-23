@@ -146,7 +146,7 @@ export default function AdminSidebar({
   return (
     <>
       {/* Sidebar Toggle Hover Zone */}
-      <div 
+      <div
         className="fixed top-0 left-0 z-[60] transition-all duration-300 lg:hidden cursor-pointer"
         style={{ width: '56px', height: '56px' }}
         onMouseEnter={showToggleWithTimeout}
@@ -166,8 +166,8 @@ export default function AdminSidebar({
             whileTap={{ scale: 0.9 }}
             onMouseEnter={clearHideTimeout}
             onMouseLeave={showToggleWithTimeout}
-            className={`p-2 transition-all duration-300 ${isDark 
-              ? "text-white hover:text-blue-400" 
+            className={`p-2 transition-all duration-300 ${isDark
+              ? "text-white hover:text-blue-400"
               : "text-blue-600 hover:text-blue-700 font-bold"
               }`}
           >
@@ -181,13 +181,13 @@ export default function AdminSidebar({
       {/* Mobile Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={toggleSidebar}
-              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={toggleSidebar}
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          />
         )}
       </AnimatePresence>
 
@@ -199,7 +199,7 @@ export default function AdminSidebar({
           opacity: isSidebarOpen ? 1 : 0,
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${isDark
+        className={`fixed left-0 top-0 h-full w-[75%] md:w-72 shadow-2xl p-4 flex flex-col z-40 border-r overflow-y-auto scrollbar-hide ${isDark
           ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
           : "bg-gradient-to-b from-white to-cyan-50 border-cyan-100"
           }`}
@@ -262,16 +262,21 @@ export default function AdminSidebar({
                   ></i>
                   <span className="font-bold">{item.label}</span>
                 </span>
-                {item.badge > 0 && item.id !== "profile" && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    whileHover={{ scale: 1.2 }}
-                    className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg"
-                  >
-                    {item.badge}
-                  </motion.span>
-                )}
+                <div className="flex items-center gap-2">
+                  {item.badge > 0 && item.id !== "profile" && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      whileHover={{ scale: 1.2 }}
+                      className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg"
+                    >
+                      {item.badge}
+                    </motion.span>
+                  )}
+                  {item.id === "departments" && (
+                    <i className={`fas fa-chevron-down transition-all duration-300 opacity-0 group-hover:opacity-100 ${isDepartmentsExpanded ? 'rotate-180 opacity-100' : ''}`}></i>
+                  )}
+                </div>
               </motion.button>
               <AnimatePresence>
                 {item.id === "departments" && isDepartmentsExpanded && (

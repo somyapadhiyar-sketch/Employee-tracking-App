@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
-import useAuth from "../hooks/useAuth";
+import { useAuth } from "../hooks/AuthContext";
 import { useDepartments } from "../hooks/useDepartments";
 import {
   Edit2,
@@ -22,8 +22,8 @@ import { auth as fbAuth, db } from "../../firebase";
 
 export default function ProfilePage() {
   const contextAuth = useOutletContext()?.auth;
-  const fallbackAuth = useAuth();
-  const auth = contextAuth || fallbackAuth;
+  const hookAuth = useAuth();
+  const auth = contextAuth || hookAuth;
   const user = auth.currentUser;
   const { isDark } = useTheme();
   const { departmentsMap } = useDepartments();

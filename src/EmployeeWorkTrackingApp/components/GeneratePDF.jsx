@@ -309,7 +309,7 @@ const GeneratePDF = ({
                 >
                   Department
                 </label>
-                <div className="relative z-20" ref={deptRef}>
+                <div className={`relative ${isDeptDropdownOpen ? "z-50" : "z-30"}`} ref={deptRef}>
                   <button
                     type="button"
                     onClick={() => setIsDeptDropdownOpen(!isDeptDropdownOpen)}
@@ -404,7 +404,7 @@ const GeneratePDF = ({
               >
                 Employee
               </label>
-              <div className="relative z-20" ref={empRef}>
+              <div className={`relative ${isEmpDropdownOpen ? "z-40" : "z-20"}`} ref={empRef}>
                 <button
                   type="button"
                   onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
@@ -415,15 +415,12 @@ const GeneratePDF = ({
                   }`}
                 >
                   <span className="truncate">
-                    {selectedEmployeeEmail
-                      ? filteredEmployees.find(
-                          (e) => e.email === selectedEmployeeEmail
-                        )?.firstName +
-                        " " +
-                        filteredEmployees.find(
-                          (e) => e.email === selectedEmployeeEmail
-                        )?.lastName
-                      : "All Employees"}
+                    {(() => {
+                      if (!selectedEmployeeEmail) return "All Employees";
+                      const emp = filteredEmployees.find((e) => e.email === selectedEmployeeEmail);
+                      if (!emp) return "All Employees";
+                      return `${emp.firstName} ${emp.lastName} ${emp.role === "manager" || emp.role === "dept_manager" ? "(Manager)" : ""}`.trim();
+                    })()}
                   </span>
                   <motion.i
                     animate={{ rotate: isEmpDropdownOpen ? 180 : 0 }}
@@ -483,11 +480,7 @@ const GeneratePDF = ({
                             <div className="flex items-center justify-between w-full">
                               <span className="truncate">
                                 {emp.firstName} {emp.lastName}
-                                {(emp.role === "manager" || emp.role === "dept_manager") && (
-                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 font-bold uppercase tracking-wider">
-                                    Manager
-                                  </span>
-                                )}
+                                {(emp.role === "manager" || emp.role === "dept_manager") && " (Manager)"}
                               </span>
                             </div>
                           </button>

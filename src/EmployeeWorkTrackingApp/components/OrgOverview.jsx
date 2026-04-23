@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Treemap, ResponsiveContainer, Tooltip,
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid,
@@ -29,6 +29,80 @@ const CustomTooltip = ({ active, payload, isDark }) => {
     );
   }
   return null;
+};
+
+const OrgCustomSelect = ({ value, options, onChange, isDark, icon, iconColorLight, iconColorDark, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div className={`relative group ${className || ""}`} ref={containerRef}>
+      <div className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none ${isDark ? iconColorDark : iconColorLight}`}>
+        <i className={`fas ${icon} text-xs`}></i>
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between pl-10 pr-4 py-3 rounded-2xl border-2 transition-all font-bold text-sm outline-none ${
+          isDark
+            ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500"
+            : "bg-white border-gray-100 text-slate-700 focus:border-blue-400 shadow-sm"
+        }`}
+      >
+        <span className="truncate pr-2">{selectedOption?.label}</span>
+        <i
+          className={`fas fa-chevron-down text-[10px] transition-transform ${
+            isOpen ? "rotate-180" : ""
+          } opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}
+        ></i>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`absolute top-[52px] left-0 w-full z-50 rounded-xl shadow-2xl border max-h-60 overflow-y-auto overflow-x-hidden scrollbar-hide ${
+              isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+            }`}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${
+                  value === opt.value
+                    ? "bg-blue-500/10 text-blue-500"
+                    : isDark
+                    ? "text-gray-300 hover:bg-gray-700"
+                    : "text-slate-600 hover:bg-gray-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 const OrgOverview = ({
@@ -273,31 +347,25 @@ const OrgOverview = ({
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
           {/* Department Selector Group */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative group min-w-[200px]">
-              <div className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-500"}`}>
-                <i className="fas fa-filter text-xs"></i>
-              </div>
-              <select
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFilterDeptId(val);
-                  setSelectedEmployeeEmail("");
-                }}
-                value={filterDeptId}
-                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${isDark
-                  ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500"
-                  : "bg-white border-gray-100 text-slate-700 focus:border-blue-400 shadow-sm"
-                  }`}
-              >
-                <option value="">All Departments</option>
-                {departments.map(dept => (
-                  <option key={dept.id} value={dept.id}>{dept.name || dept.id}</option>
-                ))}
-              </select>
-              <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}>
-                <i className="fas fa-chevron-down text-[10px]"></i>
-              </div>
-            </div>
+            <OrgCustomSelect
+              className="min-w-[200px]"
+              isDark={isDark}
+              value={filterDeptId}
+              icon="fa-filter"
+              iconColorLight="text-blue-500"
+              iconColorDark="text-blue-400"
+              options={[
+                { value: "", label: "All Departments" },
+                ...departments.map(dept => ({
+                  value: dept.id,
+                  label: dept.name || dept.id
+                }))
+              ]}
+              onChange={(val) => {
+                setFilterDeptId(val);
+                setSelectedEmployeeEmail("");
+              }}
+            />
 
             {filterDeptId && (
                 <motion.button
@@ -314,36 +382,28 @@ const OrgOverview = ({
 
           {/* Employee Selector Group */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative group min-w-[220px]">
-              <div className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-emerald-400" : "text-emerald-500"}`}>
-                <i className="fas fa-user text-xs"></i>
-              </div>
-              <select
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedEmployeeEmail(val);
-                  if (val) {
-                    const emp = approvedUsers.find(u => u.email === val);
-                    if (emp) onViewEmployee(emp.email, `${emp.firstName} ${emp.lastName}`);
-                  }
-                }}
-                value={selectedEmployeeEmail}
-                className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 appearance-none cursor-pointer transition-all font-bold text-sm outline-none ${isDark
-                  ? "bg-gray-800 border-gray-700 text-white focus:border-emerald-500"
-                  : "bg-white border-gray-100 text-slate-700 focus:border-emerald-400 shadow-sm"
-                  }`}
-              >
-                <option value="">Select Employee...</option>
-                {approvedUsers.map(emp => (
-                  <option key={emp.id} value={emp.email}>
-                    {emp.firstName} {emp.lastName} {(emp.role === "dept_manager" || emp.role === "manager") ? " (Manager)" : ""}
-                  </option>
-                ))}
-              </select>
-              <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${isDark ? "text-white" : "text-slate-700"}`}>
-                <i className="fas fa-chevron-down text-[10px]"></i>
-              </div>
-            </div>
+            <OrgCustomSelect
+              className="min-w-[220px]"
+              isDark={isDark}
+              value={selectedEmployeeEmail}
+              icon="fa-user"
+              iconColorLight="text-emerald-500"
+              iconColorDark="text-emerald-400"
+              options={[
+                { value: "", label: "Select Employee..." },
+                ...approvedUsers.map(emp => ({
+                  value: emp.email,
+                  label: `${emp.firstName} ${emp.lastName} ${(emp.role === "dept_manager" || emp.role === "manager") ? "(Manager)" : ""}`.trim()
+                }))
+              ]}
+              onChange={(val) => {
+                setSelectedEmployeeEmail(val);
+                if (val) {
+                  const emp = approvedUsers.find(u => u.email === val);
+                  if (emp) onViewEmployee(emp.email, `${emp.firstName} ${emp.lastName}`);
+                }
+              }}
+            />
           </div>
 
           {/* Date Range Picker */}

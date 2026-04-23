@@ -12,6 +12,9 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Seconds ko Hours:Minutes:Seconds mein convert karne ka function
   const formatDuration = (totalSeconds) => {
     if (!totalSeconds) return "0s";
@@ -58,6 +61,10 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
     }
   }, [currentUserEmail]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, selectedStatus, searchTerm]);
+
   if (loading) {
     return <div className="p-4 text-center">Loading Activity Data...</div>;
   }
@@ -91,6 +98,15 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
 
     return matchesDate && matchesStatus && matchesSearch;
   });
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   return (
     <div className={`rounded-2xl p-6 shadow-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
@@ -189,7 +205,7 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
                 </td>
               </tr>
             ) : (
-              filteredData.map((row) => {
+              currentItems.map((row) => {
                 // NAYA LOGIC: Purane data ko handle karne ke liye
                 const appName = row.app_or_website || row.app_used || "Unknown App";
                 const isWebsite = appName.includes('.com') || appName.includes('.in') || appName.includes('.org');
@@ -263,6 +279,50 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+          <p className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+          </p>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <button
+              onClick={prevPage}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                currentPage === 1
+                  ? isDark
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                  : isDark
+                  ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+              }`}
+            >
+              Previous
+            </button>
+            <div className={`px-4 py-1.5 rounded-lg text-sm font-bold ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-600 border border-blue-100"}`}>
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              onClick={nextPage}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                currentPage === totalPages
+                  ? isDark
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                  : isDark
+                  ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

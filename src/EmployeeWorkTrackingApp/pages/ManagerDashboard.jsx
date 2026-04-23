@@ -52,6 +52,13 @@ export default function ManagerDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState(() => getISTDate());
 
+  const [reportCurrentPage, setReportCurrentPage] = useState(1);
+  const reportItemsPerPage = 10;
+
+  useEffect(() => {
+    setReportCurrentPage(1);
+  }, [searchTerm, reportStartDate, reportEndDate, reportRoleFilter]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 768 : false
   );
@@ -92,6 +99,9 @@ export default function ManagerDashboard() {
   const [description, setDescription] = useState("");
   const [editingLogOwner, setEditingLogOwner] = useState(null);
   const [editingLogName, setEditingLogName] = useState(null);
+
+  const [isDurationDropdownOpen, setIsDurationDropdownOpen] = useState(false);
+  const [isHalfTypeDropdownOpen, setIsHalfTypeDropdownOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoadingData(true);
@@ -232,7 +242,7 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    
+
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setIsSidebarOpen(false);
@@ -241,7 +251,7 @@ export default function ManagerDashboard() {
       }
     };
     window.addEventListener("resize", handleResize);
-    
+
     return () => {
       clearInterval(timer);
       window.removeEventListener("resize", handleResize);
@@ -947,6 +957,12 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            <h1
+              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                }`}
+            >
+              Pending Approvals
+            </h1>
 
             <motion.div
               className={`rounded-2xl p-6 shadow-lg border ${isDark
@@ -1212,62 +1228,130 @@ export default function ManagerDashboard() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 overflow-hidden"
+                      className="space-y-4 relative z-20"
                     >
                       <label className={`block text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                         Casual Leave Type
                       </label>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Primary Duration Dropdown */}
-                        <div className="relative group flex items-center">
-                          <i className={`fas fa-clock absolute left-4 inset-y-0 flex items-center pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
-                          <select
-                            value={leaveDuration === "full" ? "full" : "half"}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "full") {
-                                setLeaveDuration("full");
-                              } else {
-                                setLeaveDuration("first_half");
-                                setLeaveEndDate(leaveStartDate);
-                              }
-                            }}
-                            className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
-                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                              : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Custom Duration Dropdown */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsDurationDropdownOpen(!isDurationDropdownOpen)}
+                            className={`w-full flex items-center px-4 py-3.5 border-2 rounded-xl transition-all focus:border-blue-500 ${isDark
+                              ? "bg-gray-700 border-gray-600 text-white"
+                              : "bg-gray-50 border-gray-100 text-gray-800 shadow-sm"
                               }`}
                           >
-                            <option value="full">Full Day Leave</option>
-                            <option value="half">Half Day Leave</option>
-                          </select>
-                          <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                            <i className={`fas fa-clock mr-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                            <span className="flex-1 text-left font-bold text-sm sm:text-base">
+                              {leaveDuration === "full" ? "Full Day Leave" : "Half Day Leave"}
+                            </span>
+                            <motion.i
+                              animate={{ rotate: isDurationDropdownOpen ? 180 : 0 }}
+                              className={`fas fa-chevron-down ml-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                            ></motion.i>
+                          </button>
+
+                          <AnimatePresence>
+                            {isDurationDropdownOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className={`absolute z-[20] w-full mt-2 rounded-xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                                  }`}
+                              >
+                                {[
+                                  { value: "full", label: "Full Day Leave" },
+                                  { value: "half", label: "Half Day Leave" },
+                                ].map((opt) => (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                      const val = opt.value;
+                                      if (val === "full") {
+                                        setLeaveDuration("full");
+                                      } else {
+                                        setLeaveDuration("first_half");
+                                        setLeaveEndDate(leaveStartDate);
+                                        setLeaveStartTime("09:00");
+                                        setLeaveEndTime("13:30");
+                                      }
+                                      setIsDurationDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-3.5 first:rounded-t-xl last:rounded-b-xl hover:bg-blue-500 hover:text-white transition-colors font-bold ${leaveDuration === opt.value
+                                        ? "bg-blue-500/10 text-blue-500"
+                                        : isDark ? "text-gray-200" : "text-gray-700"
+                                      }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
 
-                        {/* Secondary Half-Type Dropdown (Only if Half is selected) */}
-                        {leaveDuration !== "full" && (
-                          <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="relative group flex items-center"
-                          >
-                            <i className={`fas fa-adjust absolute left-4 inset-y-0 flex items-center pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"} group-focus-within:text-violet-500 transition-colors`}></i>
-                            <select
-                              value={leaveDuration}
-                              onChange={(e) => {
-                                setLeaveDuration(e.target.value);
-                                setLeaveEndDate(leaveStartDate);
-                              }}
-                              className={`w-full pl-11 pr-4 py-3.5 border-2 rounded-xl outline-none transition-all appearance-none cursor-pointer font-bold ${isDark
-                                ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                                : "bg-gray-50 border-gray-100 focus:border-violet-500 focus:bg-white text-gray-800 shadow-sm"
+                        {/* Custom Secondary Half-Type Dropdown */}
+                        {(leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") && (
+                          <div className="relative">
+                            <motion.button
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              type="button"
+                              onClick={() => setIsHalfTypeDropdownOpen(!isHalfTypeDropdownOpen)}
+                              className={`w-full flex items-center px-4 py-3.5 border-2 rounded-xl transition-all focus:border-blue-500 ${isDark
+                                ? "bg-gray-700 border-gray-600 text-white"
+                                : "bg-gray-50 border-gray-100 text-gray-800 shadow-sm"
                                 }`}
                             >
-                              <option value="first_half">First Half</option>
-                              <option value="second_half">Second Half</option>
-                            </select>
-                            <i className={`fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
-                          </motion.div>
+                              <i className={`fas fa-adjust mr-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}></i>
+                              <span className="flex-1 text-left font-bold text-sm sm:text-base">
+                                {leaveDuration === "second_half" ? "Second Half" : "First Half"}
+                              </span>
+                              <motion.i
+                                animate={{ rotate: isHalfTypeDropdownOpen ? 180 : 0 }}
+                                className={`fas fa-chevron-down ml-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                              ></motion.i>
+                            </motion.button>
+
+                            <AnimatePresence>
+                              {isHalfTypeDropdownOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className={`absolute z-[20] w-full mt-2 rounded-xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                                    }`}
+                                >
+                                  {[
+                                    { value: "first_half", label: "First Half" },
+                                    { value: "second_half", label: "Second Half" },
+                                  ].map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => {
+                                        setLeaveDuration(opt.value);
+                                        setLeaveEndDate(leaveStartDate);
+                                        setIsHalfTypeDropdownOpen(false);
+                                      }}
+                                      className={`w-full text-left px-4 py-3.5 first:rounded-t-xl last:rounded-b-xl hover:bg-blue-500 hover:text-white transition-colors font-bold ${leaveDuration === opt.value
+                                          ? "bg-blue-500/10 text-blue-500"
+                                          : isDark ? "text-gray-200" : "text-gray-700"
+                                        }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
                         )}
                       </div>
 
@@ -1526,47 +1610,44 @@ export default function ManagerDashboard() {
             </h1>
 
             {/* FULLY RESTORED LEAVE FILTERS */}
-            <div className="flex flex-wrap gap-3 mb-6">
+            <div className="flex sm:flex-wrap gap-2 sm:gap-3 mb-6 w-full sm:w-auto">
               <button
                 onClick={() => setLeaveFilter("pending")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "pending"
+                className={`flex-1 sm:flex-none flex items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "pending"
                   ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
               >
-                <i className="fas fa-clock mr-2"></i>Pending (
-                {pendingLeaveRequests.length})
+                <i className="fas fa-clock mr-1 sm:mr-2"></i>Pending ({pendingLeaveRequests.length})
               </button>
               <button
                 onClick={() => setLeaveFilter("approved")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "approved"
+                className={`flex-1 sm:flex-none flex items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "approved"
                   ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
               >
-                <i className="fas fa-check-circle mr-2"></i>Approved (
-                {approvedLeaveRequests.length})
+                <i className="fas fa-check-circle mr-1 sm:mr-2"></i>Approved ({approvedLeaveRequests.length})
               </button>
               <button
                 onClick={() => setLeaveFilter("all")}
-                className={`px-6 py-2.5 rounded-xl font-bold ${leaveFilter === "all"
+                className={`flex-1 sm:flex-none flex items-center justify-center px-1 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-base font-bold whitespace-nowrap transition-all ${leaveFilter === "all"
                   ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
                   : isDark
                     ? "bg-gray-700 text-gray-200"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
               >
-                <i className="fas fa-list mr-2"></i>All (
-                {deptLeaveRequests.length})
+                <i className="fas fa-list mr-1 sm:mr-2"></i>All ({deptLeaveRequests.length})
               </button>
             </div>
 
             <motion.div
-              className={`rounded-3xl p-8 shadow-xl border ${isDark
+              className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-md sm:shadow-xl border ${isDark
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-blue-50"
                 }`}
@@ -1581,18 +1662,18 @@ export default function ManagerDashboard() {
 
                   if (filtered.length === 0) {
                     return (
-                      <div className="text-center py-16">
+                      <div className="text-center py-12 sm:py-16">
                         <motion.div
                           initial={{ scale: 0.8, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
-                          className="w-24 h-24 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl animate-pulse"
+                          className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg sm:shadow-xl animate-pulse"
                         >
-                          <i className="fas fa-clipboard-list text-4xl text-white"></i>
+                          <i className="fas fa-clipboard-list text-3xl sm:text-4xl text-white"></i>
                         </motion.div>
-                        <h3 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>
+                        <h3 className={`text-lg sm:text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>
                           No {leaveFilter !== 'all' ? leaveFilter : ''} requests found
                         </h3>
-                        <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+                        <p className={`text-sm sm:text-base ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                           {leaveFilter === "pending"
                             ? "Excellent! Your team has no pending leave requests to process."
                             : `There are currently no ${leaveFilter !== 'all' ? leaveFilter : ''} leave records in this category.`}
@@ -1609,39 +1690,39 @@ export default function ManagerDashboard() {
                         key={req.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className={`p-5 rounded-2xl border transition-all hover:shadow-md ${isDark
+                        className={`p-4 sm:p-5 rounded-xl sm:rounded-2xl border transition-all hover:shadow-md ${isDark
                           ? "bg-gray-700/50 border-gray-600"
                           : "bg-white border-violet-50 shadow-sm"
                           }`}
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg shrink-0 overflow-hidden">
+                        <div className="flex items-center justify-between ">
+                          <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-bold shadow-md sm:shadow-lg shrink-0 overflow-hidden">
                               {emp.profileImage ? (
                                 <img src={emp.profileImage} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-xl">{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
+                                <span className="text-sm sm:text-xl">{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
                               )}
                             </div>
-                            <div>
-                              <p className={`font-black text-lg ${isDark ? "text-white" : "text-gray-800"}`}>
+                            <div className="min-w-0 pr-1 sm:pr-0">
+                              <p className={`font-bold sm:font-black text-sm sm:text-lg truncate leading-tight ${isDark ? "text-white" : "text-gray-800"}`}>
                                 {emp.firstName} {emp.lastName}{" "}
                                 {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
-                                  <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
+                                  <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
                                     {req.leaveDuration === "half" ? "Half Leave" : req.leaveDuration === "first_half" ? "1st Half Leave" : "2nd Half Leave"}
                                   </span>
                                 )}
                               </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-xs px-2 py-0.5 rounded-md ${isDark ? "bg-gray-600 text-gray-400" : "bg-violet-50 text-violet-500"}`}>
+                              <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+                                <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-md truncate max-w-full inline-block ${isDark ? "bg-gray-600 text-gray-400" : "bg-violet-50 text-violet-500"}`}>
                                   {emp.email}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
+                          <div className="flex flex-col items-end gap-2 shrink-0">
                             <span
-                              className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${req.status === "pending"
+                              className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black uppercase tracking-widest ${req.status === "pending"
                                 ? "bg-amber-100 text-amber-700 border border-amber-200"
                                 : req.status === "approved"
                                   ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
@@ -1653,7 +1734,7 @@ export default function ManagerDashboard() {
                           </div>
                         </div>
                         <div
-                          className={`p-3 rounded-lg mb-3 ${isDark ? "bg-gray-600" : "bg-white"
+                          className={`px-1 sm:px-3 pt-2 sm:pt-3 pb-1 sm:pb-3 rounded-lg ${req.status === "pending" ? "mb-3" : "mb-0"} ${isDark ? "bg-gray-600" : "bg-transparent sm:bg-white"
                             }`}
                         >
                           <p
@@ -2190,6 +2271,14 @@ export default function ManagerDashboard() {
           }
         });
 
+        const reportIndexOfLastItem = reportCurrentPage * reportItemsPerPage;
+        const reportIndexOfFirstItem = reportIndexOfLastItem - reportItemsPerPage;
+        const currentReportsItems = finalReports.slice(reportIndexOfFirstItem, reportIndexOfLastItem);
+        const reportTotalPages = Math.ceil(finalReports.length / reportItemsPerPage);
+
+        const prevReportPage = () => setReportCurrentPage((prev) => Math.max(prev - 1, 1));
+        const nextReportPage = () => setReportCurrentPage((prev) => Math.min(prev + 1, reportTotalPages));
+
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -2265,12 +2354,14 @@ export default function ManagerDashboard() {
                 </button>
               </div>
 
-              <h2
-                className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
-                  }`}
-              >
-                {searchTerm ? `Search Results for "${searchTerm}"` : `Report from ${reportStartDate} to ${reportEndDate}`}
-              </h2>
+              {searchTerm && (
+                <h2
+                  className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"
+                    }`}
+                >
+                  Search Results for "{searchTerm}"
+                </h2>
+              )}
               {finalReports.length === 0 ? (
                 <p
                   className={`text-center py-8 ${isDark ? "text-gray-400" : "text-gray-500"
@@ -2280,7 +2371,7 @@ export default function ManagerDashboard() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {finalReports.map((log) => (
+                  {currentReportsItems.map((log) => (
                     <div
                       key={log.id}
                       className={`flex flex-col justify-between p-4 rounded-xl border gap-2 ${isDark
@@ -2288,18 +2379,15 @@ export default function ManagerDashboard() {
                         : "bg-gray-50 border-gray-200"
                         }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <span
-                          className={`font-bold ${isDark ? "text-white" : "text-gray-800"
-                            }`}
-                        >
+                      <div className="flex items-start sm:items-center justify-between gap-2 mb-2">
+                        <div className={`font-bold leading-tight ${isDark ? "text-white" : "text-gray-800"}`}>
                           {log.employeeName}{" "}
-                          <span className="text-sm font-normal text-gray-400 ml-2">
+                          <span className="text-xs sm:text-sm font-normal text-gray-400 whitespace-nowrap inline-block">
                             ({log.date})
                           </span>
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                          <span className="px-2 sm:px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-[11px] sm:text-sm font-medium whitespace-nowrap">
                             {formatDisplayDuration(log.duration)}
                           </span>
                           <button onClick={() => handleEditLog(log)} className="text-violet-500 hover:text-violet-600 transition-colors p-1" title="Edit">
@@ -2333,6 +2421,50 @@ export default function ManagerDashboard() {
                       </p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {reportTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                  <p className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Showing {reportIndexOfFirstItem + 1} to {Math.min(reportIndexOfLastItem, finalReports.length)} of {finalReports.length} entries
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                    <button
+                      onClick={prevReportPage}
+                      disabled={reportCurrentPage === 1}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                        reportCurrentPage === 1
+                          ? isDark
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          : isDark
+                          ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                          : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <div className={`px-4 py-1.5 rounded-lg text-sm font-bold ${isDark ? "bg-violet-500/20 text-violet-400 border border-violet-500/30" : "bg-violet-50 text-violet-600 border border-violet-100"}`}>
+                      Page {reportCurrentPage} of {reportTotalPages}
+                    </div>
+                    <button
+                      onClick={nextReportPage}
+                      disabled={reportCurrentPage === reportTotalPages}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                        reportCurrentPage === reportTotalPages
+                          ? isDark
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          : isDark
+                          ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                          : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -2712,7 +2844,7 @@ export default function ManagerDashboard() {
       </AnimatePresence>
 
       {/* Sidebar Toggle Hover Zone */}
-      <div 
+      <div
         className="fixed top-0 left-0 z-[60] transition-all duration-300 lg:hidden cursor-pointer"
         style={{ width: '56px', height: '56px' }}
         onMouseEnter={showToggleWithTimeout}

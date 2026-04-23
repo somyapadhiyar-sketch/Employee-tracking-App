@@ -1,6 +1,85 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
+import { motion, AnimatePresence } from "framer-motion";
+
+const CustomSelect = ({ value, options, onChange, label, isDark }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  return (
+    <div className="flex flex-col gap-1.5 w-full relative" ref={containerRef}>
+      <label
+        className={`text-xs font-bold uppercase tracking-wider ${
+          isDark ? "text-gray-400" : "text-gray-500"
+        }`}
+      >
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-medium transition-all focus:outline-none focus:border-blue-500 ${
+          isDark
+            ? "bg-gray-800 border-gray-600 text-white"
+            : "bg-white border-gray-300 text-gray-800"
+        }`}
+      >
+        <span className="truncate pr-2">{selectedOption?.label}</span>
+        <i
+          className={`fas fa-chevron-down text-xs transition-transform ${
+            isOpen ? "rotate-180" : ""
+          } ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        ></i>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`absolute top-[65px] left-0 w-full z-50 rounded-xl shadow-2xl border max-h-60 overflow-y-auto overflow-x-hidden ${
+              isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+            }`}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                  value === opt.value
+                    ? "bg-blue-500/10 text-blue-500 font-bold"
+                    : isDark
+                    ? "text-gray-200 hover:bg-gray-700"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default function ManagerActivityReport({
   isDark,
@@ -22,6 +101,9 @@ export default function ManagerActivityReport({
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
   );
   const [selectedStatus, setSelectedStatus] = useState("all");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const formatDuration = (totalSeconds) => {
     if (!totalSeconds) return "0s";
@@ -152,6 +234,10 @@ export default function ManagerActivityReport({
     );
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedEmployee, selectedDepartment, startDate, endDate, selectedStatus]);
+
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center text-gray-500">
@@ -159,6 +245,15 @@ export default function ManagerActivityReport({
       </div>
     );
   }
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   return (
     <div
@@ -189,64 +284,37 @@ export default function ManagerActivityReport({
           } gap-4`}
         >
           {adminView && (
-            <div className="flex flex-col gap-1.5">
-              <label
-                className={`text-xs font-bold uppercase tracking-wider ${
-                  isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Department
-              </label>
-              <select
-                value={selectedDepartment}
-                onChange={(e) => {
-                  setSelectedDepartment(e.target.value);
-                  setSelectedEmployee("all");
-                }}
-                className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none cursor-pointer ${
-                  isDark
-                    ? "bg-gray-800 border-gray-600 text-white"
-                    : "bg-white border-gray-300 text-gray-800"
-                }`}
-              >
-                <option value="all">All Departments</option>
-                {uniqueDepartments.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomSelect
+              label="Department"
+              value={selectedDepartment}
+              options={[
+                { value: "all", label: "All Departments" },
+                ...uniqueDepartments.map((dept) => ({
+                  value: dept,
+                  label: dept.toUpperCase(),
+                }))
+              ]}
+              onChange={(val) => {
+                setSelectedDepartment(val);
+                setSelectedEmployee("all");
+              }}
+              isDark={isDark}
+            />
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              className={`text-xs font-bold uppercase tracking-wider ${
-                isDark ? "text-gray-400" : "text-gray-500"
-              }`}
-            >
-              Employee
-            </label>
-            <select
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none cursor-pointer ${
-                isDark
-                  ? "bg-gray-800 border-gray-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800"
-              }`}
-            >
-              <option value="all">All Team</option>
-              {uniqueEmployees.map((emp, index) => (
-                <option key={index} value={emp.email}>
-                  {emp.name}{" "}
-                  {emp.role === "manager" || emp.role === "dept_manager"
-                    ? "(Manager)"
-                    : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <CustomSelect
+            label="Employee"
+            value={selectedEmployee}
+            options={[
+              { value: "all", label: "All Team" },
+              ...uniqueEmployees.map((emp) => ({
+                value: emp.email,
+                label: `${emp.name} ${emp.role === "manager" || emp.role === "dept_manager" ? "(Manager)" : ""}`.trim(),
+              }))
+            ]}
+            onChange={(val) => setSelectedEmployee(val)}
+            isDark={isDark}
+          />
 
           <div className="flex flex-col gap-1.5">
             <label
@@ -289,30 +357,19 @@ export default function ManagerActivityReport({
           </div>
 
           {/* 3. Status Dropdown (Moderate Added) */}
-          <div className="flex flex-col gap-1.5">
-            <label
-              className={`text-xs font-bold uppercase tracking-wider ${
-                isDark ? "text-gray-400" : "text-gray-500"
-              }`}
-            >
-              Status
-            </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none cursor-pointer ${
-                isDark
-                  ? "bg-gray-800 border-gray-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="productive">Productive</option>
-              <option value="moderate">Moderate</option>
-              <option value="low_activity">Low Activity</option>
-              <option value="break">Break</option>
-            </select>
-          </div>
+          <CustomSelect
+            label="Status"
+            value={selectedStatus}
+            options={[
+              { value: "all", label: "All Status" },
+              { value: "productive", label: "Productive" },
+              { value: "moderate", label: "Moderate" },
+              { value: "low_activity", label: "Low Activity" },
+              { value: "break", label: "Break" },
+            ]}
+            onChange={(val) => setSelectedStatus(val)}
+            isDark={isDark}
+          />
 
           {/* 4. App/Keyword Search */}
           <div className="flex flex-col gap-1.5">
@@ -447,7 +504,7 @@ export default function ManagerActivityReport({
                 </td>
               </tr>
             ) : (
-              filteredData.map((row) => {
+              currentItems.map((row) => {
                 const appName =
                   row.app_or_website || row.app_used || "Unknown App";
                 const isWebsite =
@@ -618,6 +675,50 @@ export default function ManagerActivityReport({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+          <p className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+          </p>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <button
+              onClick={prevPage}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                currentPage === 1
+                  ? isDark
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                  : isDark
+                  ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+              }`}
+            >
+              Previous
+            </button>
+            <div className={`px-4 py-1.5 rounded-lg text-sm font-bold ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-600 border border-blue-100"}`}>
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              onClick={nextPage}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                currentPage === totalPages
+                  ? isDark
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                  : isDark
+                  ? "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
