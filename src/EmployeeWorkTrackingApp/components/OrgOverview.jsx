@@ -120,6 +120,7 @@ const OrgOverview = ({
   const [selectedEmployeeEmail, setSelectedEmployeeEmail] = React.useState("");
   const [startDate, setStartDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [endDate, setEndDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+  const [selectedBurnoutWeek, setSelectedBurnoutWeek] = React.useState("all");
 
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
   React.useEffect(() => {
@@ -319,12 +320,60 @@ const OrgOverview = ({
     return result;
   }, [allUsers, analyticsData, departmentsMap]);
 
+  const availableWeeks = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const weeks = [{ value: "all", label: "All Weeks" }];
+    
+    // Simple week calculation: find start of week (Monday) for the range
+    let current = new Date(start);
+    const dayDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    
+    if (dayDiff <= 7) return weeks; // Not enough for multiple weeks
+
+    let weekStart = new Date(start);
+    // Adjust to Monday
+    const startDay = weekStart.getDay();
+    const diff = weekStart.getDate() - startDay + (startDay === 0 ? -6 : 1);
+    weekStart = new Date(weekStart.setDate(diff));
+
+    while (weekStart <= end) {
+      let weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      
+      const label = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      const value = `${weekStart.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}_${weekEnd.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}`;
+      
+      weeks.push({ value, label });
+      weekStart.setDate(weekStart.getDate() + 7);
+    }
+    return weeks;
+  }, [startDate, endDate]);
+
   // 8. Burnout vs Under-utilization Matrix
   const burnoutMatrixData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     const depts = Object.entries(departmentsMap).map(([id, data]) => ({ id, ...data }));
 
     if (depts.length === 0) return [];
+
+    let start = new Date(startDate);
+    let end = new Date(endDate);
+
+    if (selectedBurnoutWeek !== "all") {
+      const [wStart, wEnd] = selectedBurnoutWeek.split("_");
+      start = new Date(wStart);
+      end = new Date(wEnd);
+    }
+
+    const numDays = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0 };
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
+      if (numDays[dayStr] !== undefined) {
+        numDays[dayStr]++;
+      }
+    }
 
     return depts.map(dept => {
       const deptEmployees = allUsers.filter(u => u.department === dept.id);
@@ -333,17 +382,26 @@ const OrgOverview = ({
         let totalActiveHrs = 0;
         deptEmployees.forEach(emp => {
           const key = `${emp.email}_${day}`;
-          if (lookups.byUserAndDay[key]) {
-            totalActiveHrs += lookups.byUserAndDay[key].reduce((s, a) => s + (a.active_time_seconds || 0), 0) / 3600;
-          }
+          const dayLogs = lookups.byUserAndDay[key] || [];
+          
+          // Filter logs further if week is selected
+          const filteredLogs = selectedBurnoutWeek === "all" 
+            ? dayLogs 
+            : dayLogs.filter(l => {
+                const [wStart, wEnd] = selectedBurnoutWeek.split("_");
+                return l.date >= wStart && l.date <= wEnd;
+              });
+
+          totalActiveHrs += filteredLogs.reduce((s, a) => s + (a.active_time_seconds || 0), 0) / 3600;
         });
-        const avgHrs = deptEmployees.length > 0 ? totalActiveHrs / deptEmployees.length : 0;
+        const expectedEmpDays = deptEmployees.length * (numDays[day] || 1);
+        const avgHrs = expectedEmpDays > 0 && numDays[day] > 0 ? totalActiveHrs / expectedEmpDays : 0;
         return { day, avgHrs };
       });
 
       return { dept: dept.name, dayStats };
     });
-  }, [allUsers, departmentsMap, lookups]);
+  }, [allUsers, departmentsMap, lookups, startDate, endDate, selectedBurnoutWeek]);
 
   // 10. Top & Bottom 5 Performers
   const performanceRankings = useMemo(() => {
@@ -362,16 +420,20 @@ const OrgOverview = ({
     };
   }, [allUsers, lookups]);
 
-  // 12. Live Workforce Compliance (Gauge)
+  // 12. Period Workforce Compliance (Gauge)
   const complianceData = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const clockedInCount = allUsers.filter(u => u.clockedIn || u.lastClockInDate === todayStr).length;
+    const attendedUserIds = new Set(workLogs.map(l => l.employeeId));
     const total = allUsers.length || 1;
-    return { percent: Math.round((clockedInCount / total) * 100), clockedInCount, total };
-  }, [allUsers]);
+    return { percent: Math.round((attendedUserIds.size / total) * 100), clockedInCount: attendedUserIds.size, total };
+  }, [allUsers, workLogs]);
 
   // 20. 4-Quadrant Talent Matrix Data (Hours vs Productivity)
   const talentMatrixData = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const dayDiff = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+    const weeks = dayDiff / 7;
+
     return allUsers.map(u => {
       const userAnalytics = lookups.byUser[u.email] || [];
       const totalHours = userAnalytics.reduce((sum, a) => sum + (a.active_time_seconds || 0) / 3600, 0);
@@ -381,12 +443,12 @@ const OrgOverview = ({
 
       return {
         name: u.username || u.name,
-        hours: Math.round(totalHours * 10) / 10,
+        hours: Math.round((totalHours / weeks) * 10) / 10,
         productivity: Math.round(avgProd),
         dept: departmentsMap[u.department]?.name || "Other"
       };
     }).filter(u => u.hours > 0);
-  }, [allUsers, departmentsMap, lookups]);
+  }, [allUsers, departmentsMap, lookups, startDate, endDate]);
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#ec4899', '#8b5cf6', '#06b6d4', '#84cc16'];
 
@@ -545,7 +607,7 @@ const OrgOverview = ({
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Workforce Compliance</h3>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Live Attendance</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Period Attendance</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-xs">
               <i className="fas fa-id-badge"></i>
@@ -752,7 +814,7 @@ const OrgOverview = ({
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#374151" : "#f1f5f9"} />
-                <XAxis type="number" dataKey="hours" name="Hours" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Effort (Hours)', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#94a3b8' }} />
+                <XAxis type="number" dataKey="hours" name="Hours" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} label={{ value: 'Effort (Hrs/Week)', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#94a3b8' }} />
                 <YAxis type="number" dataKey="productivity" name="Productivity" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} unit="%" label={{ value: 'Performance', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
                 <ZAxis type="number" range={[40, 40]} />
                 <Tooltip content={<CustomTooltip isDark={isDark} />} cursor={{ strokeDasharray: '3 3' }} />
@@ -810,19 +872,35 @@ const OrgOverview = ({
         animate={{ opacity: 1, y: 0 }}
         className={`p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
       >
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
             <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Employee Burnout vs. Under-utilization Matrix</h3>
             <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">Departmental Workload Health Grid</p>
           </div>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded bg-red-500"></span>
-              <span className="text-[10px] font-bold text-gray-400">Burnout</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded bg-emerald-500"></span>
-              <span className="text-[10px] font-bold text-gray-400">Healthy</span>
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {availableWeeks.length > 1 && (
+              <OrgCustomSelect
+                className="min-w-[180px]"
+                isDark={isDark}
+                value={selectedBurnoutWeek}
+                icon="fa-calendar-week"
+                iconColorLight="text-violet-500"
+                iconColorDark="text-violet-400"
+                options={availableWeeks}
+                onChange={setSelectedBurnoutWeek}
+              />
+            )}
+
+            <div className="flex gap-4 px-2">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-red-500"></span>
+                <span className="text-[10px] font-bold text-gray-400">Burnout</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-emerald-500"></span>
+                <span className="text-[10px] font-bold text-gray-400">Healthy</span>
+              </div>
             </div>
           </div>
         </div>
