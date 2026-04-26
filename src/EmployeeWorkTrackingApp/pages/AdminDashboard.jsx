@@ -3,6 +3,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
+import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import AdminSidebar from "../components/AdminSidebar";
 import ProfileModal, { ProfileCard } from "../components/ProfileModal";
 
@@ -25,7 +26,6 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useOutletContext } from "react-router-dom";
 
 const AdminCustomSelect = ({ value, options, onChange, label, isDark, icon, iconColorLight, iconColorDark }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -137,6 +137,8 @@ const FONT_AWESOME_ICONS = [
 
 export default function AdminDashboard() {
   const { auth, onLogout } = useOutletContext();
+  const { section } = useParams();
+  const navigate = useNavigate();
   const { isDark } = useTheme();
   const { departmentsMap, addDepartment, editDepartment, deleteDepartment } =
     useDepartments();
@@ -153,7 +155,14 @@ export default function AdminDashboard() {
   const [editingDeptId, setEditingDeptId] = useState(null);
   const [deptActionView, setDeptActionView] = useState("view");
 
-  const [currentSection, setCurrentSection] = useState("dashboard");
+  const [currentSection, setCurrentSection] = useState(section || "dashboard");
+
+  // Update currentSection when URL path changes
+  useEffect(() => {
+    if (section) {
+      setCurrentSection(section);
+    }
+  }, [section]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -584,7 +593,7 @@ export default function AdminDashboard() {
 
       if (success) {
         showToast("Department updated successfully!", "success");
-        setCurrentSection("departments");
+        navigate("/admin/departments");
         setEditingDeptId(null);
         setNewDept({
           name: "",
@@ -646,7 +655,7 @@ export default function AdminDashboard() {
     e.stopPropagation();
     setEditingDeptId(deptId);
     setNewDept(deptData);
-    setCurrentSection("add_department");
+    navigate("/admin/add_department");
   };
 
   const handleApproveLeave = async (requestId) => {
@@ -703,7 +712,7 @@ export default function AdminDashboard() {
       value: approvedEmployees.length,
       icon: "fa-users",
       color: "from-cyan-400 to-blue-500",
-      action: () => setCurrentSection("employees"),
+      action: () => navigate("/admin/employees"),
     },
     {
       title: "Departments",
@@ -711,7 +720,7 @@ export default function AdminDashboard() {
       icon: "fa-building",
       color: "from-emerald-400 to-green-500",
       action: () => {
-        setCurrentSection("departments");
+        navigate("/admin/departments");
         setDeptActionView("view");
       },
     },
@@ -721,7 +730,7 @@ export default function AdminDashboard() {
       icon: "fa-user-check",
       color: "from-violet-400 to-purple-500",
       action: () => {
-        setCurrentSection("attendance");
+        navigate("/admin/attendance");
         setAttendanceFilter("present");
         setPresentSubFilter("all");
       },
@@ -731,7 +740,7 @@ export default function AdminDashboard() {
       value: pendingRegistrations.length,
       icon: "fa-user-clock",
       color: "from-amber-400 to-orange-500",
-      action: () => setCurrentSection("pending"),
+      action: () => navigate("/admin/pending"),
     },
   ];
 
@@ -1164,13 +1173,13 @@ export default function AdminDashboard() {
               setSelectedDeptAnalysisId(id);
               setSelectedDeptAnalysisName(name);
               setAnalysisReturnTo("org_overview");
-              setCurrentSection("departmentAnalytics");
+              navigate("/admin/departmentAnalytics");
             }}
             onViewEmployee={(email, name) => {
               setSelectedAnalysisEmail(email);
               setSelectedAnalysisName(name);
               setAnalysisReturnTo("org_overview");
-              setCurrentSection("individualAnalytics");
+              navigate("/admin/individualAnalytics");
             }}
           />
         );
@@ -1284,7 +1293,7 @@ export default function AdminDashboard() {
                   {pendingRegistrations.length} requests waiting
                 </p>
                 <button
-                  onClick={() => setCurrentSection("pending")}
+                  onClick={() => navigate("/admin/pending")}
                   className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all"
                 >
                   View All <i className="fas fa-arrow-right ml-2"></i>
@@ -1303,7 +1312,7 @@ export default function AdminDashboard() {
                   employees
                 </p>
                 <button
-                  onClick={() => setCurrentSection("employees")}
+                  onClick={() => navigate("/admin/employees")}
                   className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-all"
                 >
                   View All <i className="fas fa-arrow-right ml-2"></i>
@@ -2714,7 +2723,7 @@ export default function AdminDashboard() {
             isDark={isDark}
             isManagerView={true}
             onBack={() => {
-              setCurrentSection(analysisReturnTo || "employees");
+              navigate(`/admin/${analysisReturnTo || "employees"}`);
               setAnalysisReturnTo(null);
             }}
           />
@@ -2729,7 +2738,7 @@ export default function AdminDashboard() {
             analyticsData={analyticsData}
             isDark={isDark}
             onBack={() => {
-              setCurrentSection(analysisReturnTo || "departments");
+              navigate(`/admin/${analysisReturnTo || "departments"}`);
               setAnalysisReturnTo(null);
             }}
           />
@@ -2988,7 +2997,7 @@ export default function AdminDashboard() {
                 <div className="pt-6 flex flex-col sm:flex-row gap-4">
                   <button
                     type="button"
-                    onClick={() => setCurrentSection("departments")}
+                    onClick={() => navigate("/admin/departments")}
                     className={`flex-1 py-4 rounded-xl font-bold transition-all text-lg shadow-sm hover:shadow-md ${isDark
                       ? "bg-gray-700 hover:bg-gray-600 text-white"
                       : "bg-gray-200 hover:bg-gray-300 text-gray-800"
@@ -3049,8 +3058,8 @@ export default function AdminDashboard() {
       >
         <AdminSidebar
           currentSection={currentSection}
-          onSectionChange={(section) => {
-            setCurrentSection(section);
+          onSectionChange={(sec) => {
+            navigate(`/admin/${sec}`);
             setAttendanceFilter(null);
             setPresentSubFilter("all");
           }}
@@ -3070,10 +3079,10 @@ export default function AdminDashboard() {
               color: "blue",
               description: "",
             });
-            setCurrentSection("add_department");
+            navigate("/admin/add_department");
           }}
           onDeptAction={(action) => {
-            setCurrentSection("departments");
+            navigate("/admin/departments");
             setDeptActionView(action);
           }}
         />

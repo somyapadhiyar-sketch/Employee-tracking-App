@@ -9,7 +9,7 @@ import { useDepartments } from "../hooks/useDepartments";
 import { useTheme } from "../context/ThemeContext";
 import ProfileModal from "../components/ProfileModal";
 import ProfilePage from "./ProfilePage";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useParams, useNavigate } from "react-router-dom";
 import ManagerActivityReport from "../components/ManagerActivityReport";
 import TeamDynamics from "../components/TeamDynamics";
 import MyPerformance from "./MyPerformance";
@@ -31,10 +31,19 @@ import { db } from "../../firebase";
 
 export default function ManagerDashboard() {
   const { auth, onLogout } = useOutletContext();
+  const { section } = useParams();
+  const navigate = useNavigate();
   const { isDark } = useTheme();
   const { departmentsMap } = useDepartments();
 
-  const [currentSection, setCurrentSection] = useState("dashboard");
+  const [currentSection, setCurrentSection] = useState(section || "dashboard");
+
+  // Sync section with URL
+  useEffect(() => {
+    if (section) {
+      setCurrentSection(section);
+    }
+  }, [section]);
 
   // IST Date/Time Helpers
   const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -622,7 +631,7 @@ export default function ManagerDashboard() {
     setDescription(log.description || "");
     setEditingLogOwner(log.employeeId || currentUserId);
     setEditingLogName(log.employeeName || userName);
-    setCurrentSection("myWork");
+    navigate("/manager/myWork");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -769,7 +778,7 @@ export default function ManagerDashboard() {
             value: deptEmployees.length,
             icon: "fa-users",
             color: "from-cyan-400 to-blue-500",
-            action: () => setCurrentSection("team"),
+            action: () => navigate("/manager/team"),
           },
           {
             title: "Present Today",
@@ -777,7 +786,7 @@ export default function ManagerDashboard() {
             icon: "fa-user-check",
             color: "from-emerald-400 to-green-500",
             action: () => {
-              setCurrentSection("attendance");
+              navigate("/manager/attendance");
               setAttendanceFilter("present");
             },
           },
@@ -787,7 +796,7 @@ export default function ManagerDashboard() {
             icon: "fa-user-nurse",
             color: "from-amber-400 to-orange-500",
             action: () => {
-              setCurrentSection("attendance");
+              navigate("/manager/attendance");
               setAttendanceFilter("onLeave");
             },
           },
@@ -796,7 +805,7 @@ export default function ManagerDashboard() {
             value: deptPending.length,
             icon: "fa-user-clock",
             color: "from-rose-400 to-pink-500",
-            action: () => setCurrentSection("pending"),
+            action: () => navigate("/manager/pending"),
           },
         ];
 
@@ -934,7 +943,7 @@ export default function ManagerDashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 }}
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setCurrentSection("pending")}
+                onClick={() => navigate("/manager/pending")}
                 className="cursor-pointer bg-gradient-to-br from-violet-400 to-purple-500 rounded-2xl p-6 text-white shadow-lg"
               >
                 <h3 className="text-xl font-bold mb-2">Pending Approvals</h3>
@@ -950,7 +959,7 @@ export default function ManagerDashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 }}
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setCurrentSection("leave")}
+                onClick={() => navigate("/manager/leave")}
                 className="cursor-pointer bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl p-6 text-white shadow-lg"
               >
                 <h3 className="text-xl font-bold mb-2">Leave Requests</h3>
@@ -2087,7 +2096,7 @@ export default function ManagerDashboard() {
                   {deptEmployees.length})
                 </h2>
                 <button
-                  onClick={() => setCurrentSection("myAnalysis")}
+                  onClick={() => navigate("/manager/myAnalysis")}
                   className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center gap-2 text-sm"
                 >
                   <i className="fas fa-chart-line"></i> View My Analysis
@@ -2130,7 +2139,7 @@ export default function ManagerDashboard() {
                         onClick={() => {
                           setSelectedAnalysisEmail(emp.email);
                           setSelectedAnalysisName(`${emp.firstName} ${emp.lastName}`);
-                          setCurrentSection("individualAnalytics");
+                          navigate("/manager/individualAnalytics");
                         }}
                         className="flex-1 sm:flex-none px-3 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                       >
@@ -2813,7 +2822,7 @@ export default function ManagerDashboard() {
             userName={selectedAnalysisName} 
             isDark={isDark} 
             isManagerView={true} 
-            onBack={() => setCurrentSection("team")}
+            onBack={() => navigate("/manager/team")}
           />
         );
 
@@ -2824,7 +2833,7 @@ export default function ManagerDashboard() {
             userName={userName} 
             isDark={isDark} 
             isManagerView={false} 
-            onBack={() => setCurrentSection("team")}
+            onBack={() => navigate("/manager/team")}
           />
         );
 
@@ -2960,7 +2969,7 @@ export default function ManagerDashboard() {
           <nav className="flex-1 space-y-2 px-2 overflow-y-auto scrollbar-hide">
             <button
               onClick={() => {
-                setCurrentSection("dashboard");
+                navigate("/manager/dashboard");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "dashboard"
@@ -2974,7 +2983,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("pending");
+                navigate("/manager/pending");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "pending"
@@ -2997,7 +3006,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("myLeave");
+                navigate("/manager/myLeave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myLeave"
@@ -3009,7 +3018,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("leave");
+                navigate("/manager/leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all flex items-center justify-between font-bold ${currentSection === "leave"
@@ -3032,7 +3041,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("myWork");
+                navigate("/manager/myWork");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myWork"
@@ -3044,7 +3053,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("team");
+                navigate("/manager/team");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "team"
@@ -3056,7 +3065,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("attendance");
+                navigate("/manager/attendance");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "attendance"
@@ -3068,7 +3077,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("teamDynamics");
+                navigate("/manager/teamDynamics");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "teamDynamics"
@@ -3081,7 +3090,7 @@ export default function ManagerDashboard() {
 
             <button
               onClick={() => {
-                setCurrentSection("activity");
+                navigate("/manager/activity");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "activity"
@@ -3093,7 +3102,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("reports");
+                navigate("/manager/reports");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "reports"
@@ -3105,7 +3114,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("generatePdf");
+                navigate("/manager/generatePdf");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "generatePdf"
@@ -3117,7 +3126,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("holidays");
+                navigate("/manager/holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "holidays"
@@ -3131,7 +3140,7 @@ export default function ManagerDashboard() {
 
             <button
               onClick={() => {
-                setCurrentSection("profile");
+                navigate("/manager/profile");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "profile"

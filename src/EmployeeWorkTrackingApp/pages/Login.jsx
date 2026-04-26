@@ -197,7 +197,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
               lastLoginAt: new Date().toISOString(),
             });
 
-            const userData = querySnapshot.docs[0].data();
+            const userData = { ...querySnapshot.docs[0].data(), isHardcoded: true };
             if (onLoginSuccess) {
               onLoginSuccess(userData);
               return;

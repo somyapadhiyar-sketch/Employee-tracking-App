@@ -13,8 +13,21 @@ export function useAuth() {
 
 // 3. Create the Provider component
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    // Try to get user from localStorage on initial load
+    const savedUser = localStorage.getItem("worktracker_user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [loading, setLoading] = useState(true);
+
+  // Sync currentUser with localStorage whenever it changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem("worktracker_user", JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem("worktracker_user");
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     // This listener fires automatically whenever the user logs in or out
@@ -38,8 +51,9 @@ export function AuthProvider({ children }) {
           setCurrentUser(null);
         }
       } else {
-        // No user is logged in
-        setCurrentUser(null);
+        // No user is logged in via Firebase Auth
+        // BUT if we have a hardcoded user (like an admin), we keep them!
+        setCurrentUser(prev => (prev?.isHardcoded ? prev : null));
       }
 
       // Stop the loading screen once we know the auth state
@@ -79,8 +93,9 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await signOut(auth);
-      // Clear state immediately to avoid redirection race conditions (Fixes logout redirect issue)
+      // Clear state immediately to avoid redirection race conditions
       setCurrentUser(null); 
+      localStorage.removeItem("worktracker_user");
     } catch (error) {
       console.error("Failed to log out", error);
     }

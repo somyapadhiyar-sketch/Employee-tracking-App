@@ -141,7 +141,7 @@ function EmployeeWorkTrackingApp() {
 
         {/* Admin Routes */}
         <Route
-          path="/admin/*"
+          path="/admin"
           element={
             <ThemeProvider>
               <ProtectedRoute auth={auth}>
@@ -152,24 +152,13 @@ function EmployeeWorkTrackingApp() {
             </ThemeProvider>
           }
         >
-          <Route index element={<AdminDashboard />} />
-          <Route path="pending" element={<AdminDashboard />} />
-          <Route
-            path="departments"
-            element={<div>Departments Coming Soon</div>}
-          />
-          <Route path="employees" element={<div>Employees Coming Soon</div>} />
-          <Route
-            path="attendance"
-            element={<div>Attendance Coming Soon</div>}
-          />
-          <Route path="leave" element={<div>Leave Requests Coming Soon</div>} />
-          <Route path="profile" element={<ProfilePage auth={auth} />} />
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path=":section" element={<AdminDashboard />} />
         </Route>
 
         {/* Employee Routes */}
         <Route
-          path="/employee/*"
+          path="/employee"
           element={
             <ThemeProvider>
               <ProtectedRoute auth={auth}>
@@ -180,13 +169,13 @@ function EmployeeWorkTrackingApp() {
             </ThemeProvider>
           }
         >
-          <Route index element={<EmployeeDashboard auth={auth} />} />
-          <Route path="profile" element={<ProfilePage auth={auth} />} />
+          <Route index element={<Navigate to="/employee/dashboard" replace />} />
+          <Route path=":section" element={<EmployeeDashboard auth={auth} />} />
         </Route>
 
         {/* Manager Routes */}
         <Route
-          path="/manager/*"
+          path="/manager"
           element={
             <ThemeProvider>
               <ProtectedRoute auth={auth}>
@@ -197,8 +186,8 @@ function EmployeeWorkTrackingApp() {
             </ThemeProvider>
           }
         >
-          <Route index element={<ManagerDashboard auth={auth} />} />
-          <Route path="profile" element={<ProfilePage auth={auth} />} />
+          <Route index element={<Navigate to="/manager/dashboard" replace />} />
+          <Route path=":section" element={<ManagerDashboard auth={auth} />} />
         </Route>
 
         <Route

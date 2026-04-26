@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   WORK_TYPES,
   LATE_THRESHOLD_HOUR,
@@ -24,7 +24,15 @@ export default function EmployeeDashboard() {
   const { isDark, toggleTheme } = useTheme();
   const { departmentsMap } = useDepartments();
 
-  const [currentSection, setCurrentSection] = useState("dashboard");
+  const { section } = useParams();
+  const [currentSection, setCurrentSection] = useState(section || "dashboard");
+
+  // Sync section with URL
+  useEffect(() => {
+    if (section) {
+      setCurrentSection(section);
+    }
+  }, [section]);
 
   // IST Date/Time Helpers
   const getISTDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -583,28 +591,28 @@ export default function EmployeeDashboard() {
             value: myLogsCount,
             icon: "fa-clipboard-check",
             color: "from-blue-400 to-indigo-500",
-            action: () => setCurrentSection("myReports"),
+            action: () => navigate("/employee/myReports"),
           },
           {
             title: "Pending Leaves",
             value: pendingLeaves,
             icon: "fa-hourglass-half",
             color: "from-orange-400 to-pink-500",
-            action: () => setCurrentSection("leave"),
+            action: () => navigate("/employee/leave"),
           },
           {
             title: "Approved Leaves",
             value: approvedLeaves,
             icon: "fa-check-circle",
             color: "from-emerald-400 to-teal-500",
-            action: () => setCurrentSection("leave"),
+            action: () => navigate("/employee/leave"),
           },
           {
             title: "Public Holidays",
             value: publicHolidays.length,
             icon: "fa-umbrella-beach",
             color: "from-purple-400 to-pink-500",
-            action: () => setCurrentSection("holidays"),
+            action: () => navigate("/employee/holidays"),
           },
         ];
 
@@ -728,7 +736,7 @@ export default function EmployeeDashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 }}
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setCurrentSection("workLog")}
+                onClick={() => navigate("/employee/workLog")}
                 className="cursor-pointer bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl p-6 text-white shadow-lg"
               >
                 <h3 className="text-xl font-bold mb-2">Log Your Work</h3>
@@ -744,7 +752,7 @@ export default function EmployeeDashboard() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 }}
                 whileHover={{ scale: 1.02 }}
-                onClick={() => setCurrentSection("myReports")}
+                onClick={() => navigate("/employee/myReports")}
                 className="cursor-pointer bg-gradient-to-br from-teal-400 to-emerald-500 rounded-2xl p-6 text-white shadow-lg"
               >
                 <h3 className="text-xl font-bold mb-2">My Reports</h3>
@@ -2006,7 +2014,7 @@ export default function EmployeeDashboard() {
           <nav className="flex-1 space-y-2 px-2 overflow-y-auto scrollbar-hide">
             <button
               onClick={() => {
-                setCurrentSection("dashboard");
+                navigate("/employee/dashboard");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "dashboard"
@@ -2018,7 +2026,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("workLog");
+                navigate("/employee/workLog");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "workLog"
@@ -2030,7 +2038,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("myReports");
+                navigate("/employee/myReports");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "myReports"
@@ -2042,7 +2050,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("activityTracking");
+                navigate("/employee/activityTracking");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "activityTracking"
@@ -2054,7 +2062,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("performance");
+                navigate("/employee/performance");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "performance"
@@ -2066,7 +2074,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("leave");
+                navigate("/employee/leave");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "leave"
@@ -2078,7 +2086,7 @@ export default function EmployeeDashboard() {
             </button>
             <button
               onClick={() => {
-                setCurrentSection("holidays");
+                navigate("/employee/holidays");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "holidays"
@@ -2092,7 +2100,7 @@ export default function EmployeeDashboard() {
 
             <button
               onClick={() => {
-                setCurrentSection("profile");
+                navigate("/employee/profile");
                 if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full text-left px-4 py-3.5 rounded-xl transition-all font-bold ${currentSection === "profile"
