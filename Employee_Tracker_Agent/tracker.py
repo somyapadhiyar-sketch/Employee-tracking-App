@@ -210,11 +210,6 @@ def start_tracking():
                 time.sleep(10)
                 continue
                 
-            if is_on_break:
-                # Silent while on break
-                time.sleep(10)
-                continue
-
             # 7. GET CURRENT APP/ACTIVITY INFO
             EMPLOYEE_EMAIL = active_user.get("email", "unknown@gmail.com")
             USER_NAME = STICKY_ACTIVE_USER
@@ -223,45 +218,53 @@ def start_tracking():
             current_date = now.strftime("%Y-%m-%d")
             current_timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
 
-            # Activity logic
-            window_title_lower = active_title.lower() if active_window else "desktop"
-            app_used = (
-                window_title_lower.split("-")[-1].strip().title()
-                if "-" in window_title_lower
-                else window_title_lower.title()
-            )
-
-            current_url = get_browser_url(window_title_lower)
-            activity_name = app_used
-
-            if app_used.lower() in ["google chrome", "msedge", "firefox", "brave"]:
-                if current_url and current_url != "N/A":
-                    parseable_url = current_url if current_url.startswith("http") else "https://" + current_url
-                    domain = urlparse(parseable_url).netloc.replace("www.", "")
-                    activity_name = domain if domain else window_title_lower.split("-")[0].strip().title()
-                else:
-                    activity_name = window_title_lower.split("-")[0].strip().title()
-
-            # 8. CHUNK STATUS DETECTION
-            chunk_status = "Active"
-            idle_seconds = get_idle_time()
-
-            if idle_seconds > 900:
+            if is_on_break:
+                # When on break, we log it as a specific "Break Mode (Away)" activity
                 activity_name = "Break Mode (Away)"
+                app_used = "Break"
                 current_url = "N/A"
                 chunk_status = "Idle"
-                if not is_on_break:
-                    db.collection("users").document(USER_DOC_ID).update({"isOnBreak": True})
-            elif idle_seconds > 10:
-                chunk_status = "Idle"
-            
-            # Social/Youtube logic
-            if any(sm in window_title_lower for sm in SOCIAL_MEDIA):
-                chunk_status = "Idle"
-            elif "youtube" in window_title_lower:
-                is_productive = any(word in window_title_lower for word in PRODUCTIVE_KEYWORDS)
-                if not is_productive:
+                active_title = "Away - Break in Progress"
+            else:
+                # Activity logic for active work
+                window_title_lower = active_title.lower() if active_window else "desktop"
+                app_used = (
+                    window_title_lower.split("-")[-1].strip().title()
+                    if "-" in window_title_lower
+                    else window_title_lower.title()
+                )
+
+                current_url = get_browser_url(window_title_lower)
+                activity_name = app_used
+
+                if app_used.lower() in ["google chrome", "msedge", "firefox", "brave"]:
+                    if current_url and current_url != "N/A":
+                        parseable_url = current_url if current_url.startswith("http") else "https://" + current_url
+                        domain = urlparse(parseable_url).netloc.replace("www.", "")
+                        activity_name = domain if domain else window_title_lower.split("-")[0].strip().title()
+                    else:
+                        activity_name = window_title_lower.split("-")[0].strip().title()
+
+                # 8. CHUNK STATUS DETECTION
+                chunk_status = "Active"
+                idle_seconds = get_idle_time()
+
+                if idle_seconds > 900:
+                    activity_name = "Break Mode (Away)"
+                    current_url = "N/A"
                     chunk_status = "Idle"
+                    if not is_on_break:
+                        db.collection("users").document(USER_DOC_ID).update({"isOnBreak": True})
+                elif idle_seconds > 10:
+                    chunk_status = "Idle"
+                
+                # Social/Youtube logic
+                if any(sm in window_title_lower for sm in SOCIAL_MEDIA):
+                    chunk_status = "Idle"
+                elif "youtube" in window_title_lower:
+                    is_productive = any(word in window_title_lower for word in PRODUCTIVE_KEYWORDS)
+                    if not is_productive:
+                        chunk_status = "Idle"
 
             # 9. SAVE DATA TO FIREBASE
             safe_activity_name = activity_name.replace("/", "_").replace(".", "_").replace(" ", "_")

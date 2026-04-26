@@ -84,7 +84,7 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
     const idleTime = row.idle_time_seconds || 0;
     
     let status = "productive";
-    if (appName === "Break Mode (Away)") {
+    if (appName.startsWith("Break Mode")) {
       status = "break";
     } else if (idleTime > activeTime) {
       status = "low";
@@ -256,7 +256,7 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
                     </td>
 
                     <td className="px-4 py-4 whitespace-nowrap">
-                      {appName === "Break Mode (Away)" ? (
+                      {appName.startsWith("Break Mode") ? (
                         <span className="px-3 py-1 bg-gray-100 text-gray-700 ring-1 ring-gray-200 rounded-full text-xs font-bold uppercase tracking-wider">
                           Break
                         </span>

@@ -215,7 +215,7 @@ export default function ManagerActivityReport({
     const activeTime = row.active_time_seconds || 0;
 
     let rowStatus = "productive";
-    if (appName === "Break Mode (Away)") {
+    if (appName.startsWith("Break Mode")) {
       rowStatus = "break";
     } else if (idleTime > activeTime) {
       rowStatus = "low_activity";
@@ -620,7 +620,7 @@ export default function ManagerActivityReport({
                     </td>
 
                     <td className="px-2 py-3 text-center">
-                      {appName === "Break Mode (Away)" ? (
+                      {appName.startsWith("Break Mode") ? (
                         <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 ring-1 ring-gray-200 rounded text-[9px] font-bold uppercase">
                           Break
                         </span>
