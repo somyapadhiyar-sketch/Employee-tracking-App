@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../firebase";
-import {
+import { motion, AnimatePresence } from "framer-motion";
+import CompactDatePicker from "./CompactDatePicker";
+import { 
   ResponsiveContainer,
   ScatterChart,
   Scatter,
@@ -21,12 +20,15 @@ import {
   Line,
   Cell,
 } from "recharts";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../firebase";
 
 export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHeader = false, propStartDate, propEndDate }) {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [startDate, setStartDate] = useState(() => propStartDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [endDate, setEndDate] = useState(() => propEndDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
 
@@ -39,19 +41,22 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [analyticsSnap, logsSnap, leaveSnap] = await Promise.all([
+        const [analyticsSnap, logsSnap, leaveSnap, usersSnap] = await Promise.all([
           getDocs(collection(db, "employee_analytics")),
           getDocs(collection(db, "workLogs")),
           getDocs(collection(db, "leaveRequests")),
+          getDocs(collection(db, "users")),
         ]);
 
         const aData = analyticsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         const lLogs = logsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         const lReqs = leaveSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const currentAllUsers = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
         setAnalyticsData(aData);
         setWorkLogs(lLogs);
         setLeaveRequests(lReqs);
+        setAllUsers(currentAllUsers);
       } catch (error) {
         console.error("Error fetching dynamics data:", error);
       } finally {
@@ -61,23 +66,24 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     fetchData();
   }, []);
 
-  // 1. Scatter Plot Data: Anomaly Detection (Active vs Idle) - Period Totals
+  // 1. Scatter Plot Data: Anomaly Detection (Active vs Idle) - All Employees in the system
   const scatterData = useMemo(() => {
-    return deptEmployees.map((emp) => {
+    // Show all approved employees (or ALL employees) in anomaly detection
+    const systemEmployees = allUsers.filter(u => u.status === 'approved' && u.role !== 'admin');
+    return systemEmployees.map((emp) => {
       const empAnalytics = analyticsData.filter(
         (a) => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate
       );
-      const active = empAnalytics.reduce((acc, curr) => acc + (curr.active_time_seconds || 0), 0) / 60; // Minutes
-      const idle = empAnalytics.reduce((acc, curr) => acc + (curr.idle_time_seconds || 0), 0) / 60; // Minutes
-
+      const active = empAnalytics.reduce((acc, curr) => acc + (curr.active_time_seconds || 0), 0) / 60;
+      const idle   = empAnalytics.reduce((acc, curr) => acc + (curr.idle_time_seconds  || 0), 0) / 60;
       return {
-        name: `${emp.firstName} ${emp.lastName}`,
+        name:   `${emp.firstName} ${emp.lastName}`,
         active: Math.round(active),
-        idle: Math.round(idle),
+        idle:   Math.round(idle),
         z: 10,
       };
-    });
-  }, [analyticsData, deptEmployees, startDate, endDate]);
+    }).filter(emp => emp.active > 0 || emp.idle > 0); // hide employees with no tracking data in period
+  }, [analyticsData, allUsers, startDate, endDate]);
 
   // 2. Area Chart Data: Peak Productivity Hours (9 AM - 6 PM) - Average across period
   const trendData = useMemo(() => {
@@ -88,16 +94,25 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     }));
 
     const teamEmails = deptEmployees.map((e) => e.email);
-    const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Filter to pertinent data in date range
+    const activeLogs = analyticsData.filter((row) => 
+      row.date >= startDate && 
+      row.date <= endDate && 
+      teamEmails.includes(row.employee_email) && 
+      row.last_updated
+    );
 
-    analyticsData.forEach((row) => {
-      if (row.date >= startDate && row.date <= endDate && teamEmails.includes(row.employee_email) && row.last_updated) {
-        const h = new Date(row.last_updated).getHours();
-        if (h >= 9 && h <= 18) {
-          const index = h - 9;
-          if (hourlyData[index]) {
-            hourlyData[index].productivity += (row.active_time_seconds || 0) / 60;
-          }
+    // Calculate actual active days to average properly (avoid weekends/holiday drops)
+    const distinctDates = new Set(activeLogs.map(r => r.date));
+    const activeDaysCount = distinctDates.size || 1; // fallback to 1 to avoid NaN
+
+    activeLogs.forEach((row) => {
+      const h = new Date(row.last_updated).getHours();
+      if (h >= 9 && h <= 18) {
+        const index = h - 9;
+        if (hourlyData[index]) {
+          hourlyData[index].productivity += (row.active_time_seconds || 0) / 60;
         }
       }
     });
@@ -105,34 +120,54 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
     return hourlyData.map(d => ({
       ...d,
       time: d.hour > 12 ? `${d.hour - 12} PM` : d.hour === 12 ? '12 PM' : `${d.hour} AM`,
-      productivity: Math.round(d.productivity / dayDiff) // Average per day
+      productivity: Math.round(d.productivity / activeDaysCount) // Average per active day
     }));
   }, [analyticsData, deptEmployees, startDate, endDate]);
 
   // 3. Horizontal Bar Chart: Leave Trends (Based on Range)
   const leaveData = useMemo(() => {
+    const d1 = new Date(startDate);
+    const d2 = new Date(endDate);
+    const totalDays = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+
     return deptEmployees.map((emp) => {
-      const rangeLeaves = leaveRequests.filter((r) => {
-        if (r.employeeId !== emp.id || r.status !== "approved") return false;
-        return r.startDate >= startDate && r.startDate <= endDate;
+      // Present Days: distinct dates worked
+      const userAnalytics = analyticsData.filter(a => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate);
+      const distinctPresentDates = new Set(userAnalytics.map(a => a.date));
+      const presentDays = distinctPresentDates.size;
+
+      // Leave Days
+      const userLeaves = leaveRequests.filter((r) => 
+        r.employeeId === emp.id && 
+        r.status === "approved" && 
+        r.startDate <= endDate && 
+        r.endDate >= startDate
+      );
+      
+      let leaveDays = 0;
+      userLeaves.forEach(r => {
+        const s = r.startDate > startDate ? new Date(r.startDate) : new Date(startDate);
+        const e = r.endDate < endDate ? new Date(r.endDate) : new Date(endDate);
+        const diff = Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) + 1;
+        
+        if (r.leaveDuration === "half" || r.leaveDuration === "first_half" || r.leaveDuration === "second_half") {
+          leaveDays += 0.5;
+        } else {
+          leaveDays += diff;
+        }
       });
 
-      const totalUsed = leaveRequests
-        .filter((r) => r.employeeId === emp.id && r.status === "approved")
-        .reduce((sum, r) => {
-          const s = new Date(r.startDate);
-          const e = new Date(r.endDate);
-          const diff = Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) + 1;
-          return sum + diff;
-        }, 0);
+      const absentDays = Math.max(0, totalDays - presentDays - leaveDays);
 
       return {
         name: emp.firstName,
-        leavesInPeriod: rangeLeaves.length,
-        balanceRemaining: Math.max(0, 20 - totalUsed),
+        presentDays,
+        leaveDays,
+        absentDays,
+        totalActivity: presentDays + leaveDays, // for sorting purposes
       };
-    }).sort((a, b) => b.leavesInPeriod - a.leavesInPeriod).slice(0, 10);
-  }, [leaveRequests, deptEmployees, startDate, endDate]);
+    }).sort((a, b) => b.totalActivity - a.totalActivity).slice(0, 10);
+  }, [deptEmployees, analyticsData, leaveRequests, startDate, endDate]);
 
   // 4. Composed Chart: Target vs Achieved (Period Totals)
   const targetData = useMemo(() => {
@@ -153,18 +188,19 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
   const ganttData = useMemo(() => {
     const startTimeStr = "09:00:00";
     const endTimeStr = "18:00:00";
-    const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const isSingleDay = startDate === endDate;
 
     const getMinutes = (timeStr) => {
       if (!timeStr) return null;
-      // Extract time if it's a full locale string like "4/1/2026, 9:52:42 AM"
-      const t = timeStr.includes(',') ? timeStr.split(',')[1].trim() : timeStr;
-      const [hPart, mPart, sPart] = t.split(':');
-      let hours = parseInt(hPart);
-      const minutes = parseInt(mPart);
-      if (t.toLowerCase().includes('pm') && hours < 12) hours += 12;
-      if (t.toLowerCase().includes('am') && hours === 12) hours = 0;
-      return hours * 60 + minutes;
+      try {
+        const t = timeStr.includes(',') ? timeStr.split(',')[1].trim() : timeStr;
+        const [hPart, mPart] = t.split(':');
+        let hours = parseInt(hPart);
+        const minutes = parseInt(mPart);
+        if (t.toLowerCase().includes('pm') && hours < 12) hours += 12;
+        if (t.toLowerCase().includes('am') && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+      } catch (e) { return null; }
     };
 
     const startMins = getMinutes(startTimeStr);
@@ -175,20 +211,57 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
       let loginMins = null;
       let logoutMins = null;
 
-      if (emp.lastClockInDate === todayDate && emp.lastClockInTime) {
-        loginMins = getMinutes(emp.lastClockInTime);
-      }
+      if (isSingleDay) {
+        // Use exact day logs if range is 1 day
+        const dayLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date === startDate);
+        if (dayLogs.length > 0) {
+          // Simplification: use earliest log of the day as login
+          const sorted = dayLogs.sort((a, b) => {
+            const tA = a.last_updated?.toDate ? a.last_updated.toDate() : new Date(a.last_updated);
+            const tB = b.last_updated?.toDate ? b.last_updated.toDate() : new Date(b.last_updated);
+            return tA - tB;
+          });
+          const firstLog = sorted[0];
+          const lastLog = sorted[sorted.length - 1];
+          
+          const firstDate = firstLog.last_updated?.toDate ? firstLog.last_updated.toDate() : new Date(firstLog.last_updated);
+          loginMins = firstDate.getHours() * 60 + firstDate.getMinutes();
+          
+          const lastDate = lastLog.last_updated?.toDate ? lastLog.last_updated.toDate() : new Date(lastLog.last_updated);
+          logoutMins = lastDate.getHours() * 60 + lastDate.getMinutes();
+        }
+      } else {
+        // Calculate average for multiple days
+        const rangeLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate);
+        const logsByDate = {};
+        rangeLogs.forEach(log => {
+          if (!logsByDate[log.date]) logsByDate[log.date] = [];
+          logsByDate[log.date].push(log);
+        });
 
-      if (emp.lastClockOutDate === todayDate && emp.lastClockOutTime) {
-        logoutMins = getMinutes(emp.lastClockOutTime);
-      } else if (emp.clockedIn && emp.lastClockInDate === todayDate) {
-        // Still clocked in, use current time (clamped to 6 PM)
-        logoutMins = Math.min(endMins, getMinutes(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true })));
+        const arrivals = [];
+        const departures = [];
+        Object.values(logsByDate).forEach(dayLogs => {
+          const sorted = dayLogs.sort((a, b) => {
+            const tA = a.last_updated?.toDate ? a.last_updated.toDate() : new Date(a.last_updated);
+            const tB = b.last_updated?.toDate ? b.last_updated.toDate() : new Date(b.last_updated);
+            return tA - tB;
+          });
+          const first = sorted[0].last_updated?.toDate ? sorted[0].last_updated.toDate() : new Date(sorted[0].last_updated);
+          arrivals.push(first.getHours() * 60 + first.getMinutes());
+          
+          const last = sorted[sorted.length-1].last_updated?.toDate ? sorted[sorted.length-1].last_updated.toDate() : new Date(sorted[sorted.length-1].last_updated);
+          departures.push(last.getHours() * 60 + last.getMinutes());
+        });
+
+        if (arrivals.length > 0) {
+          loginMins = arrivals.reduce((a, b) => a + b, 0) / arrivals.length;
+          logoutMins = departures.reduce((a, b) => a + b, 0) / departures.length;
+        }
       }
 
       if (!loginMins) return { name: emp.firstName, gap: totalDayMins, shift: 0, status: 'Absent' };
 
-      // Calculate shift bar
       const clampLogin = Math.max(startMins, loginMins);
       const clampLogout = logoutMins ? Math.min(endMins, logoutMins) : clampLogin;
 
@@ -201,29 +274,31 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         gap,
         shift,
         remaining,
-        isLate: loginMins > (startMins + 15), // 15 mins grace
-        isEarlyOut: logoutMins < endMins && !emp.clockedIn,
-        loginTime: loginMins ? `${Math.floor(loginMins / 60)}:${(loginMins % 60).toString().padStart(2, '0')}` : 'N/A',
-        logoutTime: logoutMins ? `${Math.floor(logoutMins / 60)}:${(logoutMins % 60).toString().padStart(2, '0')}` : 'N/A',
+        isLate: loginMins > (startMins + 15), 
+        isEarlyOut: logoutMins < endMins,
+        loginTime: loginMins ? `${Math.floor(loginMins / 60)}:${(Math.round(loginMins % 60)).toString().padStart(2, '0')}` : 'N/A',
+        logoutTime: logoutMins ? `${Math.floor(logoutMins / 60)}:${(Math.round(logoutMins % 60)).toString().padStart(2, '0')}` : 'N/A',
       };
     });
-  }, [deptEmployees]);
+  }, [deptEmployees, analyticsData, startDate, endDate]);
 
-  // 6. Leaderboard Data: Top 5 & Bottom 5 Productivity (7-Day Trend)
+  // 6. Leaderboard Data: Top 5 & Bottom 5 Productivity (Selected Trend)
   const leaderboardData = useMemo(() => {
-    const today = new Date();
-    const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
+    const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const rangeDays = [];
+    // Show up to 7 days in the trend line for each employee
+    const trendCount = Math.min(dayDiff, 7);
+    for (let i = trendCount - 1; i >= 0; i--) {
+      const d = new Date(endDate);
       d.setDate(d.getDate() - i);
-      last7Days.push(d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }));
+      rangeDays.push(d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }));
     }
 
     const leaderboard = deptEmployees.map((emp) => {
-      const history = last7Days.map(dateStr => {
+      const history = rangeDays.map(dateStr => {
         const dayLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date === dateStr);
-        const active = dayLogs.reduce((acc, curr) => acc + (curr.active_time_seconds || 0), 0);
-        const idle = dayLogs.reduce((acc, curr) => acc + (curr.idle_time_seconds || 0), 0);
+        const active = dayLogs.reduce((acc, curr) => acc + (Number(curr.active_time_seconds) || 0), 0);
+        const idle = dayLogs.reduce((acc, curr) => acc + (Number(curr.idle_time_seconds) || 0), 0);
         const total = active + idle;
         return {
           date: dateStr,
@@ -231,14 +306,22 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         };
       });
 
-      const currentScore = history[history.length - 1].score;
+      // Overall score for the ENTIRE selected range
+      const rangeLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate);
+      const totalActive = rangeLogs.reduce((acc, curr) => acc + (Number(curr.active_time_seconds) || 0), 0);
+      const totalIdle = rangeLogs.reduce((acc, curr) => acc + (Number(curr.idle_time_seconds) || 0), 0);
+      const overallScore = (totalActive + totalIdle) > 0 
+        ? Math.round((totalActive / (totalActive + totalIdle)) * 100) 
+        : 0;
+
+      const currentScore = history.length > 0 ? history[history.length - 1].score : 0;
       const trend = history.map(h => h.score);
       const isImproving = trend.length >= 2 ? currentScore >= (trend[0] || 0) : true;
 
       return {
         id: emp.id,
         name: `${emp.firstName} ${emp.lastName}`,
-        score: currentScore,
+        score: overallScore, // Show overall period score
         trend: history,
         isImproving
       };
@@ -249,38 +332,31 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
       top: sorted.slice(0, 5),
       bottom: sorted.slice(Math.max(0, sorted.length - 5)).reverse()
     };
-  }, [analyticsData, deptEmployees]);
+  }, [analyticsData, deptEmployees, startDate, endDate]);
 
-  // 7. Burnout Risk Data: (Total Hours vs Break Ratio over last 3 days)
+  // 7. Burnout Risk: Based on high work hours & low breaks in selected range
   const burnoutData = useMemo(() => {
-    const today = new Date();
-    const last3Days = [];
-    for (let i = 2; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      last3Days.push(d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }));
-    }
-
     return deptEmployees.map((emp) => {
-      const history = last3Days.map(dateStr => {
-        const dayLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date === dateStr);
-        const active = dayLogs.reduce((acc, curr) => acc + (curr.active_time_seconds || 0), 0) / 3600;
-        const idle = dayLogs.reduce((acc, curr) => acc + (curr.idle_time_seconds || 0), 0) / 3600;
-        return { hours: active + idle, breakRatio: (active + idle) > 0 ? idle / (active + idle) : 0.2 };
-      });
+      const rangeLogs = analyticsData.filter(a => a.employee_email === emp.email && a.date >= startDate && a.date <= endDate);
+      
+      const distinctDates = new Set(rangeLogs.map(r => r.date));
+      const activeDaysCount = distinctDates.size || 1;
 
-      const avgHours = history.length > 0 ? history.reduce((sum, h) => sum + h.hours, 0) / history.length : 0;
-      const avgBreak = history.length > 0 ? history.reduce((sum, h) => sum + h.breakRatio, 0) / history.length : 0.2;
+      const activeTotal = rangeLogs.reduce((acc, curr) => acc + (Number(curr.active_time_seconds) || 0), 0);
+      const avgDailyHours = (activeTotal / 3600) / activeDaysCount;
+      
+      const idleTotal = rangeLogs.reduce((acc, curr) => acc + (Number(curr.idle_time_seconds) || 0), 0);
+      const breakRatio = (activeTotal + idleTotal) > 0 ? idleTotal / (activeTotal + idleTotal) : 0.2;
 
       let risk = 'Safe';
       let color = '#22c55e'; // Green
       let icon = 'fa-check-circle';
 
-      if (avgHours > 10 && avgBreak < 0.08) {
+      if (avgDailyHours > 10 && breakRatio < 0.08) {
         risk = 'Danger';
         color = '#ef4444'; // Red
         icon = 'fa-fire';
-      } else if (avgHours > 9 || avgBreak < 0.12) {
+      } else if (avgDailyHours > 9 || breakRatio < 0.12) {
         risk = 'Warning';
         color = '#f59e0b'; // Yellow/Amber
         icon = 'fa-exclamation-triangle';
@@ -292,11 +368,11 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         risk,
         color,
         icon,
-        avgHours: Math.round(avgHours * 10) / 10,
-        avgBreak: Math.round(avgBreak * 100)
+        avgHours: Math.round(avgDailyHours * 10) / 10,
+        avgBreak: Math.round(breakRatio * 100)
       };
     });
-  }, [analyticsData, deptEmployees]);
+  }, [analyticsData, deptEmployees, startDate, endDate]);
 
   if (loading) {
     return (
@@ -345,44 +421,52 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
+            className="min-w-0 flex-1 lg:flex-none"
           >
-            <h1 className={`text-4xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight truncate ${isDark ? "text-white" : "text-gray-900"}`}>
               My Team - {dept || "Department Dynamics"}
             </h1>
-            <p className={`text-lg mt-2 font-medium ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+            <p className={`text-sm mt-1 sm:mt-0 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
               Live tracking and productivity analysis of all employees across your department.
             </p>
           </motion.div>
 
           {/* Date Range Picker - Keep it here for side-by-side if header is shown */}
-          <div className={`w-full lg:w-auto p-3 sm:p-4 rounded-3xl border shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+          <div className={`w-full lg:w-auto px-1.5 sm:px-4 py-1 sm:py-0 h-auto sm:h-[40px] rounded-2xl shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 ${isDark ? "bg-gray-800" : "bg-white"}`}>
             <div className="flex items-center gap-3 px-1 sm:px-0">
               <i className="fas fa-calendar-alt text-violet-500"></i>
               <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
             </div>
             <div className="flex items-center justify-between sm:justify-start gap-2">
-              <input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)}
-                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-violet-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-violet-400"}`}
-              />
+              <div className="w-[115px] sm:w-[130px]">
+                <CompactDatePicker
+                  value={startDate}
+                  onChange={(val) => setStartDate(val)}
+                  isDark={isDark}
+                  themeColor="violet"
+                  size="sm"
+                />
+              </div>
               <span className={`shrink-0 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                 <i className="fas fa-arrow-right text-[10px]"></i>
               </span>
-              <input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)}
-                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-violet-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-violet-400"}`}
-              />
+              <div className="w-[115px] sm:w-[130px]">
+                <CompactDatePicker
+                  value={endDate}
+                  onChange={(val) => setEndDate(val)}
+                  isDark={isDark}
+                  themeColor="violet"
+                  align="right"
+                  size="sm"
+                />
+              </div>
             </div>
           </div>
         </div>
       )}
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
 
         {/* 1. Scatter Plot: Anomaly Detection */}
         <motion.div
@@ -399,46 +483,53 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
             </div>
           </div>
           <div className="h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#374151" : "#f1f5f9"} vertical={false} />
-                <XAxis
-                  type="number"
-                  dataKey="active"
-                  name="Active"
-                  unit="m"
-                  stroke={isDark ? "#9ca3af" : "#64748b"}
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  label={{ value: 'Active Time (min)', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#9ca3af' }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="idle"
-                  name="Idle"
-                  unit="m"
-                  stroke={isDark ? "#9ca3af" : "#64748b"}
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  label={{ value: 'Idle Time (min)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#9ca3af' }}
-                />
-                <ZAxis type="number" dataKey="z" range={[100, 100]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Scatter name="Employees" data={scatterData} fill="#8884d8">
-                  {scatterData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.idle > entry.active ? '#f43f5e' : '#10b981'}
-                      fillOpacity={0.8}
-                      stroke={entry.idle > entry.active ? '#9f1239' : '#065f46'}
-                      strokeWidth={2}
-                    />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
+            {scatterData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center gap-2">
+                <i className="fas fa-search text-2xl text-gray-300"></i>
+                <p className="text-xs font-bold text-gray-400 text-center">No tracking data<br/>for this period</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#374151" : "#f1f5f9"} vertical={false} />
+                  <XAxis
+                    type="number"
+                    dataKey="active"
+                    name="Active"
+                    unit="m"
+                    stroke={isDark ? "#9ca3af" : "#64748b"}
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    label={{ value: 'Active Time (min)', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#9ca3af' }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="idle"
+                    name="Idle"
+                    unit="m"
+                    stroke={isDark ? "#9ca3af" : "#64748b"}
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    label={{ value: 'Idle Time (min)', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#9ca3af' }}
+                  />
+                  <ZAxis type="number" dataKey="z" range={[100, 100]} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Scatter name="Employees" data={scatterData} fill="#8884d8">
+                    {scatterData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.idle > entry.active ? '#f43f5e' : '#10b981'}
+                        fillOpacity={0.8}
+                        stroke={entry.idle > entry.active ? '#9f1239' : '#065f46'}
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <div className="mt-4 flex items-center justify-center gap-6">
             <div className="flex items-center gap-2">
@@ -507,7 +598,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Leave & Attendance</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Balance vs Taken in Period</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Present vs Leave vs Absent</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
               <i className="fas fa-calendar-minus"></i>
@@ -528,8 +619,9 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar dataKey="leavesInPeriod" name="Taken in Period" stackId="a" fill="#f43f5e" radius={[0, 0, 0, 0]} barSize={20} />
-                <Bar dataKey="balanceRemaining" name="Total Balance" stackId="a" fill="#10b981" radius={[0, 10, 10, 0]} barSize={20} />
+                <Bar dataKey="presentDays" name="Present Days" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={20} />
+                <Bar dataKey="leaveDays" name="Leave Days" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} barSize={20} />
+                <Bar dataKey="absentDays" name="Absent Days" stackId="a" fill="#f43f5e" radius={[0, 10, 10, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -700,14 +792,14 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           {/* Top 5 Performers */}
           <motion.div
             whileHover={{ scale: 1.01 }}
-            className={`p-5 rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+            className={`p-4 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
           >
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className={`text-xl font-black ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                   Top Performers 🔥
                 </h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ranked by Productivity</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Ranked by Productivity</p>
               </div>
             </div>
             <div className="space-y-4">
@@ -749,14 +841,14 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
           {/* Bottom 5 Need Attention */}
           <motion.div
             whileHover={{ scale: 1.01 }}
-            className={`p-5 rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+            className={`p-4 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
           >
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className={`text-xl font-black ${isDark ? "text-rose-400" : "text-rose-600"}`}>
+                <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                   Need Attention ⚠️
                 </h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Low Productivity Zones</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Low Productivity Zones</p>
               </div>
             </div>
             <div className="space-y-4">
@@ -803,8 +895,8 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
         >
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>Burnout Risk Matrix 🔥</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Team Health Monitor (Last 3 Days)</p>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Burnout Risk Matrix 🔥</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Team Health Monitor (Selected Period)</p>
             </div>
             <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
               Health Check
@@ -864,7 +956,7 @@ export default function TeamDynamics({ isDark, dept, deptEmployees = [], hideHea
 
       <div className={`p-6 rounded-3xl border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-violet-50/50 border-violet-100"}`}>
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white text-xl shadow-lg shrink-0">
+          <div className="w-9 sm:w-12 h-9 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white text-base sm:text-xl shadow-lg shrink-0">
             <i className="fas fa-magic"></i>
           </div>
           <div>

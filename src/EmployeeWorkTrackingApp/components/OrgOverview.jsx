@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CompactDatePicker from './CompactDatePicker';
 import {
   Treemap, ResponsiveContainer, Tooltip,
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid,
@@ -120,6 +121,14 @@ const OrgOverview = ({
   const [startDate, setStartDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [endDate, setEndDate] = React.useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
 
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+
   // --- FILTER OUT ADMINS FROM ALL CALCULATIONS ---
   const allUsers = useMemo(() => rawUsers.filter(u => u.role !== 'admin'), [rawUsers]);
   const adminEmails = useMemo(() => rawUsers.filter(u => u.role === 'admin').map(u => u.email), [rawUsers]);
@@ -200,34 +209,88 @@ const OrgOverview = ({
     ];
   }, [analyticsData]);
 
-  // 4. Multi-Line Chart: Monthly Organizational Trend
-  const monthlyTrendData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentYear = new Date().getFullYear();
+  // 4. Multi-Line Chart: Period-based Organizational Trend (date-range aware)
+  const rangedTrendData = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const dayDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Pre-filter data for current year to reduce iterations in map
-    const yearLogs = workLogs.filter(l => new Date(l.date).getFullYear() === currentYear);
-    const yearLeaves = leaveRequests.filter(r => new Date(r.startDate).getFullYear() === currentYear && r.status === 'approved');
-    const yearAnalytics = analyticsData.filter(a => new Date(a.date).getFullYear() === currentYear);
+    // Choose grouping: daily (≤31d), weekly (≤90d), monthly (>90d)
+    const useWeekly = dayDiff > 31 && dayDiff <= 90;
+    const useMonthly = dayDiff > 90;
 
-    return months.map((month, index) => {
-      const monthLogs = yearLogs.filter(l => new Date(l.date).getMonth() === index);
-      const monthLeaves = yearLeaves.filter(r => new Date(r.startDate).getMonth() === index);
-      const attendanceCount = new Set(monthLogs.map(l => l.employeeId)).size;
+    const buckets = [];
 
-      const monthAnalytics = yearAnalytics.filter(a => new Date(a.date).getMonth() === index);
-      const avgProd = monthAnalytics.length > 0
-        ? monthAnalytics.reduce((sum, a) => sum + (a.active_time_seconds / (a.active_time_seconds + a.idle_time_seconds || 1)) * 100, 0) / monthAnalytics.length
-        : monthLogs.length > 0 ? 80 + (Math.random() * 5) : 0;
+    if (useMonthly) {
+      // Group by month within the range
+      const monthSet = new Map();
+      for (let i = 0; i < dayDiff; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        if (!monthSet.has(key)) monthSet.set(key, { name: label, dates: [] });
+        monthSet.get(key).dates.push(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+      }
+      monthSet.forEach(v => buckets.push(v));
+    } else if (useWeekly) {
+      // Group by week
+      let weekStart = new Date(start);
+      let weekNum = 1;
+      while (weekStart <= end) {
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const actualEnd = weekEnd > end ? end : weekEnd;
+        const dates = [];
+        let d = new Date(weekStart);
+        while (d <= actualEnd) {
+          dates.push(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+          d.setDate(d.getDate() + 1);
+        }
+        buckets.push({ name: `Wk${weekNum}`, dates });
+        weekStart.setDate(weekStart.getDate() + 7);
+        weekNum++;
+      }
+    } else {
+      // Daily grouping
+      for (let i = 0; i < dayDiff; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const label = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        buckets.push({ name: label, dates: [dateStr] });
+      }
+    }
+
+    return buckets.map(bucket => {
+      const dateSet = new Set(bucket.dates);
+
+      // Analytics for this bucket
+      const bucketAnalytics = analyticsData.filter(a => dateSet.has(a.date));
+      const totalActive = bucketAnalytics.reduce((s, a) => s + (a.active_time_seconds || 0), 0);
+      const totalIdle = bucketAnalytics.reduce((s, a) => s + (a.idle_time_seconds || 0), 0);
+      const avgProd = (totalActive + totalIdle) > 0
+        ? Math.round((totalActive / (totalActive + totalIdle)) * 100)
+        : 0;
+
+      // Unique employees who logged work (attendance)
+      const bucketLogs = workLogs.filter(l => dateSet.has(l.date));
+      const attendanceCount = new Set(bucketLogs.map(l => l.employeeId)).size;
+
+      // Approved leaves starting in this bucket
+      const rawLeaveRequests = leaveRequests;
+      const bucketLeaves = rawLeaveRequests.filter(r =>
+        r.status === 'approved' && dateSet.has(r.startDate)
+      ).length;
 
       return {
-        name: month,
-        attendance: attendanceCount || (index < new Date().getMonth() ? 10 + Math.floor(Math.random() * 20) : 0),
-        productivity: Math.round(avgProd),
-        leaves: monthLeaves.length || (index < new Date().getMonth() ? Math.floor(Math.random() * 5) : 0),
+        name: bucket.name,
+        attendance: attendanceCount,
+        productivity: avgProd,
+        leaves: bucketLeaves,
       };
     });
-  }, [workLogs, leaveRequests, analyticsData]);
+  }, [analyticsData, workLogs, leaveRequests, startDate, endDate]);
 
   // 5. Department-wise Productivity (Doughnut)
   const deptProductivityData = useMemo(() => {
@@ -336,19 +399,19 @@ const OrgOverview = ({
         className="mb-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6"
       >
         <div>
-          <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+          <h1 className={`text-2xl sm:text-3xl font-bold leading-tight ${isDark ? "text-white" : "text-gray-900"}`}>
             Productivity Analysis
           </h1>
-          <p className={`text-sm mt-1 font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+          <p className={`text-sm mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
             Live tracking and productivity analysis across all departments.
           </p>
         </div>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
           {/* Department Selector Group */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-row items-center gap-2">
             <OrgCustomSelect
-              className="min-w-[200px]"
+              className="flex-1 sm:flex-none sm:min-w-[200px]"
               isDark={isDark}
               value={filterDeptId}
               icon="fa-filter"
@@ -368,11 +431,11 @@ const OrgOverview = ({
             />
 
             {filterDeptId && (
-                <motion.button
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onViewDepartment(filterDeptId, departmentsMap[filterDeptId]?.name || filterDeptId)}
-                className="h-[40px] aspect-square bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-xl shadow-xl shadow-blue-500/20 flex items-center justify-center shrink-0"
+                className="h-[38px] w-[38px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-base shadow-xl shadow-blue-500/20 flex items-center justify-center shrink-0"
                 title="View Team Analysis"
               >
                 <i className="fas fa-chart-pie"></i>
@@ -381,9 +444,9 @@ const OrgOverview = ({
           </div>
 
           {/* Employee Selector Group */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-row items-center gap-2">
             <OrgCustomSelect
-              className="min-w-[220px]"
+              className="flex-1 sm:flex-none sm:min-w-[220px]"
               isDark={isDark}
               value={selectedEmployeeEmail}
               icon="fa-user"
@@ -406,26 +469,33 @@ const OrgOverview = ({
             />
           </div>
 
-          {/* Date Range Picker */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className={`p-3 h-[40px] rounded-2xl border-2 flex items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
-              <div className="flex items-center gap-2">
+          <div className="flex flex-row items-center gap-2">
+            <div className={`p-1 sm:p-1.5 h-[40px] flex-1 sm:flex-none rounded-2xl flex items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800" : "bg-white shadow-sm"}`}>
+              <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
                 <i className={`fas fa-calendar-alt text-[10px] ${isDark ? "text-violet-400" : "text-violet-500"}`}></i>
-                <input 
-                  type="date" 
-                  value={startDate} 
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDark ? "text-white" : "text-slate-700"}`}
-                />
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
+                <div className="w-[115px] sm:w-[120px]">
+                  <CompactDatePicker
+                    value={startDate}
+                    onChange={(val) => setStartDate(val)}
+                    isDark={isDark}
+                    themeColor="violet"
+                    size="sm"
+                  />
+                </div>
                 <span className={`text-[8px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
                    <i className="fas fa-arrow-right"></i>
                 </span>
-                <input 
-                  type="date" 
-                  value={endDate} 
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDark ? "text-white" : "text-slate-700"}`}
-                />
+                <div className="w-[115px] sm:w-[130px]">
+                  <CompactDatePicker
+                    value={endDate}
+                    onChange={(val) => setEndDate(val)}
+                    isDark={isDark}
+                    themeColor="violet"
+                    align="right"
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -437,12 +507,12 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-6 rounded-[2rem] shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          className={`p-6 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Company Time Audit</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Selected Period Leakage</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Company Time Audit</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Selected Period Leakage</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 text-xs">
               <i className="fas fa-hourglass-half"></i>
@@ -469,12 +539,13 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-6 rounded-[2rem] shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          transition={{ delay: 0.1 }}
+          className={`p-6 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Workforce Compliance</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Live Attendance</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Workforce Compliance</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Live Attendance</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-xs">
               <i className="fas fa-id-badge"></i>
@@ -513,12 +584,13 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-6 rounded-[2rem] shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          transition={{ delay: 0.2 }}
+          className={`p-6 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Top 5 Performers</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Efficiency Leaders</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Top 5 Performers</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Efficiency Leaders</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 text-xs">
               <i className="fas fa-crown"></i>
@@ -546,20 +618,22 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-6 rounded-[2rem] shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          transition={{ delay: 0.3 }}
+          className={`p-6 rounded-2xl sm:rounded-3xl shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Organizational Pulse</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Yearly Trend</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Organizational Pulse</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Period Trend</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-xs">
               <i className="fas fa-wave-square"></i>
             </div>
           </div>
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <div className="h-[220px] -mx-2 sm:mx-0 px-2 sm:px-0 overflow-x-auto scrollbar-hide">
+            <div className="min-w-[600px] h-full sm:min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={rangedTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#374151" : "#f1f5f9"} />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="left" orientation="left" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
@@ -571,6 +645,7 @@ const OrgOverview = ({
                 <Line yAxisId="left" type="monotone" dataKey="leaves" name="Leaves" stroke="#f43f5e" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 4, fill: '#f43f5e' }} />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </motion.div>
 
@@ -578,12 +653,13 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-6 rounded-[2rem] shadow-xl border lg:col-span-1 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          transition={{ delay: 0.4 }}
+          className={`p-6 rounded-2xl sm:rounded-3xl shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-sm font-black ${isDark ? "text-white" : "text-gray-800"}`}>Needs Calibration</h3>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Improvement Areas</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Needs Calibration</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Improvement Areas</p>
             </div>
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 text-xs">
               <i className="fas fa-exclamation-triangle"></i>
@@ -612,35 +688,46 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-10 rounded-[3rem] shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          className={`p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>Department Productivity</h3>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Productive Hours Contribution</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Department Productivity</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">Productive Hours Contribution</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
               <i className="fas fa-chart-pie"></i>
             </div>
           </div>
-          <div className="h-[300px] flex items-center justify-center">
+          <div className="h-[340px] sm:h-[300px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ bottom: -30 }}>
+              <PieChart>
                 <Pie
                   data={deptProductivityData}
                   cx="50%"
-                  cy="45%"
-                  innerRadius={65}
-                  outerRadius={110}
+                  cy={isMobile ? "45%" : "45%"}
+                  innerRadius={isMobile ? 45 : 65}
+                  outerRadius={isMobile ? 80 : 110}
                   paddingAngle={8}
                   dataKey="value"
                 >
                   {deptProductivityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.name === 'No Data' ? (isDark ? '#374151' : '#868a92ff') : COLORS[index % COLORS.length]} 
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip isDark={isDark} />} />
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                <Legend 
+                  layout="horizontal" 
+                  verticalAlign="bottom" 
+                  align="center" 
+                  wrapperStyle={{ 
+                    fontSize: isMobile ? '9px' : '12px',
+                    lineHeight: '1.2'
+                  }} 
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -650,12 +737,12 @@ const OrgOverview = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-10 rounded-[3rem] shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          className={`p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className={`text-xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>4-Quadrant Talent Matrix</h3>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Performance vs Effort Strategic Grid</p>
+              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>4-Quadrant Talent Matrix</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">Performance vs Effort Strategic Grid</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
               <i className="fas fa-crosshairs"></i>
@@ -721,12 +808,12 @@ const OrgOverview = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`p-10 rounded-[3rem] shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+        className={`p-6 sm:p-10 rounded-2xl sm:rounded-3xl shadow-2xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
       >
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h3 className={`text-xl font-black ${isDark ? "text-white" : "text-gray-800"}`}>Employee Burnout vs. Under-utilization Matrix</h3>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Departmental Workload Health Grid</p>
+            <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Employee Burnout vs. Under-utilization Matrix</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">Departmental Workload Health Grid</p>
           </div>
           <div className="flex gap-4">
             <div className="flex items-center gap-2">

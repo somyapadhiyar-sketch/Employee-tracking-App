@@ -242,7 +242,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row w-full">
+    <div className="min-h-screen flex flex-col md:flex-row w-full scrollbar-hide">
       {/* Left Side - Branding */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
@@ -272,7 +272,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }) {
         className="w-full md:w-1/2 flex flex-col justify-center items-center p-8 bg-gray-50 min-h-[70vh] md:min-h-screen order-2 md:order-2"
       >
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
             Welcome Back
           </h2>
           <p className="text-gray-500 mb-8">Sign in to continue</p>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import CompactDatePicker from "./CompactDatePicker";
 
 const GeneratePDF = ({
   allUsers,
@@ -266,7 +267,7 @@ const GeneratePDF = ({
         className="mb-10"
       >
         <h1
-          className={`text-3xl font-bold flex items-center ${
+          className={`text-2xl sm:text-3xl font-bold flex items-center ${
             isDark ? "text-white" : "text-gray-800"
           }`}
         >
@@ -502,35 +503,36 @@ const GeneratePDF = ({
                 Date Range
               </label>
               <div
-                className={`flex items-center gap-2 p-1.5 rounded-2xl border-2 ${
+                className={`flex items-center gap-2 p-1 sm:p-1.5 rounded-2xl border-2 ${
                   isDark
                     ? "bg-gray-900 border-gray-700"
                     : "bg-gray-50 border-gray-100"
                 }`}
               >
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={`bg-transparent border-none text-xs font-bold outline-none flex-1 p-1.5 ${
-                    isDark ? "text-white" : "text-slate-700"
-                  }`}
-                />
+                <div className="flex-1">
+                  <CompactDatePicker
+                    value={startDate}
+                    onChange={(val) => setStartDate(val)}
+                    isDark={isDark}
+                    themeColor={restrictedDeptId ? "violet" : "blue"}
+                  />
+                </div>
                 <span
                   className={`opacity-30 self-center ${
                     restrictedDeptId ? "text-violet-500 opacity-60" : ""
                   }`}
                 >
-                  <i className="fas fa-arrow-right text-[10px]"></i>
+                  <i className="fas fa-arrow-right text-[8px] sm:text-[10px]"></i>
                 </span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={`bg-transparent border-none text-xs font-bold outline-none flex-1 p-1.5 ${
-                    isDark ? "text-white" : "text-slate-700"
-                  }`}
-                />
+                <div className="flex-1">
+                  <CompactDatePicker
+                    value={endDate}
+                    onChange={(val) => setEndDate(val)}
+                    isDark={isDark}
+                    themeColor={restrictedDeptId ? "violet" : "blue"}
+                    align="right"
+                  />
+                </div>
               </div>
             </div>
           </div>

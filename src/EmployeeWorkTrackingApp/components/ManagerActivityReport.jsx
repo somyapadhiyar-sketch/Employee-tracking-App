@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import { motion, AnimatePresence } from "framer-motion";
+import CompactDatePicker from "./CompactDatePicker";
 
 const CustomSelect = ({ value, options, onChange, label, isDark }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -262,16 +263,7 @@ export default function ManagerActivityReport({
       }`}
     >
       <div className="flex flex-col mb-8 gap-4">
-        {adminView && (
-          <h2
-            className={`text-2xl font-bold ${
-              isDark ? "text-white" : "text-gray-800"
-            }`}
-          >
-            <i className="fas fa-desktop mr-3 text-blue-500"></i> Activity
-            Monitor
-          </h2>
-        )}
+
         <div
           className={`p-4 rounded-xl border ${
             isDark
@@ -316,45 +308,26 @@ export default function ManagerActivityReport({
             isDark={isDark}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              className={`text-xs font-bold uppercase tracking-wider ${
-                isDark ? "text-gray-400" : "text-gray-500"
-              }`}
-            >
-              From Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none ${
-                isDark
-                  ? "bg-gray-800 border-gray-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800"
-              }`}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>From</label>
+              <CompactDatePicker
+                value={startDate}
+                onChange={(val) => setStartDate(val)}
+                isDark={isDark}
+                themeColor="violet"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              className={`text-xs font-bold uppercase tracking-wider ${
-                isDark ? "text-gray-400" : "text-gray-500"
-              }`}
-            >
-              To Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none ${
-                isDark
-                  ? "bg-gray-800 border-gray-600 text-white"
-                  : "bg-white border-gray-300 text-gray-800"
-              }`}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>To</label>
+              <CompactDatePicker
+                value={endDate}
+                onChange={(val) => setEndDate(val)}
+                isDark={isDark}
+                themeColor="violet"
+                align="right"
+              />
+            </div>
 
           {/* 3. Status Dropdown (Moderate Added) */}
           <CustomSelect

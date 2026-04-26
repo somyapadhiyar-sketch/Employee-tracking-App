@@ -92,7 +92,7 @@ export default function AdminSidebar({
     },
     {
       id: "org_overview",
-      icon: "fa-chess-king",
+      icon: "fa-chart-line",
       label: "Productivity Analysis",
       color: "from-blue-500 to-blue-600",
     },

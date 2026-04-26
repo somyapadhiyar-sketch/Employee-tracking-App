@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
+import CompactDatePicker from "../components/CompactDatePicker";
 import {
   ResponsiveContainer,
   BarChart,
@@ -33,6 +34,13 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
   const [monthlyHours, setMonthlyHours] = useState(0);
   const [startDate, setStartDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [endDate, setEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -50,19 +58,24 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         const currentYear = now.getFullYear();
 
         // 1. Efficiency & Goal
-        const inRangeAnalytics = analyticsData.filter(log => log.date >= startDate && log.date <= endDate);
+        const inRangeAnalytics = analyticsData.filter(log => {
+          if (!log.date) return false;
+          return log.date >= startDate && log.date <= endDate;
+        });
         
-        let totalActiveRange = inRangeAnalytics.reduce((acc, log) => acc + (log.active_time_seconds || 0), 0);
-        let totalIdleRange = inRangeAnalytics.reduce((acc, log) => acc + (log.idle_time_seconds || 0), 0);
+        let totalActiveRange = inRangeAnalytics.reduce((acc, log) => acc + (Number(log.active_time_seconds) || 0), 0);
+        let totalIdleRange = inRangeAnalytics.reduce((acc, log) => acc + (Number(log.idle_time_seconds) || 0), 0);
         const rangeLogged = totalActiveRange + totalIdleRange;
         setFocusScore(rangeLogged > 0 ? Math.round((totalActiveRange / rangeLogged) * 100) : 0);
 
-        const totalHrs = Math.round(totalActiveRange / 3600);
-        setMonthlyHours(totalHrs);
-        setMonthlyProgress(Math.min(100, Math.round((totalHrs / 160) * 100)));
+        const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+        const targetHrs = dayDiff * 8;
+        
+        const totalHrs = totalActiveRange / 3600;
+        setMonthlyHours(totalHrs.toFixed(1));
+        setMonthlyProgress(targetHrs > 0 ? Math.min(100, Math.round((totalHrs / targetHrs) * 100)) : 0);
 
         // 2. Activity Heatmap - Based on Range
-        const dayDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
         const rangeDays = [];
         for (let i = 0; i < dayDiff; i++) {
           const d = new Date(startDate);
@@ -74,8 +87,8 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         }
         setHeatmapData(rangeDays);
 
-        // 3. Breakdown - Max last 14 days if range is long
-        const breakdownCount = Math.min(dayDiff, 14);
+        // 3. Breakdown - Show full range if <= 31 days, else last 31 days
+        const breakdownCount = Math.min(dayDiff, 31);
         const breakdownDays = [];
         for (let i = 0; i < breakdownCount; i++) {
           const d = new Date(endDate);
@@ -87,11 +100,13 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
             active += (log.active_time_seconds || 0);
             idle += (log.idle_time_seconds || 0);
           });
+          const roundedActive = Math.round(active / 3600 * 10) / 10;
+          const roundedIdle = Math.round(idle / 3600 * 10) / 10;
           breakdownDays.push({
             name: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
-            Active: Math.round(active / 3600 * 10) / 10,
-            Idle: Math.round(idle / 3600 * 10) / 10,
-            Break: Math.round(Math.max(0, 8 * 3600 - active - idle) / 3600 * 10) / 10
+            Active: roundedActive,
+            Idle: roundedIdle,
+            Break: Math.max(0, Math.round((8 - roundedActive - roundedIdle) * 10) / 10)
           });
         }
         setWeeklyData(breakdownDays);
@@ -105,28 +120,42 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         }));
 
         inRangeAnalytics.forEach(row => {
-          const title = (row.latest_window_title || "Unknown").split('-')[0].trim();
-          const activeTime = (row.active_time_seconds || 0);
+          const appName = row.app_or_website || row.app_used || "Unknown App";
+          const activeTime = Number(row.active_time_seconds) || 0;
 
           if (row.last_updated) {
-            const h = new Date(row.last_updated).getHours();
+            const lastUpdatedDate = row.last_updated?.toDate ? row.last_updated.toDate() : new Date(row.last_updated);
+            const h = lastUpdatedDate.getHours();
             if (h >= 0 && h < 24) {
               hourlyGroups[h].active += activeTime / 60;
             }
           }
 
-          if (!appAggregation[title]) appAggregation[title] = 0;
-          appAggregation[title] += activeTime;
+          if (!appAggregation[appName]) appAggregation[appName] = 0;
+          appAggregation[appName] += activeTime;
         });
 
         setPeakCurveData(hourlyGroups.filter(g => g.hour >= 8 && g.hour <= 20));
 
         const appUsageMapped = Object.entries(appAggregation)
-          .map(([name, value]) => ({
-            name: name.length > 20 ? name.substring(0, 20) + '...' : name,
-            minutes: Math.round(value / 60)
-          }))
-          .sort((a, b) => b.minutes - a.minutes)
+          .map(([name, value]) => {
+            const totalSeconds = Math.round(value);
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = Math.floor(totalSeconds % 60);
+            
+            let timeStr = "";
+            if (h > 0) timeStr += `${h}h `;
+            if (m > 0 || h > 0) timeStr += `${m}m `;
+            timeStr += `${s}s`;
+            
+            return {
+              name: name,
+              seconds: totalSeconds,
+              formattedTime: timeStr.trim()
+            };
+          })
+          .sort((a, b) => b.seconds - a.seconds)
           .slice(0, 8);
         setAppUsageData(appUsageMapped);
       } catch (error) {
@@ -160,51 +189,71 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 pb-10"
+      className="relative space-y-4 sm:space-y-6 pb-10"
     >
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
-        <div>
-          <h1 className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-            {isManagerView && userName ? `${userName}'s Analytics` : "Personal Growth Analytics"}
-          </h1>
-          <p className={`mt-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-            {isManagerView ? "Review the employee's performance and motivation trends" : "Track your performance and motivation trends"}
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className={`w-full sm:w-auto p-3 sm:p-4 rounded-3xl border shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
-            <div className="flex items-center gap-3 px-1 sm:px-0">
-              <i className="fas fa-calendar-alt text-blue-500"></i>
-              <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
-            </div>
-            <div className="flex items-center justify-between sm:justify-start gap-2">
-              <input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)}
-                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
-              />
-              <span className={`shrink-0 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                <i className="fas fa-arrow-right text-[10px]"></i>
-              </span>
-              <input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)}
-                className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 rounded-xl border text-xs font-bold focus:outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-400"}`}
-              />
-            </div>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-4 sm:mb-6">
+        {/* Title Group */}
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="min-w-0">
+            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+              {isManagerView && userName ? `${userName}'s Analytics` : "Personal Growth Analytics"}
+            </h1>
+            <p className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+              {isManagerView ? "Review the employee's performance and motivation trends" : "Track your performance and motivation trends"}
+            </p>
           </div>
-
+          {/* Mobile Back Arrow */}
           {onBack && (
-            <button 
+            <button
               onClick={onBack}
-              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center border transition-all shadow-lg active:scale-95 shrink-0 ${isDark ? "bg-gray-800 border-gray-700 text-white hover:bg-gray-700" : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"}`}
+              title="Go Back"
+              className={`lg:hidden mt-1 shrink-0 transition-all group ${isDark ? "text-gray-400 hover:text-white" : "text-gray-400 hover:text-gray-800"}`}
             >
-              <i className="fas fa-arrow-left"></i>
+              <i className="fas fa-arrow-left text-lg transition-transform group-hover:-translate-x-1"></i>
             </button>
           )}
+        </div>
+
+        {/* Right column: Desktop Arrow and Date Picker */}
+        <div className="flex flex-col lg:items-end gap-2">
+          {onBack && (
+            <button
+              onClick={onBack}
+              title="Go Back"
+              className={`hidden lg:flex transition-all group ${isDark ? "text-gray-400 hover:text-white" : "text-gray-400 hover:text-gray-800"}`}
+            >
+              <i className="fas fa-arrow-left text-lg transition-transform group-hover:-translate-x-1"></i>
+            </button>
+          )}
+
+          <div className={`p-1 sm:p-1.5 h-[40px] flex-1 sm:flex-none rounded-2xl flex items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800" : "bg-white shadow-sm"}`}>
+            <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+              <i className="fas fa-calendar-alt text-blue-500 text-[10px]"></i>
+              <span className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period:</span>
+              <div className="w-[115px] sm:w-[120px]">
+                <CompactDatePicker
+                  value={startDate}
+                  onChange={(val) => setStartDate(val)}
+                  isDark={isDark}
+                  themeColor="blue"
+                  size="sm"
+                />
+              </div>
+              <span className={`text-[8px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
+                <i className="fas fa-arrow-right"></i>
+              </span>
+              <div className="w-[115px] sm:w-[130px]">
+                <CompactDatePicker
+                  value={endDate}
+                  onChange={(val) => setEndDate(val)}
+                  isDark={isDark}
+                  themeColor="blue"
+                  align="right"
+                  size="sm"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -213,10 +262,10 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
         {/* Monthly Goal Tracker (Compact Card Style) */}
         <motion.div 
           whileHover={{ scale: 1.02 }}
-          className={`p-6 rounded-3xl shadow-xl border flex flex-col justify-between lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+          className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl border flex flex-col justify-between lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
         >
           <div className="flex items-center justify-between mb-4">
-             <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Period Goal</h3>
+             <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Period Goal</h3>
              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"}`}>
                 <i className="fas fa-history"></i>
              </div>
@@ -391,12 +440,12 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           </div>
         </motion.div>
 
-        {/* Bottom Row: Weekly Breakdown (40%) & Top Apps (60%) */}
-        <div className="lg:col-span-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Bottom Row: Weekly Breakdown & Top Apps */}
+        <div className="lg:col-span-6 grid grid-cols-1 lg:grid-cols-6 gap-6">
           {/* Weekly Time Breakdown (Stacked Bar) */}
           <motion.div
             whileHover={{ scale: 1.01 }}
-            className={`p-6 rounded-3xl shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+            className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl border lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
           >
             <h3 className={`text-xl font-bold mb-8 ${isDark ? "text-white" : "text-gray-800"}`}>Period Breakdown</h3>
             <div className="h-[300px] w-full">
@@ -421,18 +470,18 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
           {/* Top Apps & Sites (Horizontal Bar Chart) */}
           <motion.div
             whileHover={{ scale: 1.01 }}
-            className={`p-6 rounded-3xl shadow-xl border lg:col-span-3 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
+            className={`p-6 rounded-3xl shadow-xl border lg:col-span-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
           >
             <div className="flex items-center justify-between mb-8">
               <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Top Applications & Websites</h3>
-              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Period Usage (Minutes)</p>
+              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Total Time In Period</p>
             </div>
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
                   data={appUsageData}
-                  margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                  margin={{ top: 5, right: 30, left: isMobile ? 10 : 40, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDark ? "#374151" : "#f1f5f9"} />
                   <XAxis type="number" hide />
@@ -441,16 +490,22 @@ export default function MyPerformance({ userEmail, userName, isDark, isManagerVi
                     type="category"
                     stroke={isDark ? "#9ca3af" : "#64748b"}
                     fontSize={11}
-                    width={120}
+                    width={isMobile ? 100 : 130}
                     tickLine={false}
                     axisLine={false}
+                    tick={{ 
+                      angle: isMobile ? -25 : 0, 
+                      textAnchor: 'end', 
+                      fontSize: isMobile ? 10 : 11 
+                    }}
                   />
                   <Tooltip
                     cursor={{ fill: 'transparent' }}
                     contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: isDark ? '#1f2937' : '#fff' }}
+                    formatter={(value, name, props) => [props.payload.formattedTime, 'Usage']}
                   />
                   <Bar
-                    dataKey="minutes"
+                    dataKey="seconds"
                     fill="#3b82f6"
                     radius={[0, 10, 10, 0]}
                     barSize={25}

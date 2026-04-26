@@ -13,6 +13,7 @@ import OrgOverview from "../components/OrgOverview";
 import MyPerformance from "./MyPerformance";
 import DepartmentPerformance from "../components/DepartmentPerformance";
 import GeneratePDF from "../components/GeneratePDF";
+import CompactDatePicker from "../components/CompactDatePicker";
 import AdminInsightChat from "../components/AdminInsightChat";
 
 import {
@@ -399,8 +400,11 @@ export default function AdminDashboard() {
   // Update document title for identity detection by tracking agent
   useEffect(() => {
     if (userName) {
-      document.title = `Admin Dashboard [${userName}]`;
+      document.title = `WorkTracker - [${userName}] - [Admin]`;
     }
+    return () => {
+      document.title = "Employee Work Tracking App";
+    };
   }, [userName]);
 
   useEffect(() => {
@@ -777,7 +781,7 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Report Details
@@ -860,17 +864,15 @@ export default function AdminDashboard() {
                     >
                       From
                     </label>
-                    <input
-                      type="date"
+                    <CompactDatePicker
                       value={reportDetailsStartDate}
-                      onChange={(e) => {
-                        setReportDetailsStartDate(e.target.value);
+                      onChange={(val) => {
+                        setReportDetailsStartDate(val);
                         setReportCurrentPage(1);
                       }}
-                      className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
-                        }`}
+                      isDark={isDark}
+                      themeColor="blue"
+                      size="lg"
                     />
                   </div>
                   <div className="flex-1">
@@ -880,17 +882,16 @@ export default function AdminDashboard() {
                     >
                       To
                     </label>
-                    <input
-                      type="date"
+                    <CompactDatePicker
                       value={reportDetailsEndDate}
-                      onChange={(e) => {
-                        setReportDetailsEndDate(e.target.value);
+                      onChange={(val) => {
+                        setReportDetailsEndDate(val);
                         setReportCurrentPage(1);
                       }}
-                      className={`w-full px-4 py-[9.5px] rounded-xl border-2 transition-all font-bold text-sm outline-none ${isDark
-                        ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                        : "bg-gray-50 border-gray-100 focus:border-blue-400 focus:bg-white text-gray-800 shadow-sm"
-                        }`}
+                      isDark={isDark}
+                      themeColor="blue"
+                      align="right"
+                      size="lg"
                     />
                   </div>
                 </div>
@@ -1192,7 +1193,7 @@ export default function AdminDashboard() {
               <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
                 <div className="flex flex-col items-center sm:items-start">
                   <h1
-                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-2xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Welcome back,{" "}
@@ -1320,7 +1321,7 @@ export default function AdminDashboard() {
             className="space-y-8"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Pending Approvals
@@ -1352,7 +1353,7 @@ export default function AdminDashboard() {
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
                           {emp.firstName?.[0]}
                           {emp.lastName?.[0]}
                         </div>
@@ -1437,7 +1438,7 @@ export default function AdminDashboard() {
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
                           {emp.firstName?.[0]}
                           {emp.lastName?.[0]}
                         </div>
@@ -1493,7 +1494,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-8">
               <h1
                 className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-[#1e293b]"
-                  }`}
+                }`}
               >
                 {selectedDepartment
                   ? departmentsMap[selectedDepartment]?.name
@@ -1622,7 +1623,7 @@ export default function AdminDashboard() {
                         }`}
                     >
                       <div className="flex items-center gap-4 pr-20">
-                        <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                           {
                             getDepartmentManager(selectedDepartment)
                               .firstName[0]
@@ -1672,7 +1673,7 @@ export default function AdminDashboard() {
                             }`}
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                               {emp.firstName[0]}
                             </div>
                             <div>
@@ -1726,7 +1727,7 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 } mb-8`}
             >
               All Employees & Managers
@@ -2046,7 +2047,7 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Team Attendance
@@ -2209,7 +2210,7 @@ export default function AdminDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Leave Requests
@@ -2326,18 +2327,21 @@ export default function AdminDashboard() {
                                   }`}
                               >
                                 {emp.firstName} {emp.lastName}
-                                {(req.leaveDuration === "half" ||
-                                  req.leaveDuration === "first_half" ||
-                                  req.leaveDuration === "second_half") && (
-                                    <span className="ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
-                                      {req.leaveDuration === "half"
-                                        ? "Half Leave"
-                                        : req.leaveDuration === "first_half"
-                                          ? "1st Half Leave"
-                                          : "2nd Half Leave"}
-                                    </span>
-                                  )}
                               </p>
+                              <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                                {departmentsMap[emp.department]?.name || emp.department}
+                              </p>
+                              {(req.leaveDuration === "half" ||
+                                req.leaveDuration === "first_half" ||
+                                req.leaveDuration === "second_half") && (
+                                  <div className="mt-1 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-orange-100 text-orange-700 w-fit">
+                                    {req.leaveDuration === "half"
+                                      ? "Half Leave"
+                                      : req.leaveDuration === "first_half"
+                                        ? "1st Half Leave"
+                                        : "2nd Half Leave"}
+                                  </div>
+                                )}
                               <p
                                 className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
                                   }`}
@@ -2383,7 +2387,7 @@ export default function AdminDashboard() {
                             {req.leaveDuration === "half" ||
                               req.leaveDuration === "first_half" ||
                               req.leaveDuration === "second_half" ? (
-                              <span className="ml-2 font-bold text-orange-500">
+                              <div className="mt-1 text-xs font-bold text-orange-500">
                                 (0.5 Day -{" "}
                                 {req.leaveDuration === "half"
                                   ? "Half"
@@ -2391,9 +2395,9 @@ export default function AdminDashboard() {
                                     ? "1st Half"
                                     : "2nd Half"}
                                 )
-                              </span>
+                              </div>
                             ) : (
-                              <span className="ml-2 font-bold text-blue-500">
+                              <div className="mt-1 text-xs font-bold text-blue-500">
                                 (
                                 {Math.ceil(
                                   Math.abs(
@@ -2403,7 +2407,7 @@ export default function AdminDashboard() {
                                   (1000 * 60 * 60 * 24)
                                 ) + 1}{" "}
                                 Days)
-                              </span>
+                              </div>
                             )}
                           </p>
                         </div>
@@ -2468,26 +2472,23 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex items-center justify-between mb-6 sm:mb-8 gap-2 sm:gap-4">
-              <h1
-                className={`text-[26px] xs:text-[28px] sm:text-3xl font-bold leading-tight ${isDark ? "text-white" : "text-gray-800"
-                  } flex items-center`}
-              >
-                <i className="fas fa-umbrella-beach mr-2 sm:mr-3 text-blue-500"></i>
-                <span>Public Holidays</span>
+            <div className="flex items-center justify-between mb-8">
+              <h1 className={`text-2xl sm:text-3xl font-bold leading-tight truncate ${isDark ? "text-white" : "text-gray-900"} flex items-center`}>
+                <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
+                Public Holidays
               </h1>
               <button
                 onClick={() => setShowSelectHolidaysModal(true)}
-                className="px-3 py-2 sm:px-6 sm:py-3 text-[10px] sm:text-base bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-lg sm:rounded-2xl transition-all shadow-md sm:shadow-lg hover:shadow-xl flex items-center gap-1.5 sm:gap-2 active:scale-95 whitespace-nowrap shrink-0"
+                className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95 whitespace-nowrap flex items-center gap-2"
               >
                 <i className="fas fa-calendar-plus"></i>
-                <span>Manage <span className="hidden xs:inline">Holidays</span></span>
+                Manage Holidays
               </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8 items-start">
+            <div className="flex flex-col md:flex-row gap-6 mt-8 items-start">
               {/* Holidays List */}
-              <div className="w-full md:w-3/5 space-y-4">
+              <div className="w-full md:w-3/5 grid grid-cols-1 gap-4">
                 {IT_HOLIDAYS.map((holiday, idx) => {
                   const holDate = new Date(holiday.date);
                   const todayZero = new Date(todayDate);
@@ -2499,127 +2500,143 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={idx}
-                      onClick={() =>
-                        setCurrentCalendarDate(new Date(holiday.date))
-                      }
-                      className={`cursor-pointer flex items-center justify-between p-3 xs:p-4 sm:p-5 rounded-xl sm:rounded-[1.5rem] shadow-sm border transition-all duration-300 ${isPast
+                      onClick={() => setCurrentCalendarDate(new Date(holiday.date))}
+                      className={`cursor-pointer flex items-center justify-between p-3 sm:p-4 rounded-xl shadow-sm border transition-all duration-300 ${isPast
                         ? isDark
                           ? "bg-gray-800/80 border-gray-700 opacity-60"
-                          : "bg-gray-50 border-gray-100 opacity-70"
+                          : "bg-gray-100 border-gray-200 opacity-70"
                         : isDark
-                          ? "bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-lg"
-                          : "bg-white border-blue-50 hover:border-blue-200 hover:shadow-lg"
+                          ? "bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-md"
+                          : "bg-white border-blue-50 hover:border-blue-200 hover:shadow-md"
                         }`}
                     >
-                      <div className="flex items-center gap-3 sm:gap-5">
+                      <div className="flex items-center gap-4">
                         <div
-                          className={`w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center font-bold ${isPast
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
                             ? "bg-gray-300 text-gray-500"
-                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md sm:shadow-lg"
+                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md"
                             }`}
                         >
-                          <span className="text-[8px] sm:text-[10px] uppercase font-black">
+                          <span className="text-[8px] sm:text-[10px] uppercase">
                             {holDate.toLocaleString("default", {
                               month: "short",
                             })}
                           </span>
-                          <span className="text-base sm:text-xl leading-none">
+                          <span className="text-sm sm:text-lg leading-none">
                             {holDate.getDate()}
                           </span>
                         </div>
                         <div className="min-w-0 pr-2">
                           <p
-                            className={`font-black text-sm sm:text-lg truncate ${isPast
+                            className={`font-bold text-[15px] leading-tight truncate ${isPast
                               ? isDark
                                 ? "text-gray-400"
-                                : "text-gray-500"
+                                : "text-gray-600"
                               : isDark
                                 ? "text-white"
-                                : "text-slate-800"
+                                : "text-gray-800"
                               }`}
                           >
                             {holiday.name}
                           </p>
                           <span
-                            className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"
-                              } mt-1 inline-block`}
+                            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
+                              } font-medium mt-1 inline-block`}
                           >
-                            <i className="far fa-calendar mr-2"></i>
+                            <i className="far fa-calendar mr-1.5"></i>
                             {holDate.toLocaleDateString(undefined, {
                               weekday: "long",
                             })}
                           </span>
                         </div>
                       </div>
-                      <span
-                        className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shrink-0 ${isPast
-                          ? "bg-gray-100 text-gray-400"
-                          : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                          }`}
-                      >
-                        {isPast ? "Passed" : "Upcoming"}
-                      </span>
+
+                      <div>
+                        {isPast ? (
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                            Passed
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+                            Upcoming
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Mini Calendar View */}
+              {/* Current Month Calendar */}
               <div
-                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-[2rem] p-8 shadow-2xl border ${isDark
-                  ? "bg-gray-800 border-gray-700 text-white"
-                  : "bg-white border-gray-100 text-slate-800"
+                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
                   }`}
               >
-                <div className="flex flex-col mb-8">
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-2xl font-black">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3
+                      className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                        }`}
+                    >
                       {monthNames[calMonth]}
-                    </h2>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() =>
-                          setCurrentCalendarDate(
-                            new Date(calYear, calMonth - 1, 1)
-                          )
-                        }
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark
-                          ? "bg-gray-700 hover:bg-gray-600"
-                          : "bg-gray-100 hover:bg-gray-200"
-                          }`}
-                      >
-                        <i className="fas fa-chevron-left text-sm opacity-60"></i>
-                      </button>
-                      <button
-                        onClick={() => setCurrentCalendarDate(new Date())}
-                        className={`text-sm font-bold opacity-70 hover:opacity-100 transition-all ${isDark ? "text-white" : "text-slate-800"
-                          }`}
-                      >
-                        Today
-                      </button>
-                      <button
-                        onClick={() =>
-                          setCurrentCalendarDate(
-                            new Date(calYear, calMonth + 1, 1)
-                          )
-                        }
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark
-                          ? "bg-gray-700 hover:bg-gray-600"
-                          : "bg-gray-100 hover:bg-gray-200"
-                          }`}
-                      >
-                        <i className="fas fa-chevron-right text-sm opacity-60"></i>
-                      </button>
-                    </div>
+                    </h3>
+                    <p
+                      className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      {calYear}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold opacity-40">{calYear}</p>
+                  <div className="flex gap-1.5 items-center">
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth - 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-left text-sm"></i>
+                    </button>
+                    <button
+                      onClick={() => setCurrentCalendarDate(new Date())}
+                      className={`px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-300"
+                        : "hover:bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentCalendarDate(
+                          new Date(calYear, calMonth + 1, 1)
+                        )
+                      }
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark
+                        ? "hover:bg-gray-700 text-gray-400"
+                        : "hover:bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      <i className="fas fa-chevron-right text-sm"></i>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 mb-4 text-center">
+                <div className="grid grid-cols-7 gap-2 text-center mb-2">
                   {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day, idx) => (
                     <div
                       key={day}
-                      className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 || idx === 6 ? "text-rose-500" : "text-gray-400"
+                      className={`text-xs font-bold py-1 ${idx === 0 || idx === 6
+                        ? "text-rose-400"
+                        : isDark
+                          ? "text-gray-400"
+                          : "text-gray-500"
                         }`}
                     >
                       {day}
@@ -2627,10 +2644,11 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-2 text-center">
                   {calendarDays.map((day, idx) => {
                     if (!day)
                       return <div key={`empty-${idx}`} className="p-2"></div>;
+
                     const dateStr = `${calYear}-${String(calMonth + 1).padStart(
                       2,
                       "0"
@@ -2645,36 +2663,41 @@ export default function AdminDashboard() {
 
                     const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
+                    let dayClass = `aspect-square flex items-center justify-center rounded-xl text-sm font-bold cursor-default transition-all shadow-sm `;
+                    if (isToday) {
+                      dayClass += `bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-300 ring-offset-2 dark:ring-offset-gray-800 scale-110 z-10`;
+                    } else if (isHoliday) {
+                      dayClass += `bg-blue-500 text-white shadow-blue-500/30 scale-105`;
+                    } else if (isWeekend) {
+                      dayClass += isDark
+                        ? `bg-gray-700/50 text-rose-400/80 border border-gray-700`
+                        : `bg-gray-50 text-rose-500/80 border border-gray-100`;
+                    } else {
+                      dayClass += isDark
+                        ? `bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600`
+                        : `bg-white text-gray-700 hover:bg-gray-50 border border-gray-200`;
+                    }
+
                     return (
                       <div
                         key={day}
-                        className={`aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all relative cursor-default ${isToday
-                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105"
-                          : isHoliday
-                            ? "bg-blue-500 text-white shadow-md shadow-blue-500/20"
-                            : isDark
-                              ? "bg-gray-700/50 hover:bg-gray-600 text-gray-300"
-                              : "bg-gray-50 hover:bg-gray-100 text-slate-800 border border-gray-100"
-                          }`}
+                        className={dayClass}
+                        title={isHoliday ? IT_HOLIDAYS.find(h => h.date === dateStr)?.name : ""}
                       >
-                        <span className={!isToday && !isHoliday && isWeekend ? "text-rose-400" : ""}>
-                          {day}
-                        </span>
+                        {day}
                       </div>
                     );
                   })}
                 </div>
                 {/* Legend */}
-                <div className={`mt-8 pt-6 border-t ${isDark ? "border-gray-700" : "border-gray-100"}`}>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></div>
-                      <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Public Holiday</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></div>
-                      <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Today</span>
-                    </div>
+                <div className="mt-6 space-y-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Public Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-medium">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Today</span>
                   </div>
                 </div>
               </div>
@@ -2685,35 +2708,31 @@ export default function AdminDashboard() {
 
       case "individualAnalytics":
         return (
-          <div className="p-6">
-            <MyPerformance
-              userEmail={selectedAnalysisEmail}
-              userName={selectedAnalysisName}
-              isDark={isDark}
-              isManagerView={true}
-              onBack={() => {
-                setCurrentSection(analysisReturnTo || "employees");
-                setAnalysisReturnTo(null);
-              }}
-            />
-          </div>
+          <MyPerformance
+            userEmail={selectedAnalysisEmail}
+            userName={selectedAnalysisName}
+            isDark={isDark}
+            isManagerView={true}
+            onBack={() => {
+              setCurrentSection(analysisReturnTo || "employees");
+              setAnalysisReturnTo(null);
+            }}
+          />
         );
 
       case "departmentAnalytics":
         return (
-          <div className="p-6">
-            <DepartmentPerformance
-              deptId={selectedDeptAnalysisId}
-              deptName={selectedDeptAnalysisName}
-              allUsers={allUsers}
-              analyticsData={analyticsData}
-              isDark={isDark}
-              onBack={() => {
-                setCurrentSection(analysisReturnTo || "departments");
-                setAnalysisReturnTo(null);
-              }}
-            />
-          </div>
+          <DepartmentPerformance
+            deptId={selectedDeptAnalysisId}
+            deptName={selectedDeptAnalysisName}
+            allUsers={allUsers}
+            analyticsData={analyticsData}
+            isDark={isDark}
+            onBack={() => {
+              setCurrentSection(analysisReturnTo || "departments");
+              setAnalysisReturnTo(null);
+            }}
+          />
         );
 
       case "activityMonitor":
@@ -2723,19 +2742,22 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                }`}
-            >
-              Company Activity Monitor
-            </h1>
-            <p
-              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-            >
-              Live tracking and productivity analysis of all employees across
-              all departments.
-            </p>
+            <div className="space-y-1">
+              <h1
+                className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  }`}
+              >
+                <i className="fas fa-desktop mr-3 text-blue-500"></i>
+                Company Activity Monitor
+              </h1>
+              <p
+                className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                  }`}
+              >
+                Live tracking and productivity analysis of all employees across
+                all departments.
+              </p>
+            </div>
 
             {/* Wahi Manager wala component Admin ke liye bhi perfect chalega! */}
             <ManagerActivityReport

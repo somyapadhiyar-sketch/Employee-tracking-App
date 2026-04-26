@@ -368,7 +368,7 @@ export default function ProfilePage() {
 
       <div className="w-full">
         <h1
-          className={`text-3xl font-bold mb-6 ${isDark ? "text-white" : "text-gray-800"
+          className={`text-2xl sm:text-3xl font-bold mb-6 ${isDark ? "text-white" : "text-gray-800"
             }`}
         >
           My Profile

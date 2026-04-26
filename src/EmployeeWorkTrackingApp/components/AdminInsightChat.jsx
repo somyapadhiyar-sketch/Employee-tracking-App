@@ -448,7 +448,7 @@ const AdminInsightChat = ({ isDark, userName }) => {
               <div className="w-14 h-14 sm:w-20 sm:h-20 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mb-4 sm:mb-6 animate-bounce">
                 <Bot size={isMobile ? 28 : 40} />
               </div>
-              <h1 className={`text-xl sm:text-3xl font-black mb-2 sm:mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              <h1 className={`text-2xl sm:text-3xl font-black mb-2 sm:mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 Insight Assistant
               </h1>
               <p className={`text-sm sm:text-lg mb-6 sm:mb-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -465,7 +465,7 @@ const AdminInsightChat = ({ isDark, userName }) => {
             <>
               {activeMessages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center px-4 max-w-2xl mx-auto mt-10">
-                  <h1 className={`text-xl sm:text-2xl font-black mb-0.5 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  <h1 className={`text-2xl sm:text-2xl font-black mb-0.5 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                     Hi {userName ? userName.split(' ')[0] : 'Admin'}
                   </h1>
                   <h2 className={`text-lg sm:text-xl font-bold mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>

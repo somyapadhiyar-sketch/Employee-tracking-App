@@ -101,7 +101,7 @@ function EmployeeWorkTrackingApp() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen scrollbar-hide">
       {toast && (
         <div
           className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "success"

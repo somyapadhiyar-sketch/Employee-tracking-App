@@ -11,6 +11,8 @@ import { useTheme } from "../context/ThemeContext";
 import ProfilePage from "./ProfilePage";
 import ActivityReport from "../components/ActivityReport";
 import MyPerformance from "./MyPerformance";
+import CompactTimePicker from "../components/CompactTimePicker";
+import CompactDatePicker from "../components/CompactDatePicker";
 
 // NEW FIREBASE IMPORTS
 import { collection, getDocs, addDoc, doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
@@ -174,13 +176,17 @@ export default function EmployeeDashboard() {
 
   // Set browser title with identity for Smart Tracking Agent
   useEffect(() => {
-    if (user?.firstName) {
-      document.title = `[${user.firstName} ${user.lastName}] Employee Dashboard`;
+    const name = user?.firstName ? `${user.firstName} ${user.lastName}` : "Employee";
+    let status = "Clocked Out";
+    if (clockedIn) {
+      status = isOnBreak ? "On Break" : "Working";
     }
+    document.title = `WorkTracker - [${name}] - [${status}]`;
+    
     return () => {
       document.title = "Employee Work Tracking App";
     };
-  }, [user]);
+  }, [user, clockedIn, isOnBreak]);
 
   const LEAVE_BALANCE = {
     sick: { total: 6, name: "Sick Leave", icon: "fa-user-nurse" },
@@ -207,6 +213,16 @@ export default function EmployeeDashboard() {
       clearInterval(timer);
       window.removeEventListener("resize", handleResize);
     };
+  }, []);
+
+  // Send "Instant Stop" signal to local tracker when window is closed
+  useEffect(() => {
+    const handleClose = () => {
+      // We use a fire-and-forget fetch to the local signal listener
+      fetch("http://localhost:12345/stop", { mode: "no-cors" }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleClose);
+    return () => window.removeEventListener("beforeunload", handleClose);
   }, []);
 
   const formatTime = (date) => {
@@ -238,20 +254,25 @@ export default function EmployeeDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Set browser title with identity for Smart Tracking Agent
-  useEffect(() => {
-    if (user?.firstName) {
-      document.title = `[${user.firstName} ${user.lastName}] Employee Tracking`;
-    }
-    return () => {
-      document.title = "Employee Work Tracking App";
-    };
-  }, [user]);
+  // Duplicate title logic - removed and standardized above
 
   // Mobile menu visibility simplified
-
-
-
+  const formatDisplayDuration = (duration) => {
+    if (!duration) return "";
+    if (duration.includes("h") || duration.includes("m") || duration.includes("s")) return duration;
+    if (duration.includes(":")) {
+      const partsArr = duration.split(":").map(Number);
+      if (partsArr.length === 3) {
+        const [h, m, s] = partsArr;
+        const res = [];
+        if (h > 0) res.push(`${h}h`);
+        if (m > 0) res.push(`${m}m`);
+        if (s > 0 || res.length === 0) res.push(`${s}s`);
+        return res.join(" ");
+      }
+    }
+    return duration;
+  };
   useEffect(() => {
     setWorkLogCurrentPage(1);
   }, [searchTerm, reportStartDate, reportEndDate]);
@@ -603,7 +624,7 @@ export default function EmployeeDashboard() {
               <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
                 <div className="flex flex-col items-center sm:items-start">
                   <h1
-                    className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-2xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Welcome back, <span className="text-blue-500 font-extrabold">{user?.firstName || "Employee"}</span>
@@ -626,8 +647,8 @@ export default function EmployeeDashboard() {
                   </p>
 
                   {/* Clock In Section Inside Welcome */}
-                  <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
-                    <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
+                  <div className="mt-4 flex flex-nowrap items-center justify-center sm:justify-end gap-2 sm:gap-3 bg-white/40 dark:bg-gray-800/50 p-2 sm:p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-full sm:w-fit overflow-x-auto no-scrollbar">
+                    <p className={`whitespace-nowrap text-xs sm:text-base font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                       {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
                     </p>
                     {!clockedIn ? (
@@ -635,18 +656,18 @@ export default function EmployeeDashboard() {
                         onClick={handleClockIn}
                         animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                        className="relative px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg font-bold shadow-lg shadow-blue-900/40 hover:shadow-blue-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                        className="relative px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg font-bold shadow-lg shadow-blue-900/40 hover:shadow-blue-900/60 transition-all text-[11px] sm:text-sm transform hover:-translate-y-0.5 whitespace-nowrap"
                       >
-                        <i className="fas fa-sign-in-alt mr-1"></i> Clock In
+                        <i className="fas fa-sign-in-alt sm:mr-1"></i> Clock In
                       </motion.button>
                     ) : (
                       <motion.button
                         onClick={handleClockOut}
                         animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                        className="relative px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                        className="relative px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-[11px] sm:text-sm transform hover:-translate-y-0.5 whitespace-nowrap"
                       >
-                        <i className="fas fa-sign-out-alt mr-1"></i> Clock Out
+                        <i className="fas fa-sign-out-alt sm:mr-1"></i> Clock Out
                       </motion.button>
                     )}
 
@@ -655,7 +676,7 @@ export default function EmployeeDashboard() {
                         onClick={handleToggleBreak}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${isOnBreak
+                        className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg font-bold shadow-lg transition-all text-[11px] sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${isOnBreak
                           ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
                           : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
                           }`}
@@ -765,12 +786,12 @@ export default function EmployeeDashboard() {
                 Select Work Type
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 {/* Office Work Card */}
                 <button
                   type="button"
                   onClick={() => selectWorkType("office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
+                  className={`flex flex-col items-center justify-center p-4 sm:p-10 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
                     ? "border-blue-500 bg-blue-50/50 shadow-sm"
                     : isDark
                       ? "border-gray-700 hover:border-gray-600 bg-gray-800"
@@ -778,21 +799,21 @@ export default function EmployeeDashboard() {
                     }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "office"
+                    className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 ${workType === "office"
                       ? "bg-blue-600 shadow-md"
                       : "bg-blue-500"
                       }`}
                   >
-                    <i className="fas fa-briefcase text-white text-2xl"></i>
+                    <i className="fas fa-briefcase text-white text-lg sm:text-3xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Office Work
                   </p>
                   <p
-                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                    className={`text-[10px] sm:text-sm text-center ${isDark ? "text-gray-400" : "text-gray-500"
                       }`}
                   >
                     Work done in office
@@ -803,29 +824,29 @@ export default function EmployeeDashboard() {
                 <button
                   type="button"
                   onClick={() => selectWorkType("non_office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
-                    ? "border-purple-500 bg-purple-50/50 shadow-sm"
+                  className={`flex flex-col items-center justify-center p-4 sm:p-10 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
+                    ? "border-indigo-500 bg-indigo-50/50 shadow-sm"
                     : isDark
                       ? "border-gray-700 hover:border-gray-600 bg-gray-800"
-                      : "border-gray-100 hover:border-purple-100 hover:shadow-sm bg-white"
+                      : "border-gray-100 hover:border-indigo-100 hover:shadow-sm bg-white"
                     }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "non_office"
-                      ? "bg-purple-600 shadow-md"
-                      : "bg-purple-500"
+                    className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 ${workType === "non_office"
+                      ? "bg-indigo-600 shadow-md"
+                      : "bg-indigo-500"
                       }`}
                   >
-                    <i className="fas fa-laptop text-white text-2xl"></i>
+                    <i className="fas fa-laptop text-white text-lg sm:text-3xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Non-Office Work
                   </p>
                   <p
-                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                    className={`text-[10px] sm:text-sm text-center ${isDark ? "text-gray-400" : "text-gray-500"
                       }`}
                   >
                     Remote work
@@ -897,15 +918,14 @@ export default function EmployeeDashboard() {
                       Task Start Time
                     </label>
                     <div className="flex gap-2">
-                      <input
-                        type="time"
+                      <CompactTimePicker
                         value={taskStartTime}
-                        onChange={handleStartTimeChange}
-                        required
-                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
-                          }`}
+                        onChange={(val) => {
+                          setTaskStartTime(val);
+                          calculateDuration(val, taskEndTime);
+                        }}
+                        isDark={isDark}
+                        themeColor="blue"
                       />
                       <button
                         type="button"
@@ -924,15 +944,14 @@ export default function EmployeeDashboard() {
                       Task Complete Time
                     </label>
                     <div className="flex gap-2">
-                      <input
-                        type="time"
+                      <CompactTimePicker
                         value={taskEndTime}
-                        onChange={handleEndTimeChange}
-                        required
-                        className={`flex-1 px-3 py-2.5 border-2 rounded-xl ${isDark
-                          ? "bg-gray-700 border-gray-600 text-white"
-                          : "border-gray-200"
-                          }`}
+                        onChange={(val) => {
+                          setTaskEndTime(val);
+                          calculateDuration(taskStartTime, val);
+                        }}
+                        isDark={isDark}
+                        themeColor="blue"
                       />
                       <button
                         type="button"
@@ -950,7 +969,7 @@ export default function EmployeeDashboard() {
                     >
                       Time Taken
                     </label>
-                    <div className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl text-white font-mono font-bold text-center">
+                    <div className="px-4 py-1 sm:py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl text-white font-mono text-xs sm:text-sm font-bold text-center shadow-sm">
                       {calculatedDuration || "00:00:00"}
                     </div>
                   </div>
@@ -973,7 +992,7 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
               My Reports
             </h1>
             <div className="flex flex-col gap-6">
@@ -992,24 +1011,28 @@ export default function EmployeeDashboard() {
                   />
                 </div>
 
-                <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
-                  <div className="flex items-center gap-2 w-full">
-                    <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-blue-400" : "text-blue-500"}`}></i>
-                    <input
-                      type="date"
-                      value={reportStartDate}
-                      onChange={(e) => setReportStartDate(e.target.value)}
-                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
-                    />
+                <div className={`md:w-fit px-3 py-2 sm:px-4 sm:py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
+                  <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                    <div className="w-[105px] sm:w-[130px]">
+                      <CompactDatePicker
+                        value={reportStartDate}
+                        onChange={(val) => setReportStartDate(val)}
+                        isDark={isDark}
+                        themeColor="blue"
+                      />
+                    </div>
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
                       <i className="fas fa-arrow-right"></i>
                     </span>
-                    <input
-                      type="date"
-                      value={reportEndDate}
-                      onChange={(e) => setReportEndDate(e.target.value)}
-                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
-                    />
+                    <div className="w-[105px] sm:w-[130px]">
+                      <CompactDatePicker
+                        value={reportEndDate}
+                        onChange={(val) => setReportEndDate(val)}
+                        isDark={isDark}
+                        themeColor="blue"
+                        align="right"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1053,7 +1076,7 @@ export default function EmployeeDashboard() {
                         </div>
                         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                           <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[11px] sm:text-sm font-medium whitespace-nowrap">
-                            {log.duration}
+                            {formatDisplayDuration(log.duration)}
                           </span>
                           <button onClick={() => handleEditLog(log)} className="text-blue-500 hover:text-blue-600 transition-colors p-1" title="Edit">
                             <i className="fas fa-edit"></i>
@@ -1063,11 +1086,10 @@ export default function EmployeeDashboard() {
                           </button>
                         </div>
                       </div>
-                      <p
-                        className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"
-                          }`}
-                      >
-                        <i className="fas fa-clock mr-1"></i>
+                      <p className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                        <i className={`fas ${log.workType === "office" ? "fa-briefcase" : "fa-laptop"} mr-1`}></i>
+                        {WORK_TYPES?.[log.workType]?.name || (log.workType === "office" ? "Office Work" : "Non-Office Work")}{" "}
+                        | <i className="fas fa-clock mx-1"></i>{" "}
                         {log.taskStartTime} - {log.taskEndTime}
                       </p>
                       <p className={isDark ? "text-gray-300" : "text-gray-600"}>
@@ -1133,7 +1155,7 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
               <i className="fas fa-desktop mr-3 text-blue-500"></i> My Application Usage
             </h1>
             <ActivityReport
@@ -1151,7 +1173,7 @@ export default function EmployeeDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Leave Requests
@@ -1474,18 +1496,14 @@ export default function EmployeeDashboard() {
                       >
                         {(leaveDuration === "first_half" || leaveDuration === "second_half" || leaveDuration === "half") && leaveType === "casual" ? "Leave Date" : "Start Date"}
                       </label>
-                      <input
-                        type="date"
+                      <CompactDatePicker
                         value={leaveStartDate}
-                        onChange={(e) => {
-                          setLeaveStartDate(e.target.value);
-                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(e.target.value);
+                        onChange={(val) => {
+                          setLeaveStartDate(val);
+                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(val);
                         }}
-                        required
-                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                          : "border-gray-200 focus:border-blue-500 focus:bg-white"
-                          }`}
+                        isDark={isDark}
+                        themeColor="blue"
                       />
                     </div>
 
@@ -1495,30 +1513,22 @@ export default function EmployeeDashboard() {
                           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                             From Time
                           </label>
-                          <input
-                            type="time"
+                          <CompactTimePicker
                             value={leaveStartTime}
-                            onChange={(e) => setLeaveStartTime(e.target.value)}
-                            required
-                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                              ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                              : "border-gray-200 focus:border-blue-500 focus:bg-white text-gray-800"
-                              }`}
+                            onChange={(val) => setLeaveStartTime(val)}
+                            isDark={isDark}
+                            themeColor="blue"
                           />
                         </div>
                         <div>
                           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                             To Time
                           </label>
-                          <input
-                            type="time"
+                          <CompactTimePicker
                             value={leaveEndTime}
-                            onChange={(e) => setLeaveEndTime(e.target.value)}
-                            required
-                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                              ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                              : "border-gray-200 focus:border-blue-500 focus:bg-white text-gray-800"
-                              }`}
+                            onChange={(val) => setLeaveEndTime(val)}
+                            isDark={isDark}
+                            themeColor="blue"
                           />
                         </div>
                       </>
@@ -1535,15 +1545,12 @@ export default function EmployeeDashboard() {
                       >
                         End Date
                       </label>
-                      <input
-                        type="date"
+                      <CompactDatePicker
                         value={leaveEndDate}
-                        onChange={(e) => setLeaveEndDate(e.target.value)}
-                        required
-                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-blue-500 text-white"
-                          : "border-gray-200 focus:border-blue-500 focus:bg-white"
-                          }`}
+                        onChange={(val) => setLeaveEndDate(val)}
+                        isDark={isDark}
+                        themeColor="blue"
+                        align="right"
                       />
                     </motion.div>
                   )}
@@ -1727,10 +1734,7 @@ export default function EmployeeDashboard() {
             className="space-y-6"
           >
             <div className="flex items-center justify-between mb-8">
-              <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                  } flex items-center`}
-              >
+              <h1 className={`text-2xl sm:text-3xl font-bold leading-tight truncate ${isDark ? "text-white" : "text-gray-900"} flex items-center`}>
                 <i className="fas fa-umbrella-beach mr-3 text-blue-500"></i>
                 Public Holidays
               </h1>
@@ -1745,27 +1749,71 @@ export default function EmployeeDashboard() {
                   todayZero.setHours(0, 0, 0, 0);
                   const holZero = new Date(holDate);
                   holZero.setHours(0, 0, 0, 0);
-
                   const isPast = holZero < todayZero;
 
                   return (
-                    <div key={idx} onClick={() => setCurrentCalendarDate(new Date(holiday.date))} className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide transition-all duration-300 ${isPast ? (isDark ? 'bg-gray-800/80 border-gray-700 opacity-60' : 'bg-gray-100 border-gray-200 opacity-70') : (isDark ? 'bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-md' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-md')}`}>
+                    <div
+                      key={idx}
+                      onClick={() => setCurrentCalendarDate(new Date(holiday.date))}
+                      className={`cursor-pointer flex items-center justify-between p-3 sm:p-4 rounded-xl shadow-sm border transition-all duration-300 ${isPast
+                        ? isDark
+                          ? "bg-gray-800/80 border-gray-700 opacity-60"
+                          : "bg-gray-100 border-gray-200 opacity-70"
+                        : isDark
+                          ? "bg-gray-800 border-gray-700 hover:border-blue-500/50 hover:shadow-md"
+                          : "bg-white border-blue-50 hover:border-blue-200 hover:shadow-md"
+                        }`}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md'}`}>
-                          <span className="text-[10px] uppercase">{holDate.toLocaleString('default', { month: 'short' })}</span>
-                          <span className="text-lg leading-none">{holDate.getDate()}</span>
+                        <div
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
+                            ? "bg-gray-300 text-gray-500"
+                            : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md"
+                            }`}
+                        >
+                          <span className="text-[8px] sm:text-[10px] uppercase">
+                            {holDate.toLocaleString("default", {
+                              month: "short",
+                            })}
+                          </span>
+                          <span className="text-sm sm:text-lg leading-none">
+                            {holDate.getDate()}
+                          </span>
                         </div>
-                        <div>
-                          <p className={`font-bold text-[15px] leading-tight ${isPast ? (isDark ? 'text-gray-400' : 'text-gray-600') : (isDark ? 'text-white' : 'text-gray-800')}`}>{holiday.name}</p>
-                          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} font-medium mt-1 inline-block`}><i className="far fa-calendar mr-1.5"></i>{holDate.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                        <div className="min-w-0 pr-2">
+                          <p
+                            className={`font-bold text-[15px] leading-tight truncate ${isPast
+                              ? isDark
+                                ? "text-gray-400"
+                                : "text-gray-600"
+                              : isDark
+                                ? "text-white"
+                                : "text-gray-800"
+                              }`}
+                          >
+                            {holiday.name}
+                          </p>
+                          <span
+                            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
+                              } font-medium mt-1 inline-block`}
+                          >
+                            <i className="far fa-calendar mr-1.5"></i>
+                            {holDate.toLocaleDateString(undefined, {
+                              weekday: "long",
+                            })}
+                          </span>
                         </div>
                       </div>
 
                       <div>
                         {isPast ? (
-                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">Passed</span>
+                          <span className="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
+                            Passed
+                          </span>
                         ) : (
-                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">Upcoming</span>
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+                            Upcoming
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1774,7 +1822,12 @@ export default function EmployeeDashboard() {
               </div>
 
               {/* Current Month Calendar */}
-              <div className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+              <div
+                className={`w-full md:w-2/5 md:sticky md:top-6 rounded-3xl p-6 shadow-xl border ${isDark
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-100"
+                  }`}
+              >
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -1918,7 +1971,7 @@ export default function EmployeeDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
+          className={`fixed left-0 top-0 h-full w-72 md:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark
             ? "bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700"
             : "bg-gradient-to-b from-white to-blue-50 border-blue-100"
             }`}
@@ -2009,7 +2062,7 @@ export default function EmployeeDashboard() {
                 : "hover:bg-blue-50/50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300"
                 }`}
             >
-              <i className="fas fa-tachometer-alt w-5 opacity-80"></i> My Performance
+              <i className="fas fa-chart-line w-5 opacity-80"></i> My Performance
             </button>
             <button
               onClick={() => {

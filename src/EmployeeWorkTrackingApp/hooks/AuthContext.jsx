@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../../firebase"; // Adjust this path if your firebase.js is in a different folder
 
 // 1. Create the Context
@@ -49,6 +49,31 @@ export function AuthProvider({ children }) {
     // Cleanup the listener when the component unmounts
     return unsubscribe;
   }, []);
+
+  // Heartbeat mechanism to track window presence (Fallback for background tabs)
+  useEffect(() => {
+    let interval;
+    if (currentUser && currentUser.uid && currentUser.clockedIn) {
+      const updateHeartbeat = async () => {
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          await updateDoc(userDocRef, {
+            lastSeen: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.warn("Heartbeat update failed:", error);
+        }
+      };
+
+      // Run immediately and then every 15 seconds
+      updateHeartbeat();
+      interval = setInterval(updateHeartbeat, 15000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentUser?.uid, currentUser?.clockedIn]);
 
   // Logout function
   const logout = async () => {

@@ -14,6 +14,8 @@ import ManagerActivityReport from "../components/ManagerActivityReport";
 import TeamDynamics from "../components/TeamDynamics";
 import MyPerformance from "./MyPerformance";
 import GeneratePDF from "../components/GeneratePDF";
+import CompactTimePicker from "../components/CompactTimePicker";
+import CompactDatePicker from "../components/CompactDatePicker";
 
 
 import {
@@ -47,6 +49,7 @@ export default function ManagerDashboard() {
   const [reportStartDate, setReportStartDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [reportEndDate, setReportEndDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [clockedIn, setClockedIn] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [toast, setToast] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -176,13 +179,17 @@ export default function ManagerDashboard() {
 
   // Set browser title with identity for Smart Tracking Agent
   useEffect(() => {
-    if (user?.firstName) {
-      document.title = `[${user.firstName} ${user.lastName}] Manager Dashboard`;
+    const name = user?.firstName ? `${user.firstName} ${user.lastName}` : "Manager";
+    let status = "Clocked Out";
+    if (clockedIn) {
+      status = isOnBreak ? "On Break" : "Working";
     }
+    document.title = `WorkTracker - [${name}] - [${status}]`;
+    
     return () => {
       document.title = "Employee Work Tracking App";
     };
-  }, [user]);
+  }, [user, clockedIn, isOnBreak]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -216,7 +223,6 @@ export default function ManagerDashboard() {
     };
   }, [isSidebarOpen]);
 
-  const [clockedIn, setClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState(null);
   const [workType, setWorkType] = useState(null);
   const [attendanceFilter, setAttendanceFilter] = useState(null);
@@ -256,6 +262,15 @@ export default function ManagerDashboard() {
       clearInterval(timer);
       window.removeEventListener("resize", handleResize);
     };
+  }, []);
+
+  // Send "Instant Stop" signal to local tracker when window is closed
+  useEffect(() => {
+    const handleClose = () => {
+      fetch("http://localhost:12345/stop", { mode: "no-cors" }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleClose);
+    return () => window.removeEventListener("beforeunload", handleClose);
   }, []);
 
   const formatDisplayDuration = (duration) => {
@@ -803,7 +818,7 @@ export default function ManagerDashboard() {
               <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-6 text-center sm:text-left">
                 <div className="flex flex-col items-center sm:items-start">
                   <h1
-                    className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-2xl sm:text-4xl font-black ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Welcome back, <span className="text-violet-500 font-extrabold">{userName}</span>
@@ -826,8 +841,8 @@ export default function ManagerDashboard() {
                   </p>
 
                   {/* Clock In Section Inside Welcome */}
-                  <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-end gap-3 bg-white/40 dark:bg-gray-800/50 p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-fit">
-                    <p className={`text-base font-bold ml-1 ${isDark ? "text-white" : "text-gray-800"}`}>
+                  <div className="mt-4 flex flex-nowrap items-center justify-center sm:justify-end gap-2 sm:gap-3 bg-white/40 dark:bg-gray-800/50 p-2 sm:p-2.5 rounded-xl border border-white/50 dark:border-gray-700 w-full sm:w-fit overflow-x-auto no-scrollbar">
+                    <p className={`whitespace-nowrap text-xs sm:text-base font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                       {clockedIn ? "🟢 Clocked In" : "🔴 Not Clocked In"}
                     </p>
                     {!clockedIn ? (
@@ -835,18 +850,18 @@ export default function ManagerDashboard() {
                         onClick={handleClockIn}
                         animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                        className="relative px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-lg font-bold shadow-lg shadow-violet-900/40 hover:shadow-violet-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                        className="relative px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-lg font-bold shadow-lg shadow-violet-900/40 hover:shadow-violet-900/60 transition-all text-[11px] sm:text-sm transform hover:-translate-y-0.5 whitespace-nowrap"
                       >
-                        <i className="fas fa-sign-in-alt mr-1"></i> Clock In
+                        <i className="fas fa-sign-in-alt sm:mr-1"></i> Clock In
                       </motion.button>
                     ) : (
                       <motion.button
                         onClick={handleClockOut}
                         animate={{ filter: ["brightness(1)", "brightness(0.6)", "brightness(1)"] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                        className="relative px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-sm transform hover:-translate-y-0.5"
+                        className="relative px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-lg font-bold shadow-lg shadow-red-900/40 hover:shadow-red-900/60 transition-all text-[11px] sm:text-sm transform hover:-translate-y-0.5 whitespace-nowrap"
                       >
-                        <i className="fas fa-sign-out-alt mr-1"></i> Clock Out
+                        <i className="fas fa-sign-out-alt sm:mr-1"></i> Clock Out
                       </motion.button>
                     )}
 
@@ -855,7 +870,7 @@ export default function ManagerDashboard() {
                         onClick={handleToggleBreak}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-5 py-2.5 rounded-lg font-bold shadow-lg transition-all text-sm flex items-center gap-2 ${isOnBreak
+                        className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg font-bold shadow-lg transition-all text-[11px] sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${isOnBreak
                           ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-900/40"
                           : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/40"
                           }`}
@@ -958,7 +973,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Pending Approvals
@@ -1001,7 +1016,7 @@ export default function ManagerDashboard() {
                         }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg text-lg">
                           {emp.firstName?.[0]}
                           {emp.lastName?.[0]}
                         </div>
@@ -1061,7 +1076,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               My Leave
@@ -1374,18 +1389,14 @@ export default function ManagerDashboard() {
                       >
                         {(leaveDuration === "first_half" || leaveDuration === "second_half") && leaveType === "casual" ? "Leave Date" : "Start Date"}
                       </label>
-                      <input
-                        type="date"
+                      <CompactDatePicker
                         value={leaveStartDate}
-                        onChange={(e) => {
-                          setLeaveStartDate(e.target.value);
-                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(e.target.value);
+                        onChange={(val) => {
+                          setLeaveStartDate(val);
+                          if (leaveDuration === "half" || leaveDuration === "first_half" || leaveDuration === "second_half") setLeaveEndDate(val);
                         }}
-                        required
-                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                          : "border-gray-200 focus:border-violet-500 focus:bg-white"
-                          }`}
+                        isDark={isDark}
+                        themeColor="violet"
                       />
                     </div>
 
@@ -1395,30 +1406,22 @@ export default function ManagerDashboard() {
                           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                             From Time
                           </label>
-                          <input
-                            type="time"
+                          <CompactTimePicker
                             value={leaveStartTime}
-                            onChange={(e) => setLeaveStartTime(e.target.value)}
-                            required
-                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                              : "border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
-                              }`}
+                            onChange={(val) => setLeaveStartTime(val)}
+                            isDark={isDark}
+                            themeColor="violet"
                           />
                         </div>
                         <div>
                           <label className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                             To Time
                           </label>
-                          <input
-                            type="time"
+                          <CompactTimePicker
                             value={leaveEndTime}
-                            onChange={(e) => setLeaveEndTime(e.target.value)}
-                            required
-                            className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                              ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                              : "border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
-                              }`}
+                            onChange={(val) => setLeaveEndTime(val)}
+                            isDark={isDark}
+                            themeColor="violet"
                           />
                         </div>
                       </>
@@ -1435,15 +1438,12 @@ export default function ManagerDashboard() {
                       >
                         End Date
                       </label>
-                      <input
-                        type="date"
+                      <CompactDatePicker
                         value={leaveEndDate}
-                        onChange={(e) => setLeaveEndDate(e.target.value)}
-                        required
-                        className={`w-full px-4 py-3 border-2 rounded-xl transition-all ${isDark
-                          ? "bg-gray-700 border-gray-600 focus:border-violet-500 text-white"
-                          : "border-gray-200 focus:border-violet-500 focus:bg-white"
-                          }`}
+                        onChange={(val) => setLeaveEndDate(val)}
+                        isDark={isDark}
+                        themeColor="violet"
+                        align="right"
                       />
                     </motion.div>
                   )}
@@ -1603,7 +1603,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Leave Requests - {departmentsMap[dept]?.name}
@@ -1697,7 +1697,7 @@ export default function ManagerDashboard() {
                       >
                         <div className="flex items-center justify-between ">
                           <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
-                            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-bold shadow-md sm:shadow-lg shrink-0 overflow-hidden">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold shadow-md sm:shadow-lg shrink-0 overflow-hidden">
                               {emp.profileImage ? (
                                 <img src={emp.profileImage} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -1706,13 +1706,13 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="min-w-0 pr-1 sm:pr-0">
                               <p className={`font-bold sm:font-black text-sm sm:text-lg truncate leading-tight ${isDark ? "text-white" : "text-gray-800"}`}>
-                                {emp.firstName} {emp.lastName}{" "}
-                                {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
-                                  <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black uppercase bg-orange-100 text-orange-700 align-middle">
-                                    {req.leaveDuration === "half" ? "Half Leave" : req.leaveDuration === "first_half" ? "1st Half Leave" : "2nd Half Leave"}
-                                  </span>
-                                )}
+                                {emp.firstName} {emp.lastName}
                               </p>
+                              {(req.leaveDuration === "half" || req.leaveDuration === "first_half" || req.leaveDuration === "second_half") && (
+                                <div className="mt-1 px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black uppercase bg-orange-100 text-orange-700 w-fit">
+                                  {req.leaveDuration === "half" ? "Half Leave" : req.leaveDuration === "first_half" ? "1st Half Leave" : "2nd Half Leave"}
+                                </div>
+                              )}
                               <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                                 <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-md truncate max-w-full inline-block ${isDark ? "bg-gray-600 text-gray-400" : "bg-violet-50 text-violet-500"}`}>
                                   {emp.email}
@@ -1754,6 +1754,31 @@ export default function ManagerDashboard() {
                                 <i className="fas fa-clock mr-1"></i> Time: {req.startTime} to {req.endTime}
                               </div>
                             )}
+                            {req.leaveDuration === "half" ||
+                              req.leaveDuration === "first_half" ||
+                              req.leaveDuration === "second_half" ? (
+                              <div className="mt-1 text-xs font-bold text-orange-500">
+                                (0.5 Day -{" "}
+                                {req.leaveDuration === "half"
+                                  ? "Half"
+                                  : req.leaveDuration === "first_half"
+                                    ? "1st Half"
+                                    : "2nd Half"}
+                                )
+                              </div>
+                            ) : (
+                              <div className="mt-1 text-xs font-bold text-blue-500">
+                                (
+                                {Math.ceil(
+                                  Math.abs(
+                                    new Date(req.endDate) -
+                                    new Date(req.startDate)
+                                  ) /
+                                  (1000 * 60 * 60 * 24)
+                                ) + 1}{" "}
+                                Days)
+                              </div>
+                            )}
                           </p>
                         </div>
                         {req.status === "pending" && (
@@ -1789,7 +1814,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               Log Your Work
@@ -1809,12 +1834,12 @@ export default function ManagerDashboard() {
                 Select Work Type
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 {/* Office Work Card */}
                 <button
                   type="button"
                   onClick={() => selectWorkType("office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
+                  className={`flex flex-col items-center justify-center p-4 sm:p-10 rounded-2xl border-2 transition-all duration-200 ${workType === "office"
                     ? "border-violet-500 bg-violet-50/50 shadow-sm"
                     : isDark
                       ? "border-gray-700 hover:border-gray-600 bg-gray-800"
@@ -1822,21 +1847,21 @@ export default function ManagerDashboard() {
                     }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "office"
+                    className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 ${workType === "office"
                       ? "bg-violet-600 shadow-md"
                       : "bg-violet-500"
                       }`}
                   >
-                    <i className="fas fa-briefcase text-white text-2xl"></i>
+                    <i className="fas fa-briefcase text-white text-lg sm:text-3xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Office Work
                   </p>
                   <p
-                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                    className={`text-[10px] sm:text-sm text-center ${isDark ? "text-gray-400" : "text-gray-500"
                       }`}
                   >
                     Work done in office
@@ -1847,7 +1872,7 @@ export default function ManagerDashboard() {
                 <button
                   type="button"
                   onClick={() => selectWorkType("non_office")}
-                  className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
+                  className={`flex flex-col items-center justify-center p-4 sm:p-10 rounded-2xl border-2 transition-all duration-200 ${workType === "non_office"
                     ? "border-purple-500 bg-purple-50/50 shadow-sm"
                     : isDark
                       ? "border-gray-700 hover:border-gray-600 bg-gray-800"
@@ -1855,21 +1880,21 @@ export default function ManagerDashboard() {
                     }`}
                 >
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${workType === "non_office"
+                    className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 ${workType === "non_office"
                       ? "bg-purple-600 shadow-md"
                       : "bg-purple-500"
                       }`}
                   >
-                    <i className="fas fa-laptop text-white text-2xl"></i>
+                    <i className="fas fa-laptop text-white text-lg sm:text-3xl"></i>
                   </div>
                   <p
-                    className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"
+                    className={`text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 ${isDark ? "text-white" : "text-gray-800"
                       }`}
                   >
                     Non-Office Work
                   </p>
                   <p
-                    className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"
+                    className={`text-[10px] sm:text-sm text-center ${isDark ? "text-gray-400" : "text-gray-500"
                       }`}
                   >
                     Remote work
@@ -1946,15 +1971,14 @@ export default function ManagerDashboard() {
                       Task Start Time
                     </label>
                     <div className="flex gap-2">
-                      <input
-                        type="time"
+                      <CompactTimePicker
                         value={taskStartTime}
-                        onChange={handleStartTimeChange}
-                        required
-                        className={`flex-1 px-4 py-3 border-2 rounded-xl outline-none transition-all ${isDark
-                          ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
-                          : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
-                          }`}
+                        onChange={(val) => {
+                          setTaskStartTime(val);
+                          calculateDuration(val, taskEndTime);
+                        }}
+                        isDark={isDark}
+                        themeColor="violet"
                       />
                       <button
                         type="button"
@@ -1979,15 +2003,14 @@ export default function ManagerDashboard() {
                       Task Complete Time
                     </label>
                     <div className="flex gap-2">
-                      <input
-                        type="time"
+                      <CompactTimePicker
                         value={taskEndTime}
-                        onChange={handleEndTimeChange}
-                        required
-                        className={`flex-1 px-4 py-3 border-2 rounded-xl outline-none transition-all ${isDark
-                          ? "bg-gray-700/50 border-gray-600 focus:border-violet-500 text-white"
-                          : "bg-gray-50 border-gray-200 focus:border-violet-500 focus:bg-white text-gray-800"
-                          }`}
+                        onChange={(val) => {
+                          setTaskEndTime(val);
+                          calculateDuration(taskStartTime, val);
+                        }}
+                        isDark={isDark}
+                        themeColor="violet"
                       />
                       <button
                         type="button"
@@ -2012,8 +2035,8 @@ export default function ManagerDashboard() {
                       Time Taken
                     </label>
                     <div
-                      className={`w-full h-[52px] border-2 rounded-xl font-mono text-lg font-bold flex items-center justify-center transition-all ${calculatedDuration
-                        ? "bg-violet-50 border-violet-200 text-violet-700"
+                      className={`w-full h-9 sm:h-11 border-2 rounded-xl font-mono text-xs sm:text-base font-bold flex items-center justify-center transition-all ${calculatedDuration
+                        ? "bg-violet-50 border-violet-200 text-violet-700 shadow-sm"
                         : isDark
                           ? "bg-gray-700/50 border-gray-600 text-gray-400"
                           : "bg-gray-50 border-gray-200 text-gray-400"
@@ -2044,7 +2067,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
                 }`}
             >
               My Team - {departmentsMap?.[dept]?.name}
@@ -2139,12 +2162,14 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
-                }`}
-            >
-              Team Attendance
-            </h1>
+            <div className="space-y-1">
+              <h1 className={`text-2xl sm:text-3xl font-bold leading-tight truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                Team Attendance
+              </h1>
+              <p className={`text-sm mt-1 sm:mt-0 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                Monitor team presence, absences, and leave status in real-time.
+              </p>
+            </div>
 
             {/* FULLY RESTORED ATTENDANCE CARDS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -2285,7 +2310,7 @@ export default function ManagerDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
               Reports
             </h1>
             <div className="flex flex-col gap-6">
@@ -2304,24 +2329,30 @@ export default function ManagerDashboard() {
                   />
                 </div>
 
-                <div className={`md:w-fit px-4 py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
-                  <div className="flex items-center gap-2 w-full">
-                    <i className={`fas fa-calendar-alt text-xs ${isDark ? "text-violet-400" : "text-violet-500"}`}></i>
-                    <input
-                      type="date"
-                      value={reportStartDate}
-                      onChange={(e) => setReportStartDate(e.target.value)}
-                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
-                    />
+                <div className={`md:w-fit px-2 py-1.5 sm:px-3 sm:py-0 h-auto sm:h-[48px] rounded-2xl flex flex-col sm:flex-row items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800" : "bg-white shadow-sm"}`}>
+                  <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                    <div className="w-[105px] sm:w-[130px]">
+                      <CompactDatePicker
+                        value={reportStartDate}
+                        onChange={(val) => setReportStartDate(val)}
+                        isDark={isDark}
+                        themeColor="violet"
+                        size="sm"
+                      />
+                    </div>
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
                       <i className="fas fa-arrow-right"></i>
                     </span>
-                    <input
-                      type="date"
-                      value={reportEndDate}
-                      onChange={(e) => setReportEndDate(e.target.value)}
-                      className={`bg-transparent border-none text-xs font-bold outline-none w-[110px] ${isDark ? "text-white" : "text-slate-700"}`}
-                    />
+                    <div className="w-[105px] sm:w-[130px]">
+                      <CompactDatePicker
+                        value={reportEndDate}
+                        onChange={(val) => setReportEndDate(val)}
+                        isDark={isDark}
+                        themeColor="violet"
+                        align="right"
+                        size="sm"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2336,7 +2367,7 @@ export default function ManagerDashboard() {
               <div className="flex flex-wrap gap-4 sm:gap-6 border-b mb-6 border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setReportRoleFilter("employee")}
-                  className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "employee"
+                  className={`pb-2 sm:pb-3 text-sm sm:text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "employee"
                     ? "border-violet-500 text-violet-500"
                     : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     }`}
@@ -2345,7 +2376,7 @@ export default function ManagerDashboard() {
                 </button>
                 <button
                   onClick={() => setReportRoleFilter("dept_manager")}
-                  className={`pb-3 text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "dept_manager"
+                  className={`pb-2 sm:pb-3 text-sm sm:text-lg font-bold border-b-2 transition-all ${reportRoleFilter === "dept_manager"
                     ? "border-violet-500 text-violet-500"
                     : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     }`}
@@ -2479,7 +2510,7 @@ export default function ManagerDashboard() {
             className="space-y-6"
           >
             <h1
-              className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
+              className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
             >
               <i className="fas fa-desktop mr-3 text-violet-500"></i>Activity Monitor
             </h1>
@@ -2530,8 +2561,8 @@ export default function ManagerDashboard() {
           >
             <div className="flex items-center justify-between mb-8">
               <h1
-                className={`text-3xl font-bold ${isDark ? "text-white" : "from-violet-400 to-purple-600"
-                  }`}
+                className={`text-2xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                  } flex items-center`}
               >
                 <i className="fas fa-umbrella-beach mr-3 text-violet-500"></i>
                 Public Holidays
@@ -2556,28 +2587,28 @@ export default function ManagerDashboard() {
                       onClick={() =>
                         setCurrentCalendarDate(new Date(holiday.date))
                       }
-                      className={`cursor-pointer flex items-center justify-between p-4 rounded-xl shadow-sm border tracking-wide ${isPast
+                      className={`cursor-pointer flex items-center justify-between p-3 sm:p-4 rounded-xl shadow-sm border tracking-wide transition-all duration-300 ${isPast
                         ? isDark
                           ? "bg-gray-800/80 border-gray-700 opacity-60"
                           : "bg-gray-100 border-gray-200 opacity-70"
                         : isDark
-                          ? "bg-gray-800 border-gray-700 bg-gradient-to-br from-gray-800 to-emerald-900/20"
-                          : "bg-white border-emerald-100 bg-gradient-to-br from-white to-emerald-50"
-                        } transition-all hover:scale-[1.01] duration-300`}
+                          ? "bg-gray-800 border-gray-700 hover:border-violet-500/50 hover:shadow-md"
+                          : "bg-white border-violet-100 hover:border-violet-200 hover:shadow-md"
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center font-bold ${isPast
                             ? "bg-gray-300 text-gray-500"
-                            : "bg-gradient-to-br from-violet-400 to-purple-600 text-white shadow-md"
+                            : "bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md"
                             }`}
                         >
-                          <span className="text-[10px] uppercase">
+                          <span className="text-[8px] sm:text-[10px] uppercase">
                             {holDate.toLocaleString("default", {
                               month: "short",
                             })}
                           </span>
-                          <span className="text-lg leading-none">
+                          <span className="text-sm sm:text-lg leading-none">
                             {holDate.getDate()}
                           </span>
                         </div>
@@ -2777,34 +2808,24 @@ export default function ManagerDashboard() {
 
       case "individualAnalytics":
         return (
-          <div className="space-y-6">
-            <button
-              onClick={() => setCurrentSection("team")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold ${isDark
-                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm border border-gray-100"
-                }`}
-            >
-              <i className="fas fa-arrow-left"></i> Back to Team
-            </button>
-            <MyPerformance userEmail={selectedAnalysisEmail} userName={selectedAnalysisName} isDark={isDark} isManagerView={true} />
-          </div>
+          <MyPerformance 
+            userEmail={selectedAnalysisEmail} 
+            userName={selectedAnalysisName} 
+            isDark={isDark} 
+            isManagerView={true} 
+            onBack={() => setCurrentSection("team")}
+          />
         );
 
       case "myAnalysis":
         return (
-          <div className="space-y-6">
-            <button
-              onClick={() => setCurrentSection("team")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold ${isDark
-                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm border border-gray-100"
-                }`}
-            >
-              <i className="fas fa-arrow-left"></i> Back to Team
-            </button>
-            <MyPerformance userEmail={user.email} userName={userName} isDark={isDark} isManagerView={false} />
-          </div>
+          <MyPerformance 
+            userEmail={user.email} 
+            userName={userName} 
+            isDark={isDark} 
+            isManagerView={false} 
+            onBack={() => setCurrentSection("team")}
+          />
         );
 
       case "profile":
@@ -2894,7 +2915,7 @@ export default function ManagerDashboard() {
         </AnimatePresence>
 
         <motion.div
-          className={`fixed left-0 top-0 h-full w-full md:w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen
+          className={`fixed left-0 top-0 h-full w-72 shadow-2xl p-4 flex flex-col z-50 border-r overflow-y-auto transition-transform duration-300 scrollbar-hide ${isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0"
             } ${isDark
@@ -3055,7 +3076,7 @@ export default function ManagerDashboard() {
                 : "hover:bg-violet-50 text-gray-700"
                 }`}
             >
-              <i className="fas fa-project-diagram w-5"></i> Team Dynamics
+              <i className="fas fa-chart-line w-5"></i> Team Dynamics
             </button>
 
             <button

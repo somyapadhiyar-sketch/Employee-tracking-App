@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import CompactDatePicker from "./CompactDatePicker";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 
@@ -114,25 +115,26 @@ export default function ActivityReport({ currentUserEmail, isDark }) {
       <div className="flex flex-col mb-6 gap-4">
         <div className={`p-4 rounded-xl border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4`}>
           
-          <div className="flex flex-col gap-1.5">
-            <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>From Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none ${isDark ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-800"}`}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5 h-full">
+              <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>From Date</label>
+              <CompactDatePicker
+                value={startDate}
+                onChange={(val) => setStartDate(val)}
+                isDark={isDark}
+                themeColor="violet"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>To Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none ${isDark ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-800"}`}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5 h-full">
+              <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>To Date</label>
+              <CompactDatePicker
+                value={endDate}
+                onChange={(val) => setEndDate(val)}
+                isDark={isDark}
+                themeColor="violet"
+                align="right"
+              />
+            </div>
 
           <div className="flex flex-col gap-1.5">
             <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status</label>
