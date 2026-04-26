@@ -1019,26 +1019,28 @@ export default function EmployeeDashboard() {
                   />
                 </div>
 
-                <div className={`md:w-fit px-3 py-2 sm:px-4 sm:py-3 rounded-2xl border flex flex-col sm:flex-row items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
+                <div className={`md:w-fit px-2 py-1.5 sm:px-3 sm:py-2 rounded-2xl border flex flex-col sm:flex-row items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100 shadow-sm"}`}>
                   <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
-                    <div className="w-[105px] sm:w-[130px]">
+                    <div className="w-[95px] sm:w-[115px]">
                       <CompactDatePicker
                         value={reportStartDate}
                         onChange={(val) => setReportStartDate(val)}
                         isDark={isDark}
                         themeColor="blue"
+                        size="sm"
                       />
                     </div>
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
                       <i className="fas fa-arrow-right"></i>
                     </span>
-                    <div className="w-[105px] sm:w-[130px]">
+                    <div className="w-[95px] sm:w-[115px]">
                       <CompactDatePicker
                         value={reportEndDate}
                         onChange={(val) => setReportEndDate(val)}
                         isDark={isDark}
                         themeColor="blue"
                         align="right"
+                        size="sm"
                       />
                     </div>
                   </div>
@@ -1512,6 +1514,7 @@ export default function EmployeeDashboard() {
                         }}
                         isDark={isDark}
                         themeColor="blue"
+                        size="sm"
                       />
                     </div>
 
@@ -1559,6 +1562,7 @@ export default function EmployeeDashboard() {
                         isDark={isDark}
                         themeColor="blue"
                         align="right"
+                        size="sm"
                       />
                     </motion.div>
                   )}

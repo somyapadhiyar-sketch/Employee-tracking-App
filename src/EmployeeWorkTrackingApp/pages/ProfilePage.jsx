@@ -291,7 +291,7 @@ export default function ProfilePage() {
 
       // 3. Update local state and context (though context will mostly update via onAuthStateChanged)
       const updatedUser = { ...user, password: passwordData.newPassword };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      sessionStorage.setItem("currentUser", JSON.stringify(updatedUser));
       if (typeof auth?.updateUser === 'function') {
         auth.updateUser(updatedUser);
       }

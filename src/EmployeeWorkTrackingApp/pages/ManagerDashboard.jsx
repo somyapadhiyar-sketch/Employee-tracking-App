@@ -1406,6 +1406,7 @@ export default function ManagerDashboard() {
                         }}
                         isDark={isDark}
                         themeColor="violet"
+                        size="sm"
                       />
                     </div>
 
@@ -1453,6 +1454,7 @@ export default function ManagerDashboard() {
                         isDark={isDark}
                         themeColor="violet"
                         align="right"
+                        size="sm"
                       />
                     </motion.div>
                   )}
@@ -2340,7 +2342,7 @@ export default function ManagerDashboard() {
 
                 <div className={`md:w-fit px-2 py-1.5 sm:px-3 sm:py-0 h-auto sm:h-[48px] rounded-2xl flex flex-col sm:flex-row items-center gap-2 sm:gap-3 transition-all ${isDark ? "bg-gray-800" : "bg-white shadow-sm"}`}>
                   <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
-                    <div className="w-[105px] sm:w-[130px]">
+                    <div className="w-[95px] sm:w-[115px]">
                       <CompactDatePicker
                         value={reportStartDate}
                         onChange={(val) => setReportStartDate(val)}
@@ -2352,7 +2354,7 @@ export default function ManagerDashboard() {
                     <span className={`text-[10px] opacity-40 ${isDark ? "text-white" : "text-slate-700"}`}>
                       <i className="fas fa-arrow-right"></i>
                     </span>
-                    <div className="w-[105px] sm:w-[130px]">
+                    <div className="w-[95px] sm:w-[115px]">
                       <CompactDatePicker
                         value={reportEndDate}
                         onChange={(val) => setReportEndDate(val)}

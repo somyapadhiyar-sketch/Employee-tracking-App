@@ -12,11 +12,11 @@ import { v4 as uuidv4 } from 'uuid';
 const AdminInsightChat = ({ isDark, userName }) => {
   // --- State ---
   const [chats, setChats] = useState(() => {
-    const saved = localStorage.getItem('admin_insight_chats');
+    const saved = sessionStorage.getItem('admin_insight_chats');
     return saved ? JSON.parse(saved) : [];
   });
   const [activeChatId, setActiveChatId] = useState(() => {
-    return localStorage.getItem('admin_active_chat_id') || null;
+    return sessionStorage.getItem('admin_active_chat_id') || null;
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -44,14 +44,14 @@ const AdminInsightChat = ({ isDark, userName }) => {
 
   // --- Persistence ---
   useEffect(() => {
-    localStorage.setItem('admin_insight_chats', JSON.stringify(chats));
+    sessionStorage.setItem('admin_insight_chats', JSON.stringify(chats));
   }, [chats]);
 
   useEffect(() => {
     if (activeChatId) {
-      localStorage.setItem('admin_active_chat_id', activeChatId);
+      sessionStorage.setItem('admin_active_chat_id', activeChatId);
     } else {
-      localStorage.removeItem('admin_active_chat_id');
+      sessionStorage.removeItem('admin_active_chat_id');
     }
   }, [activeChatId]);
 

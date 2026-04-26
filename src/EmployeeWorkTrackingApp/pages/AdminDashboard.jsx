@@ -881,7 +881,7 @@ export default function AdminDashboard() {
                       }}
                       isDark={isDark}
                       themeColor="blue"
-                      size="lg"
+                      size="sm"
                     />
                   </div>
                   <div className="flex-1">
@@ -900,7 +900,7 @@ export default function AdminDashboard() {
                       isDark={isDark}
                       themeColor="blue"
                       align="right"
-                      size="lg"
+                      size="sm"
                     />
                   </div>
                 </div>

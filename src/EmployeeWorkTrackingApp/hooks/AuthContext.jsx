@@ -14,18 +14,18 @@ export function useAuth() {
 // 3. Create the Provider component
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
-    // Try to get user from localStorage on initial load
-    const savedUser = localStorage.getItem("worktracker_user");
+    // Try to get user from sessionStorage on initial load
+    const savedUser = sessionStorage.getItem("worktracker_user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const [loading, setLoading] = useState(true);
 
-  // Sync currentUser with localStorage whenever it changes
+  // Sync currentUser with sessionStorage whenever it changes
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem("worktracker_user", JSON.stringify(currentUser));
+      sessionStorage.setItem("worktracker_user", JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem("worktracker_user");
+      sessionStorage.removeItem("worktracker_user");
     }
   }, [currentUser]);
 
@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
       await signOut(auth);
       // Clear state immediately to avoid redirection race conditions
       setCurrentUser(null); 
-      localStorage.removeItem("worktracker_user");
+      sessionStorage.removeItem("worktracker_user");
     } catch (error) {
       console.error("Failed to log out", error);
     }

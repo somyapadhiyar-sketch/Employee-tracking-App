@@ -102,7 +102,9 @@ def start_tracking():
     print("🚀 Auto-Detect Smart Tracking Agent Started...")
     print("📡 Waiting for ANY user to Clock-In from React Dashboard...\n")
 
+    # TRACKING STATE
     STICKY_ACTIVE_USER = None  # Global Machine Identity
+    LAST_BREAK_STATE = False   # Track break transitions
 
     while True:
         try:
@@ -130,6 +132,7 @@ def start_tracking():
                 user_name = active_title[start:end].strip()
                 if STICKY_ACTIVE_USER != user_name:
                     STICKY_ACTIVE_USER = user_name
+                    LAST_BREAK_STATE = False # Reset state for new user
                     print(f"🆔  Tracking Focus Switched to: {STICKY_ACTIVE_USER}")
             
             if not STICKY_ACTIVE_USER:
@@ -194,13 +197,21 @@ def start_tracking():
             is_clocked_in = active_user.get("clockedIn", False)
             is_on_break = active_user.get("isOnBreak", False)
             
+            # --- BREAK MODE LOGIC ---
+            if is_on_break and not LAST_BREAK_STATE:
+                print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ⏸️  [BREAK MODE ON] {STICKY_ACTIVE_USER} is now on break. Tracking paused.")
+                LAST_BREAK_STATE = True
+            elif not is_on_break and LAST_BREAK_STATE:
+                print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ▶️  [BREAK MODE OFF] {STICKY_ACTIVE_USER} has resumed work. Tracking active.")
+                LAST_BREAK_STATE = False
+
             if not is_clocked_in:
                 # print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ⏸️  {STICKY_ACTIVE_USER} is Clocked Out.")
                 time.sleep(10)
                 continue
                 
             if is_on_break:
-                # print(f"[{datetime.now().strftime('%I:%M:%S %p')}] ⏸️  {STICKY_ACTIVE_USER} is on Break.")
+                # Silent while on break
                 time.sleep(10)
                 continue
 
